@@ -287,6 +287,7 @@
       <p class="eyebrow" data-i18n="mine.eyebrow">TABLEAU DE BORD</p>
       <h1 data-i18n="mine.title">Mes annonces</h1>
       <div class="seller-stats" id="sellerStats"></div>
+      <p class="referral-reminder" id="referralReminder" hidden></p>
       <div class="listing-grid" id="myListingGrid"></div>
     </div>
   </section>
@@ -322,6 +323,21 @@
       <p class="eyebrow" data-i18n="passport.eyebrow">VOTRE PARCOURS</p>
       <h1 data-i18n="passport.title">Passeport QuickAtlas</h1>
 
+      <div class="referral-highlight">
+        <h2>🎁 <span data-i18n="passport.referral_title">Parrainage</span></h2>
+        <p class="hero-sub" data-i18n="passport.referral_intro">Invitez vos proches : dès qu'une personne s'inscrit via votre lien, vous recevez un crédit de mise en avant gratuit.</p>
+        <ol class="referral-steps">
+          <li data-i18n="passport.referral_step1">1. Copiez votre lien personnel ci-dessous et partagez-le (WhatsApp, réseaux sociaux, email…).</li>
+          <li data-i18n="passport.referral_step2">2. Dès qu'une personne s'inscrit sur QuickAtlas en passant par ce lien, vous recevez automatiquement 1 crédit.</li>
+          <li data-i18n="passport.referral_step3">3. Chaque crédit vous permet de mettre en avant gratuitement une de vos annonces pendant 7 jours (bouton "Booster" sur "Mes annonces").</li>
+        </ol>
+        <div class="referral-box">
+          <input type="text" id="referralLinkInput" readonly />
+          <button type="button" class="btn btn--primary btn--small" id="copyReferralBtn" data-i18n="passport.copy_link">Copier le lien</button>
+        </div>
+        <p class="referral-credits" id="referralCreditsText"></p>
+      </div>
+
       <div class="passport-book" id="passportBook"></div>
 
       <div class="passport-section">
@@ -336,21 +352,6 @@
           <p class="form-error" id="phoneError" hidden></p>
           <button type="submit" class="btn btn--primary btn--small" data-i18n="passport.save">Enregistrer</button>
         </form>
-      </div>
-
-      <div class="passport-section">
-        <h2 data-i18n="passport.referral_title">Parrainage</h2>
-        <p class="hero-sub" data-i18n="passport.referral_intro">Invitez vos proches : dès qu'une personne s'inscrit via votre lien, vous recevez un crédit de mise en avant gratuit.</p>
-        <ol class="referral-steps">
-          <li data-i18n="passport.referral_step1">1. Copiez votre lien personnel ci-dessous et partagez-le (WhatsApp, réseaux sociaux, email…).</li>
-          <li data-i18n="passport.referral_step2">2. Dès qu'une personne s'inscrit sur QuickAtlas en passant par ce lien, vous recevez automatiquement 1 crédit.</li>
-          <li data-i18n="passport.referral_step3">3. Chaque crédit vous permet de mettre en avant gratuitement une de vos annonces pendant 7 jours (bouton "Booster" sur "Mes annonces").</li>
-        </ol>
-        <div class="referral-box">
-          <input type="text" id="referralLinkInput" readonly />
-          <button type="button" class="btn btn--ghost btn--small" id="copyReferralBtn" data-i18n="passport.copy_link">Copier le lien</button>
-        </div>
-        <p class="referral-credits" id="referralCreditsText"></p>
       </div>
     </div>
   </section>
