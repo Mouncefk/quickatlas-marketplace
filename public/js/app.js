@@ -1889,6 +1889,16 @@ async function loadSellerStats() {
       stat(i18n.t('stats.avg_rating'), s.avg_rating ? `★ ${s.avg_rating}` : '—'),
     );
   } catch { box.innerHTML = ''; }
+
+  const reminder = document.getElementById('referralReminder');
+  reminder.innerHTML = '';
+  reminder.hidden = false;
+  const credits = state.user?.free_boost_credits || 0;
+  reminder.append(
+    el('button', { class: 'referral-reminder-link', onclick: () => navigate('passport') },
+      credits > 0 ? `🎁 ${i18n.t('referral.reminder_has_credits', { count: credits })}` : `🎁 ${i18n.t('referral.reminder_no_credits')}`
+    )
+  );
 }
 
 function listingExpiryInfo(l) {
