@@ -1766,6 +1766,28 @@ textarea { resize: vertical; }
   font-size: 0.82rem;
 }
 .referral-credits { font-size: 0.86rem; color: var(--brass-300); }
+
+.referral-highlight {
+  background: linear-gradient(135deg, rgba(198,161,91,0.14), rgba(181,72,46,0.08));
+  border: 1px solid var(--brass-500);
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin: 20px 0 28px;
+}
+.referral-highlight h2 { margin: 0 0 6px; }
+.referral-highlight .referral-box { max-width: 520px; }
+
+.referral-reminder-link {
+  background: none;
+  border: 1px dashed var(--brass-500);
+  color: var(--brass-300);
+  font-size: 0.84rem;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+.referral-reminder-link:hover { background: rgba(198,161,91,0.1); }
 .referral-steps {
   margin: 14px 0;
   padding-left: 20px;
