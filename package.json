@@ -1,0 +1,16 @@
+{
+  "name": "quickatlas-marketplace",
+  "version": "1.0.0",
+  "description": "Marketplace mondial d'achat, vente et location de tout type de bien, navigable par pays et par ville sur une carte du monde interactive.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/server.js",
+    "seed": "node --env-file-if-exists=.env server/seed.js",
+    "make-admin": "node --env-file-if-exists=.env server/make-admin.js"
+  },
+  "dependencies": {},
+  "license": "UNLICENSED"
+}
