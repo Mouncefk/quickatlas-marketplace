@@ -571,6 +571,46 @@
   </div>
 </div>
 
+<!-- ===== Event proposal modal ===== -->
+<div class="modal-overlay" id="eventModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close="eventModal" aria-label="Fermer">&times;</button>
+    <h2 data-i18n="business.propose_event">Proposer un événement</h2>
+    <form id="eventForm" class="atlas-form">
+      <div class="form-row">
+        <label><span data-i18n="business.event_title_label">Titre de l'événement</span>
+          <input type="text" name="title" required placeholder="Ex. Salon international de l'agroalimentaire" />
+        </label>
+      </div>
+      <div class="form-row form-row--split">
+        <label><span data-i18n="business.event_start_label">Date de début</span>
+          <input type="date" name="event_date" required />
+        </label>
+        <label><span data-i18n="business.event_end_label">Date de fin (optionnel)</span>
+          <input type="date" name="end_date" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="business.event_location_label">Lieu</span>
+          <input type="text" name="location_name" placeholder="Ex. Centre des congrès, salle A" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="business.event_description_label">Description (optionnel)</span>
+          <textarea name="description" rows="3"></textarea>
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="business.event_link_label">Lien externe (optionnel)</span>
+          <input type="url" name="external_link" placeholder="https://…" />
+        </label>
+      </div>
+      <p class="form-error" id="eventFormError" hidden></p>
+      <button type="submit" class="btn btn--primary" data-i18n="business.event_submit">Publier l'événement</button>
+    </form>
+  </div>
+</div>
+
 <!-- ===== Boost modal ===== -->
 <div class="modal-overlay" id="boostModal" hidden>
   <div class="modal" role="dialog" aria-modal="true">

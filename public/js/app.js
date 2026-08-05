@@ -862,10 +862,14 @@ function openCountrySheet(country) {
         },
       }, i18n.t('country.explore_cities')),
     ]),
-    el('div', { class: 'country-sheet-profile', id: 'countrySheetProfile' })
+    el('div', { class: 'country-sheet-profile', id: 'countrySheetProfile' }),
+    el('div', { class: 'economic-stats', id: 'economicStats' }),
+    el('div', { class: 'business-opportunities', id: 'businessOpportunities' })
   );
   document.getElementById('countryModal').hidden = false;
   loadCountryProfile(country);
+  loadEconomicStats(country);
+  loadBusinessOpportunities(country);
 }
 
 const COUNTRY_PROFILE_TABS = [
@@ -916,6 +920,123 @@ async function loadCountryProfile(country) {
   );
   firstTab.btn.classList.add('active');
   body.textContent = profile[firstTab.key];
+}
+
+// ---------- Opportunités d'affaires ----------
+
+async function loadEconomicStats(country) {
+  const container = document.getElementById('economicStats');
+  if (!container) return;
+  container.innerHTML = '';
+  let stats;
+  try {
+    stats = await api(`/countries/${country.id}/economic-stats`);
+  } catch {
+    return; // section reste vide si l'appel échoue, pas de message d'erreur intrusif
+  }
+  if (document.getElementById('countryModal').hidden) return; // fermé entre-temps
+
+  const figures = [
+    ['gdp_usd', 'gdp_year', i18n.t('stats_econ.gdp'), (v) => formatCompactCurrency(v, 'USD')],
+    ['gdp_per_capita_usd', 'gdp_per_capita_year', i18n.t('stats_econ.gdp_per_capita'), (v) => formatCompactCurrency(v, 'USD')],
+    ['gdp_growth_pct', 'gdp_growth_year', i18n.t('stats_econ.gdp_growth'), (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`],
+    ['unemployment_pct', 'unemployment_year', i18n.t('stats_econ.unemployment'), (v) => `${v.toFixed(1)}%`],
+    ['inflation_pct', 'inflation_year', i18n.t('stats_econ.inflation'), (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`],
+  ];
+  const available = figures.filter(([key]) => stats[key] !== null && stats[key] !== undefined);
+
+  if (available.length === 0) {
+    container.append(
+      el('h3', { class: 'economic-stats-title' }, `📊 ${i18n.t('stats_econ.title')}`),
+      el('p', { class: 'economic-stats-empty' }, i18n.t('stats_econ.unavailable'))
+    );
+    return;
+  }
+
+  container.append(
+    el('h3', { class: 'economic-stats-title' }, `📊 ${i18n.t('stats_econ.title')}`),
+    el('div', { class: 'economic-stats-grid' }, available.map(([key, yearKey, label, formatter]) =>
+      el('div', { class: 'economic-stat-card' }, [
+        el('span', { class: 'economic-stat-value' }, formatter(stats[key])),
+        el('span', { class: 'economic-stat-label' }, label),
+        el('span', { class: 'economic-stat-year' }, String(stats[yearKey])),
+      ])
+    )),
+    el('p', { class: 'economic-stats-source' }, i18n.t('stats_econ.source'))
+  );
+}
+
+function formatCompactCurrency(value, currency) {
+  const abs = Math.abs(value);
+  if (abs >= 1e12) return `${(value / 1e12).toFixed(2)} T${currency === 'USD' ? '$' : currency}`;
+  if (abs >= 1e9) return `${(value / 1e9).toFixed(2)} Md${currency === 'USD' ? '$' : currency}`;
+  if (abs >= 1e6) return `${(value / 1e6).toFixed(2)} M${currency === 'USD' ? '$' : currency}`;
+  if (abs >= 1e3) return `${(value / 1e3).toFixed(1)} k${currency === 'USD' ? '$' : currency}`;
+  return `${value.toFixed(0)} ${currency}`;
+}
+
+async function loadBusinessOpportunities(country) {
+  const container = document.getElementById('businessOpportunities');
+  if (!container) return;
+  container.innerHTML = '';
+  container.append(el('h3', { class: 'business-opp-title' }, `💼 ${i18n.t('business.title')}`));
+  let data;
+  try {
+    data = await api(`/business-opportunities?country_id=${country.id}`);
+  } catch {
+    return;
+  }
+  if (document.getElementById('countryModal').hidden) return; // fermé entre-temps
+
+  const nothing = data.listings.length === 0 && data.events.length === 0 && data.job_offers_count === 0;
+  if (nothing) {
+    container.append(el('p', { class: 'business-opp-empty' }, i18n.t('business.empty')));
+  }
+
+  if (data.job_offers_count > 0) {
+    container.append(
+      el('button', {
+        class: 'business-opp-jobs-link',
+        onclick: () => {
+          document.getElementById('countryModal').hidden = true;
+          const target = document.getElementById('stateGrid').hidden ? document.getElementById('cityGrid') : document.getElementById('stateGrid');
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        },
+      }, `👥 ${i18n.t('business.job_offers_count', { count: data.job_offers_count })}`)
+    );
+  }
+
+  if (data.listings.length > 0) {
+    container.append(
+      el('div', { class: 'business-opp-listings' }, data.listings.map((l) => renderListingCard(l)))
+    );
+  }
+
+  if (data.events.length > 0) {
+    container.append(
+      el('div', { class: 'business-opp-events' }, data.events.map((ev) => {
+        const range = ev.end_date && ev.end_date !== ev.event_date
+          ? `${formatEventDate(ev.event_date)} – ${formatEventDate(ev.end_date)}`
+          : formatEventDate(ev.event_date);
+        return el('div', { class: 'event-card' }, [
+          el('div', { class: 'event-card-date' }, range),
+          el('div', { class: 'event-card-body' }, [
+            el('div', { class: 'event-card-title' }, ev.title),
+            el('div', { class: 'event-card-meta' }, [ev.location_name, ev.city_name].filter(Boolean).join(' · ')),
+            ev.external_link ? el('a', { class: 'event-card-link', href: ev.external_link, target: '_blank', rel: 'noopener' }, i18n.t('business.event_more_info')) : null,
+          ]),
+        ]);
+      }))
+    );
+  }
+
+  container.append(
+    el('button', { class: 'btn btn--ghost btn--small', onclick: () => openEventModal(country) }, `+ ${i18n.t('business.propose_event')}`)
+  );
+}
+
+function formatEventDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString();
 }
 
 async function selectCountry(country) {
@@ -1850,6 +1971,43 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
 });
 
 // ---------- Mes annonces ----------
+
+let pendingEventCountry = null;
+
+function openEventModal(country) {
+  if (!state.user) { openAuthModal('login'); return; }
+  pendingEventCountry = country;
+  document.getElementById('eventForm').reset();
+  document.getElementById('eventFormError').hidden = true;
+  document.getElementById('eventModal').hidden = false;
+}
+
+document.getElementById('eventForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('eventFormError');
+  errEl.hidden = true;
+  try {
+    await api('/events', {
+      method: 'POST',
+      body: JSON.stringify({
+        country_id: pendingEventCountry.id,
+        title: fd.get('title'),
+        event_date: fd.get('event_date'),
+        end_date: fd.get('end_date') || null,
+        location_name: fd.get('location_name'),
+        description: fd.get('description'),
+        external_link: fd.get('external_link'),
+      }),
+    });
+    document.getElementById('eventModal').hidden = true;
+    showToast(i18n.t('toast.event_published'));
+    if (!document.getElementById('countryModal').hidden) loadBusinessOpportunities(pendingEventCountry);
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
 
 let pendingBoostListingId = null;
 

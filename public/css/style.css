@@ -778,6 +778,12 @@ textarea { resize: vertical; }
 }
 .modal-overlay[hidden] { display: none; }
 
+/* La modale "Proposer un événement" peut s'ouvrir par-dessus la fiche
+   pays déjà ouverte : elle a besoin d'un niveau d'empilement supérieur,
+   sinon l'ordre d'apparition dans le document (countryModal vient après
+   dans le HTML) la ferait passer dessous malgré un z-index identique. */
+#eventModal { z-index: 90; }
+
 .modal {
   background: var(--ink-800, var(--ink-700));
   background: var(--ink-700);
@@ -1945,3 +1951,69 @@ textarea { resize: vertical; }
 .help-item-body p { margin: 0 0 10px; }
 .help-item-body p:last-child { margin-bottom: 0; }
 .help-dont-show { margin-top: 8px; font-size: 0.82rem; }
+
+/* ---------- Opportunités d'affaires (fiche pays) ---------- */
+
+.business-opportunities {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ink-line);
+}
+.business-opp-title { margin: 0 0 12px; font-size: 1.05rem; }
+.business-opp-empty { color: rgba(241,233,216,0.5); font-size: 0.86rem; font-style: italic; margin-bottom: 12px; }
+.business-opp-jobs-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--ink-700);
+  border: 1px solid var(--teal-500);
+  color: var(--teal-500);
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  margin-bottom: 14px;
+}
+.business-opp-jobs-link:hover { background: rgba(45,157,150,0.12); }
+.business-opp-listings {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.business-opp-events { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.event-card {
+  display: flex;
+  gap: 14px;
+  background: var(--ink-700);
+  border: 1px solid var(--ink-line);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.event-card-date {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--brass-300);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+.event-card-title { font-weight: 600; font-size: 0.9rem; }
+.event-card-meta { font-size: 0.78rem; color: rgba(241,233,216,0.55); margin-top: 2px; }
+.event-card-link { font-size: 0.78rem; color: var(--teal-500); display: inline-block; margin-top: 4px; }
+
+/* ---------- Statistiques économiques (Banque mondiale) ---------- */
+
+.economic-stats { margin: 24px 0; }
+.economic-stats-title { margin: 0 0 12px; font-size: 1.05rem; }
+.economic-stats-empty { color: rgba(241,233,216,0.5); font-size: 0.86rem; font-style: italic; }
+.economic-stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;
+}
+.economic-stat-card {
+  background: var(--ink-700); border: 1px solid var(--ink-line); border-radius: 10px;
+  padding: 14px; display: flex; flex-direction: column; gap: 2px;
+}
+.economic-stat-value { font-family: var(--font-mono); font-weight: 700; font-size: 1.15rem; color: var(--brass-300); }
+.economic-stat-label { font-size: 0.76rem; color: rgba(241,233,216,0.7); }
+.economic-stat-year { font-family: var(--font-mono); font-size: 0.68rem; color: rgba(241,233,216,0.4); }
+.economic-stats-source { font-size: 0.7rem; color: rgba(241,233,216,0.4); margin: 10px 0 0; }
