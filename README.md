@@ -120,6 +120,70 @@ depuis son appareil (JPEG/PNG/WEBP/GIF, 5 Mo max), avec aperçu avant envoi.
 Les fichiers sont stockés dans `public/uploads/`. Le champ "image (URL)"
 reste disponible en alternative.
 
+## Italien : 6ᵉ langue pleinement traduite
+
+L'italien a rejoint le français, l'anglais, l'arabe, l'espagnol et le
+portugais comme **langue complètement traduite** (413 textes traduits,
+soit l'intégralité de l'interface). Un visiteur avec un navigateur
+configuré en italien voit désormais tout le site directement en italien,
+sans passage par l'anglais ni bandeau "traduction bientôt disponible".
+Le sarde (`sc`), resté en bêta, se replie maintenant sur l'italien plutôt
+que sur l'anglais.
+
+## Parrainage mis en avant
+
+Le parrainage était auparavant en bas de la page Passeport, peu visible.
+Il est désormais dans une **carte mise en avant en haut de la page**
+Passeport (fond doré, bordure marquée), et un **rappel discret** apparaît
+sur "Mes annonces" (juste sous les statistiques), qui renvoie directement
+vers cette carte au clic — visible que vous ayez déjà des crédits ou non.
+
+## Prêt pour le déploiement (Render et similaires)
+
+Les images uploadées par les utilisateurs sont désormais stockées dans
+`data/uploads/` (au lieu de `public/uploads/`), et servies via une route
+dédiée. Ce changement regroupe **tout ce qui doit être conservé durablement**
+(base de données + images) sous un seul dossier `data/` — pratique pour
+configurer un disque persistant sur un hébergeur comme Render : il suffit
+de faire persister ce seul dossier pour ne rien perdre entre deux
+déploiements. `PORT` est lu depuis la variable d'environnement fournie par
+l'hébergeur (`process.env.PORT`), donc aucune configuration supplémentaire
+n'est nécessaire de ce côté.
+
+## Opportunités d'affaires (nouvelle catégorie + nouvel onglet pays)
+
+Nouvelle catégorie **💼 Opportunités d'affaires** (entreprise à vendre,
+recherche d'investisseurs, appel d'offres, franchise à reprendre,
+recherche de partenaire) — réutilise entièrement l'infrastructure
+existante (annonces, messagerie, photos).
+
+Nouveau **type de contenu, distinct des annonces classiques** : les
+**événements professionnels** (salons, conférences, forums d'affaires),
+avec titre, dates, lieu et lien externe — n'importe quel utilisateur
+vérifié peut en proposer un.
+
+Sur chaque fiche pays, une section **"Opportunités d'affaires"** regroupe
+automatiquement : les annonces de la nouvelle catégorie pour ce pays, les
+événements professionnels à venir, et un lien vers les offres d'emploi
+disponibles (réutilise la catégorie Emploi déjà existante) — le tout
+sans dupliquer aucune donnée.
+
+## Statistiques économiques réelles (API Banque mondiale)
+
+PIB, PIB par habitant, croissance du PIB, taux de chômage et inflation —
+de **vrais chiffres**, via l'API gratuite et sans clé de la Banque
+mondiale (`api.worldbank.org`), affichés sur chaque fiche pays avec
+l'année de la donnée et la source citée. Les résultats sont mis en cache
+30 jours en base (les données ne changent qu'une fois par an, pas besoin
+de réinterroger l'API à chaque visite).
+
+⚠️ **Non testable dans mon environnement de développement (pas d'accès
+internet)** — la logique de dégradation propre a été vérifiée à fond : sans
+réseau, l'API répond rapidement avec un statut d'erreur, et le site
+affiche honnêtement "Données économiques indisponibles" plutôt que de
+planter ou d'afficher des valeurs invalides. **À confirmer une fois
+déployé en ligne**, où l'accès internet réel permettra les vrais appels.
+
 ## Correctif : annonces publiées visibles sans recharger la page
 
 Les réponses de l'API n'indiquaient auparavant aucune consigne de cache au
