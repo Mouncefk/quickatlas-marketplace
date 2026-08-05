@@ -832,7 +832,17 @@ function formatPopulation(millions) {
   return `${millions.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ${i18n.t('country.million_inhabitants')}`;
 }
 
+function slugify(text) {
+  return String(text)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 function openCountrySheet(country) {
+  const newPath = `/pays/${slugify(country.name)}`;
+  if (window.location.pathname !== newPath) window.history.pushState({ type: 'country', id: country.id }, '', newPath);
   const content = document.getElementById('countryModalContent');
   content.innerHTML = '';
   content.append(
@@ -1683,6 +1693,8 @@ async function loadSimilarListings(listingId, containerEl) {
 
 async function openListingDetail(id) {
   const l = await api(`/listings/${id}`);
+  const newPath = `/annonce/${id}-${slugify(l.title)}`;
+  if (window.location.pathname !== newPath) window.history.pushState({ type: 'listing', id }, '', newPath);
   const content = document.getElementById('listingModalContent');
   content.innerHTML = '';
   const img = (l.images && l.images[0]) || '';
@@ -2966,6 +2978,26 @@ async function handleGoogleCredential(response) {
   }
 }
 
+function handleInitialUrlRoute() {
+  const path = window.location.pathname;
+  let m;
+  if ((m = path.match(/^\/pays\/([a-z0-9-]+)$/))) {
+    const country = (state.countries || []).find((c) => slugify(c.name) === m[1]);
+    if (country) { navigate('explore'); selectCountry(country); }
+    return;
+  }
+  if ((m = path.match(/^\/annonce\/(\d+)/))) {
+    navigate('explore');
+    openListingDetail(Number(m[1]));
+    return;
+  }
+  if ((m = path.match(/^\/categorie\/([a-z0-9-]+)$/))) {
+    const category = (state.categories || []).find((c) => c.slug === m[1]);
+    if (category) browseCategory(category);
+    return;
+  }
+}
+
 async function boot() {
   initLanguagePicker();
   renderAuthZone();
@@ -2995,6 +3027,8 @@ async function boot() {
   initMap();
   initGoogleSignIn();
   handleAuthLinksFromUrl();
+  handleInitialUrlRoute();
+  window.addEventListener('popstate', handleInitialUrlRoute);
   startUnreadPolling();
   startSilentRefresh();
   setTimeout(maybeShowGuideOnFirstVisit, 1200);
