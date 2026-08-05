@@ -529,6 +529,24 @@ document.getElementById('helpFabBtn').addEventListener('click', () => {
   document.getElementById('helpModal').hidden = false;
 });
 
+document.getElementById('footerHowItWorksBtn').addEventListener('click', () => {
+  document.getElementById('helpModal').hidden = false;
+});
+
+document.getElementById('footerAlertsHowToBtn').addEventListener('click', () => {
+  document.getElementById('helpModal').hidden = false;
+  const section = document.getElementById('helpAlertsSection');
+  section.open = true;
+  setTimeout(() => section.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+});
+
+document.getElementById('footerPrivacyBtn').addEventListener('click', () => {
+  navigate('terms');
+  setTimeout(() => {
+    document.querySelector('[data-i18n="privacy.title"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+});
+
 document.getElementById('helpDontShowAgain').addEventListener('change', (e) => {
   if (e.target.checked) localStorage.setItem('quickatlas_guide_dismissed', '1');
   else localStorage.removeItem('quickatlas_guide_dismissed');

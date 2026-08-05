@@ -499,6 +499,21 @@
         <li data-i18n="terms.disclaimer_moderation">la modération s'exerce a posteriori : nous nous réservons le droit de retirer tout contenu contraire à cette charte ou à la loi applicable, sans obligation de vérifier chaque annonce avant sa publication.</li>
       </ul>
       <p data-i18n="terms.disclaimer_footer">En créant un compte, vous reconnaissez avoir lu et accepté cette charte et cette décharge de responsabilité.</p>
+
+      <h2 data-i18n="privacy.title">Politique de confidentialité</h2>
+      <p data-i18n="privacy.intro">Un résumé simple et honnête de ce que QuickAtlas fait de vos données — pas de jargon juridique inutile.</p>
+
+      <h3 data-i18n="privacy.collect_title">Ce que nous collectons</h3>
+      <p data-i18n="privacy.collect_text">Votre nom, votre email et votre mot de passe (jamais stocké en clair) à l'inscription ; votre numéro de téléphone si vous choisissez de le renseigner pour être contacté·e via WhatsApp ; le contenu de vos annonces, messages et avis ; vos recherches enregistrées, pour vous envoyer des alertes.</p>
+
+      <h3 data-i18n="privacy.storage_title">Stockage local (localStorage) — pas de cookies traceurs</h3>
+      <p data-i18n="privacy.storage_text">QuickAtlas n'utilise aucun cookie publicitaire ni traceur tiers. Votre navigateur conserve localement (sur votre appareil, jamais transmis à des tiers) votre jeton de connexion, votre langue choisie et vos annonces vues récemment — pour que le site fonctionne, rien de plus.</p>
+
+      <h3 data-i18n="privacy.thirdparty_title">Services tiers utilisés</h3>
+      <p data-i18n="privacy.thirdparty_text">L'envoi d'emails (vérification de compte, alertes) passe par votre fournisseur email configuré. La carte du monde utilise des données cartographiques ouvertes. Les statistiques économiques proviennent de l'API ouverte de la Banque mondiale. Si vous activez la connexion Google ou l'assistant IA, ces services tiers reçoivent uniquement ce qui est strictement nécessaire à leur fonctionnement.</p>
+
+      <h3 data-i18n="privacy.rights_title">Vos droits</h3>
+      <p data-i18n="privacy.rights_text">Vous pouvez modifier vos informations à tout moment depuis votre profil. Pour toute demande de suppression complète de compte, contactez un·e administrateur·rice du site.</p>
     </div>
   </section>
 
@@ -510,6 +525,26 @@
       <span class="brand-word">QUICKATLAS</span>
       <p data-i18n="footer.tagline">Une place de marché mondiale pour l'immobilier, les véhicules, l'emploi et les objets — à vendre, à louer ou à pourvoir, ville par ville.</p>
     </div>
+
+    <div class="footer-col">
+      <h4 data-i18n="footer.col_about">À propos</h4>
+      <button class="footer-link" id="footerHowItWorksBtn" data-i18n="footer.how_it_works">Comment ça marche</button>
+      <button class="footer-link" data-nav="passport" data-i18n="footer.referral">Programme de parrainage</button>
+      <button class="footer-link" data-nav="explore" data-i18n="footer.explore_countries">Explorer par pays</button>
+    </div>
+
+    <div class="footer-col">
+      <h4 data-i18n="footer.col_help">Aide</h4>
+      <button class="footer-link" id="footerAlertsHowToBtn" data-i18n="footer.alerts_how_to">Comment fonctionnent les alertes</button>
+      <button class="footer-link" data-nav="terms" data-i18n="footer.trust_safety">Sécurité et confiance</button>
+    </div>
+
+    <div class="footer-col">
+      <h4 data-i18n="footer.col_legal">Informations légales</h4>
+      <button class="footer-link" data-nav="terms" data-i18n="footer.terms_link_short">Conditions d'utilisation</button>
+      <button class="footer-link" id="footerPrivacyBtn" data-i18n="footer.privacy_link">Politique de confidentialité</button>
+    </div>
+
     <div class="footer-cats" id="footerCats"></div>
   </div>
   <p class="footer-legal"><button class="footer-terms-link" data-nav="terms" data-i18n="footer.terms_link">Charte de la communauté & conditions d'utilisation</button></p>
@@ -549,10 +584,14 @@
         </div>
       </details>
 
-      <details class="help-item">
+      <details class="help-item" id="helpAlertsSection">
         <summary data-i18n="help.section4_title">🔔 Rester informé</summary>
         <div class="help-item-body">
-          <p data-i18n="help.section4_p1">Ajoutez une annonce à vos favoris pour la retrouver facilement. Enregistrez une recherche (ville, catégorie, mot-clé) pour recevoir un email dès qu'une nouvelle annonce correspond — depuis les filtres d'exploration.</p>
+          <p data-i18n="help.section4_p1">Deux façons de ne rien rater : les favoris (retrouver une annonce précise) et les alertes (être prévenu·e des nouvelles annonces qui vous intéressent).</p>
+          <p data-i18n="help.alerts_step1">1. Lancez une recherche (ville, catégorie, mot-clé) depuis "Explorer".</p>
+          <p data-i18n="help.alerts_step2">2. Cliquez sur "Enregistrer cette recherche", donnez-lui un nom.</p>
+          <p data-i18n="help.alerts_step3">3. Dès qu'une nouvelle annonce correspond, vous recevez un email — sans avoir à revenir vérifier vous-même.</p>
+          <p data-i18n="help.alerts_step4">4. Retrouvez et gérez toutes vos alertes à tout moment dans "Alertes" (menu du haut).</p>
         </div>
       </details>
 
