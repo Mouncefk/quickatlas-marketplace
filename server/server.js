@@ -15,6 +15,59 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const PORT = process.env.PORT || 3000;
 const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
 
+// ---------- SEO : URLs propres, balises méta par page, sitemap ----------
+// L'application reste une SPA (une seule page HTML, JS côté client) —
+// mais chaque page importante (pays, annonce, catégorie) a maintenant sa
+// propre adresse, avec un <title> et une <meta description> uniques
+// générés côté serveur avant l'envoi au navigateur. C'est ce que Google
+// (et les aperçus WhatsApp/Facebook) lisent, sans avoir besoin d'exécuter
+// le JavaScript — le reste du contenu interactif continue de se charger
+// normalement une fois la page arrivée dans le navigateur.
+
+function slugify(text) {
+  return String(text)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+let indexHtmlCache = null;
+function getIndexHtmlTemplate() {
+  if (!indexHtmlCache) indexHtmlCache = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+  return indexHtmlCache;
+}
+
+function renderHtmlWithMeta({ title, description, canonicalPath, image }) {
+  let html = getIndexHtmlTemplate();
+  const canonicalUrl = `${SITE_URL}${canonicalPath || '/'}`;
+  const safeTitle = title.replace(/</g, '&lt;');
+  const safeDesc = description.replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const img = image || `${SITE_URL}/icons/icon-512.png`;
+
+  html = html.replace(/<title>.*?<\/title>/, `<title>${safeTitle}</title>`);
+  html = html.replace(/<meta name="description" content=".*?" \/>/, `<meta name="description" content="${safeDesc}" />`);
+
+  const extraTags = `
+<link rel="canonical" href="${canonicalUrl}" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="${safeTitle}" />
+<meta property="og:description" content="${safeDesc}" />
+<meta property="og:url" content="${canonicalUrl}" />
+<meta property="og:image" content="${img}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${safeTitle}" />
+<meta name="twitter:description" content="${safeDesc}" />
+`;
+  html = html.replace('</head>', `${extraTags}</head>`);
+  return html;
+}
+
+function sendHtml(res, html) {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' });
+  res.end(html);
+}
+
 // Limitation des tentatives de connexion (en mémoire, par email) :
 // après 5 échecs, blocage de 15 minutes.
 const loginAttempts = new Map(); // email -> { count, lockedUntil }
@@ -402,6 +455,7 @@ const server = http.createServer(async (req, res) => {
   const method = req.method;
 
   if (!pathname.startsWith('/api/')) {
+    let m;
     if (pathname.startsWith('/uploads/')) {
       const filename = path.basename(pathname); // empêche toute remontée de dossier (../)
       const filePath = path.join(DATA_DIR, 'uploads', filename);
@@ -411,6 +465,90 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' });
         res.end(data);
       });
+    }
+
+    if (pathname === '/robots.txt') {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end(`User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: ${SITE_URL}/sitemap.xml\n`);
+    }
+
+    if (pathname === '/sitemap.xml') {
+      const countries = db.prepare('SELECT id, name FROM countries').all();
+      const categories = db.prepare('SELECT slug FROM categories').all();
+      const listings = db
+        .prepare("SELECT id, updated_at FROM listings WHERE status = 'active' AND expires_at > datetime('now')")
+        .all();
+      const urls = [
+        { loc: '/', priority: '1.0' },
+        ...countries.map((c) => ({ loc: `/pays/${slugify(c.name)}`, priority: '0.8' })),
+        ...categories.map((c) => ({ loc: `/categorie/${c.slug}`, priority: '0.7' })),
+        ...listings.map((l) => ({ loc: `/annonce/${l.id}`, priority: '0.6', lastmod: (l.updated_at || '').slice(0, 10) })),
+      ];
+      const xml =
+        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+        urls.map((u) => `  <url><loc>${SITE_URL}${u.loc}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}<priority>${u.priority}</priority></url>`).join('\n') +
+        `\n</urlset>`;
+      res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+      return res.end(xml);
+    }
+
+    if ((m = pathname.match(/^\/pays\/([a-z0-9-]+)$/))) {
+      const countries = db.prepare('SELECT id, name FROM countries').all();
+      const country = countries.find((c) => slugify(c.name) === m[1]);
+      if (country) {
+        const stats = db
+          .prepare(
+            `SELECT COUNT(DISTINCT ci.id) AS cities, COUNT(l.id) AS listings
+             FROM cities ci LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now')
+             WHERE ci.country_id = ?`
+          )
+          .get(country.id);
+        return sendHtml(
+          res,
+          renderHtmlWithMeta({
+            title: `Achetez, vendez, louez au ${country.name} — QuickAtlas`,
+            description: `Parcourez ${stats.listings || 0} annonce(s) au ${country.name} sur QuickAtlas : immobilier, véhicules, emploi et objets, ville par ville.`,
+            canonicalPath: `/pays/${m[1]}`,
+          })
+        );
+      }
+    }
+
+    if ((m = pathname.match(/^\/categorie\/([a-z0-9-]+)$/))) {
+      const category = db.prepare('SELECT slug, name FROM categories WHERE slug = ?').get(m[1]);
+      if (category) {
+        return sendHtml(
+          res,
+          renderHtmlWithMeta({
+            title: `${category.name} — Annonces dans le monde entier | QuickAtlas`,
+            description: `Découvrez toutes les annonces "${category.name}" sur QuickAtlas, la place de marché mondiale — achat, vente, location, ville par ville.`,
+            canonicalPath: `/categorie/${m[1]}`,
+          })
+        );
+      }
+    }
+
+    if ((m = pathname.match(/^\/annonce\/(\d+)(?:-[a-z0-9-]*)?$/))) {
+      const listing = db
+        .prepare(
+          `SELECT l.title, l.description, l.price, l.currency, l.images_json, ci.name AS city_name, co.name AS country_name
+           FROM listings l JOIN cities ci ON ci.id = l.city_id JOIN countries co ON co.id = ci.country_id
+           WHERE l.id = ? AND l.status = 'active'`
+        )
+        .get(Number(m[1]));
+      if (listing) {
+        const images = JSON.parse(listing.images_json || '[]');
+        const priceText = listing.price ? `${listing.price} ${listing.currency}` : 'Prix sur demande';
+        return sendHtml(
+          res,
+          renderHtmlWithMeta({
+            title: `${listing.title} — ${listing.city_name}, ${listing.country_name} | QuickAtlas`,
+            description: (listing.description || `${listing.title} à ${listing.city_name}, ${listing.country_name}.`).slice(0, 155),
+            canonicalPath: `/annonce/${m[1]}-${slugify(listing.title)}`,
+            image: images[0] || null,
+          })
+        );
+      }
     }
 
     return serveStatic(req, res, pathname);
