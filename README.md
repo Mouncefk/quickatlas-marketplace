@@ -168,6 +168,54 @@ automatiquement : les annonces de la nouvelle catégorie pour ce pays, les
 disponibles (réutilise la catégorie Emploi déjà existante) — le tout
 sans dupliquer aucune donnée.
 
+## Passer en production : vider le contenu de démonstration
+
+```
+npm run go-live
+```
+
+**Irréversible, à lancer une seule fois** quand vous êtes prêt·e à ouvrir
+le site au public. Supprime toutes les annonces, tous les comptes (dont
+le compte de démonstration) et toutes les données liées (messages, avis,
+favoris, alertes...). **Conserve intactes** les données de référence :
+pays, villes, états/provinces, catégories, fiches pays enrichies — ce ne
+sont pas du contenu de démonstration, ce sont les fondations du site.
+
+Ensuite, inscrivez-vous normalement sur le site avec votre vraie adresse,
+puis lancez `npm run make-admin -- votre@email.com` pour devenir
+administrateur·rice.
+
+La mention "Projet de démonstration" et l'indice de connexion
+`demo@atlas.test` ont aussi été retirés du site (testé dans les 6
+langues) — plus aucune trace du mode démonstration une fois cette étape
+faite.
+
+## Référencement (SEO) : de vraies adresses par page
+
+Jusqu'ici, tout le site n'avait **qu'une seule adresse et un seul titre**
+pour Google, quel que soit le pays, la catégorie ou l'annonce consultée —
+le frein principal au référencement. Corrigé sans réécrire l'application :
+
+- **De vraies URLs** par page : `/pays/maroc`, `/categorie/immobilier`,
+  `/annonce/123-appartement-lumineux-3-pieces`
+- **Titre et description uniques**, générés par le serveur à partir des
+  vraies données (ex. "Achetez, vendez, louez au Maroc — QuickAtlas",
+  avec le nombre réel d'annonces) — lisibles par Google et les réseaux
+  sociaux sans avoir besoin d'exécuter le JavaScript
+- **Balises Open Graph et Twitter Card** sur chaque page (dont l'accueil)
+  — un lien partagé sur WhatsApp/Facebook affiche maintenant un aperçu
+  avec titre, description et image, au lieu de rien
+- **`sitemap.xml`** généré dynamiquement (267 adresses : accueil + 195
+  pays + 12 catégories + toutes les annonces actives), et **`robots.txt`**
+  qui l'indique aux moteurs de recherche
+- **Navigation cohérente** : cliquer sur un pays ou une annonce met à
+  jour l'adresse dans le navigateur (testé), et un **lien partagé
+  s'ouvre directement sur le bon contenu** (testé) — pas seulement un
+  titre correct, la vraie fiche s'affiche aussi automatiquement
+
+Une fois en ligne, vous pouvez soumettre `https://quickatlas.net/sitemap.xml`
+à la Google Search Console pour accélérer l'indexation.
+
 ## Statistiques économiques réelles (API Banque mondiale)
 
 PIB, PIB par habitant, croissance du PIB, taux de chômage et inflation —

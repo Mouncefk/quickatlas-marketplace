@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server/server.js",
     "seed": "node --env-file-if-exists=.env server/seed.js",
-    "make-admin": "node --env-file-if-exists=.env server/make-admin.js"
+    "make-admin": "node --env-file-if-exists=.env server/make-admin.js",
+    "go-live": "node --env-file-if-exists=.env server/go-live.js"
   },
   "dependencies": {},
   "license": "UNLICENSED"
