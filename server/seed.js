@@ -491,6 +491,16 @@ const categoryDefs = [
     ],
   },
   {
+    slug: 'opportunites-affaires', name: "Opportunités d'affaires", icon: '💼',
+    subcategories: [
+      ['entreprise-a-vendre', 'Entreprise à vendre'],
+      ['recherche-investisseurs', "Recherche d'investisseurs"],
+      ['appel-offres', "Appel d'offres"],
+      ['franchise', 'Franchise à reprendre'],
+      ['partenariat', 'Recherche de partenaire commercial'],
+    ],
+  },
+  {
     slug: 'autres', name: 'Autres', icon: '📦',
     subcategories: [
       ['divers', 'Divers'],
@@ -578,6 +588,11 @@ const demoListings = [
   ['Le Cap', 'materiel-pro', 'commerce-restauration', 'Vitrine réfrigérée professionnelle', "Idéale boulangerie/traiteur, entretien à jour, dimensions 2m.", 'vente', 2400, 'ZAR', 'https://images.unsplash.com/photo-1585909695284-32d2985ac9c0?w=800'],
   ['Buenos Aires', 'services', 'cours-formations', "Cours particuliers d'anglais", "Professeur natif, tous niveaux, en ligne ou en présentiel.", 'offre_emploi', 25, 'ARS', 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800'],
   ['Bangkok', 'services', 'evenementiel', 'Organisation de mariages sur mesure', "Plus de 50 événements organisés, devis gratuit.", 'offre_emploi', null, 'THB', 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800'],
+  ['Casablanca', 'opportunites-affaires', 'entreprise-a-vendre', 'Restaurant traditionnel à céder', "Emplacement central, clientèle fidèle, 15 ans d'activité, bail commercial cessible.", 'vente', 180000, 'MAD', 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=800'],
+  ['Dubaï', 'opportunites-affaires', 'recherche-investisseurs', 'Startup logistique cherche levée de fonds', "Série A, solution de suivi de flotte déjà déployée dans 3 pays du Golfe, revenus récurrents.", 'achat', null, 'AED', 'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=800'],
+  ['Singapour', 'opportunites-affaires', 'appel-offres', "Appel d'offres — refonte site institutionnel", "Organisme public, cahier des charges disponible sur demande, clôture des candidatures dans 30 jours.", 'offre_emploi', null, 'SGD', 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800'],
+  ['Lagos', 'opportunites-affaires', 'franchise', 'Franchise café-restaurant à reprendre', "Enseigne régionale établie, formation incluse, deux emplacements disponibles.", 'vente', 25000, 'USD', 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=800'],
+  ['Nairobi', 'opportunites-affaires', 'partenariat', 'Recherche distributeur local — cosmétiques bio', "Marque européenne cherche partenaire de distribution en Afrique de l'Est, produits déjà certifiés.", 'achat', null, 'KES', 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800'],
 ];
 
 for (const [city, catSlug, subSlug, title, desc, type, price, currency, img] of demoListings) {

@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db } from './db.js';
+import { db, DATA_DIR } from './db.js';
 import { hashPassword, verifyPassword, signToken, verifyToken, generateRawToken, hashRawToken, passwordIssues, encryptApiKey, decryptApiKey } from './auth.js';
 import { sendMail } from './mailer.js';
 import { translateListing, draftListing, analyzeFraudRisk } from './ai.js';
@@ -91,6 +91,82 @@ function requireVerifiedEmail(user, res) {
     return false;
   }
   return true;
+}
+
+// ---------- Statistiques économiques (API Banque mondiale, gratuite, sans clé) ----------
+// Documentation : https://datahelpdesk.worldbank.org/knowledgebase/articles/889392
+// Chaque indicateur est interrogé séparément avec mrnev=1 (valeur non
+// vide la plus récente disponible), pour tolérer les pays où certaines
+// années manquent. Les échecs réseau sont attrapés individuellement :
+// un indicateur indisponible n'empêche pas les autres de s'afficher.
+
+const WORLD_BANK_INDICATORS = {
+  gdp: 'NY.GDP.MKTP.CD',
+  gdp_per_capita: 'NY.GDP.PCAP.CD',
+  gdp_growth: 'NY.GDP.MKTP.KD.ZG',
+  unemployment: 'SL.UEM.TOTL.ZS',
+  inflation: 'FP.CPI.TOTL.ZG',
+};
+
+async function fetchWorldBankIndicator(iso2, indicatorCode) {
+  const url = `https://api.worldbank.org/v2/country/${iso2}/indicator/${indicatorCode}?format=json&mrnev=1`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const point = json?.[1]?.[0];
+    if (!point || point.value === null || point.value === undefined) return null;
+    return { value: point.value, year: Number(point.date) };
+  } catch {
+    return null; // pas de réseau, timeout, ou réponse inattendue : on continue sans planter
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function refreshEconomicStats(countryId, iso2) {
+  const results = {};
+  for (const [key, code] of Object.entries(WORLD_BANK_INDICATORS)) {
+    results[key] = await fetchWorldBankIndicator(iso2, code);
+  }
+  const anySuccess = Object.values(results).some((r) => r !== null);
+  db.prepare(
+    `INSERT INTO country_economic_stats
+       (country_id, gdp_usd, gdp_year, gdp_per_capita_usd, gdp_per_capita_year, gdp_growth_pct, gdp_growth_year,
+        unemployment_pct, unemployment_year, inflation_pct, inflation_year, fetch_status, fetched_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(country_id) DO UPDATE SET
+       gdp_usd = excluded.gdp_usd, gdp_year = excluded.gdp_year,
+       gdp_per_capita_usd = excluded.gdp_per_capita_usd, gdp_per_capita_year = excluded.gdp_per_capita_year,
+       gdp_growth_pct = excluded.gdp_growth_pct, gdp_growth_year = excluded.gdp_growth_year,
+       unemployment_pct = excluded.unemployment_pct, unemployment_year = excluded.unemployment_year,
+       inflation_pct = excluded.inflation_pct, inflation_year = excluded.inflation_year,
+       fetch_status = excluded.fetch_status, fetched_at = excluded.fetched_at`
+  ).run(
+    countryId,
+    results.gdp?.value ?? null, results.gdp?.year ?? null,
+    results.gdp_per_capita?.value ?? null, results.gdp_per_capita?.year ?? null,
+    results.gdp_growth?.value ?? null, results.gdp_growth?.year ?? null,
+    results.unemployment?.value ?? null, results.unemployment?.year ?? null,
+    results.inflation?.value ?? null, results.inflation?.year ?? null,
+    anySuccess ? 'ok' : 'error'
+  );
+  return db.prepare('SELECT * FROM country_economic_stats WHERE country_id = ?').get(countryId);
+}
+
+const ECONOMIC_STATS_MAX_AGE_DAYS = 30;
+
+async function getEconomicStats(countryId, iso2) {
+  const cached = db.prepare('SELECT * FROM country_economic_stats WHERE country_id = ?').get(countryId);
+  const isStale = !cached || !cached.fetched_at || (Date.now() - new Date(cached.fetched_at + 'Z').getTime()) / 86400000 > ECONOMIC_STATS_MAX_AGE_DAYS;
+  if (!isStale) return cached;
+  try {
+    return await refreshEconomicStats(countryId, iso2);
+  } catch {
+    return cached || { fetch_status: 'error' }; // on retombe sur le cache existant si le rafraîchissement échoue
+  }
 }
 
 const MIME = {
@@ -326,6 +402,17 @@ const server = http.createServer(async (req, res) => {
   const method = req.method;
 
   if (!pathname.startsWith('/api/')) {
+    if (pathname.startsWith('/uploads/')) {
+      const filename = path.basename(pathname); // empêche toute remontée de dossier (../)
+      const filePath = path.join(DATA_DIR, 'uploads', filename);
+      return fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(404); return res.end('Image introuvable'); }
+        const ext = path.extname(filePath);
+        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' });
+        res.end(data);
+      });
+    }
+
     return serveStatic(req, res, pathname);
   }
 
@@ -1349,6 +1436,92 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { ok: true });
     }
 
+    // --- Événements professionnels ---
+    if (pathname === '/api/events' && method === 'GET') {
+      const countryId = url.searchParams.get('country_id');
+      if (!countryId) return sendJSON(res, 400, { error: 'country_id requis.' });
+      const rows = db
+        .prepare(
+          `SELECT e.id, e.title, e.description, e.event_date, e.end_date, e.location_name, e.external_link,
+                  ci.name AS city_name, u.name AS organizer_name
+           FROM events e
+           LEFT JOIN cities ci ON ci.id = e.city_id
+           JOIN users u ON u.id = e.user_id
+           WHERE e.country_id = ? AND e.status = 'active' AND (e.end_date IS NOT NULL AND e.end_date >= date('now') OR e.end_date IS NULL AND e.event_date >= date('now'))
+           ORDER BY e.event_date ASC
+           LIMIT 20`
+        )
+        .all(countryId);
+      return sendJSON(res, 200, rows);
+    }
+
+    if (pathname === '/api/events' && method === 'POST') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      if (!requireVerifiedEmail(user, res)) return;
+      const { country_id, city_id, title, description, event_date, end_date, location_name, external_link } = await readBody(req);
+      if (!country_id || !title || !title.trim() || !event_date) {
+        return sendJSON(res, 400, { error: 'Pays, titre et date sont obligatoires.' });
+      }
+      const id = db
+        .prepare(
+          `INSERT INTO events (user_id, country_id, city_id, title, description, event_date, end_date, location_name, external_link)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(user.id, country_id, city_id || null, title.trim(), (description || '').trim(), event_date, end_date || null, location_name || null, external_link || null)
+        .lastInsertRowid;
+      return sendJSON(res, 201, { id });
+    }
+
+    if ((m = pathname.match(/^\/api\/events\/(\d+)$/)) && method === 'DELETE') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const event = db.prepare('SELECT user_id FROM events WHERE id = ?').get(Number(m[1]));
+      if (!event) return sendJSON(res, 404, { error: 'Événement introuvable.' });
+      if (event.user_id !== user.id && user.role !== 'admin') return sendJSON(res, 403, { error: "Vous n'êtes pas l'organisateur de cet événement." });
+      db.prepare('DELETE FROM events WHERE id = ?').run(Number(m[1]));
+      return sendJSON(res, 200, { ok: true });
+    }
+
+    // --- Opportunités d'affaires groupées (annonces + événements + emploi) ---
+    if (pathname === '/api/business-opportunities' && method === 'GET') {
+      const countryId = url.searchParams.get('country_id');
+      if (!countryId) return sendJSON(res, 400, { error: 'country_id requis.' });
+      const listings = db
+        .prepare(
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json,
+                  sub.slug AS subcategory_slug, sub.name AS subcategory_name,
+                  ci.name AS city_name, co.name AS country_name
+           FROM listings l
+           JOIN categories cat ON cat.id = l.category_id
+           LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
+           JOIN cities ci ON ci.id = l.city_id
+           JOIN countries co ON co.id = ci.country_id
+           WHERE cat.slug = 'opportunites-affaires' AND co.id = ? AND l.status = 'active' AND l.expires_at > datetime('now')
+           ORDER BY l.created_at DESC LIMIT 12`
+        )
+        .all(countryId)
+        .map(({ images_json, ...r }) => ({ ...r, images: JSON.parse(images_json) }));
+      const events = db
+        .prepare(
+          `SELECT e.id, e.title, e.event_date, e.end_date, e.location_name, e.external_link, ci.name AS city_name
+           FROM events e LEFT JOIN cities ci ON ci.id = e.city_id
+           WHERE e.country_id = ? AND e.status = 'active'
+             AND (e.end_date IS NOT NULL AND e.end_date >= date('now') OR e.end_date IS NULL AND e.event_date >= date('now'))
+           ORDER BY e.event_date ASC LIMIT 8`
+        )
+        .all(countryId);
+      const jobCount = db
+        .prepare(
+          `SELECT COUNT(*) AS c FROM listings l
+           JOIN categories cat ON cat.id = l.category_id
+           JOIN cities ci ON ci.id = l.city_id
+           WHERE cat.slug = 'emploi' AND l.listing_type = 'offre_emploi' AND ci.country_id = ? AND l.status = 'active' AND l.expires_at > datetime('now')`
+        )
+        .get(countryId).c;
+      return sendJSON(res, 200, { listings, events, job_offers_count: jobCount });
+    }
+
     // --- Signalements ---
     if (pathname === '/api/reports' && method === 'POST') {
       const user = requireAuth(req, res);
@@ -1407,7 +1580,7 @@ const server = http.createServer(async (req, res) => {
       const buffer = Buffer.from(data, 'base64');
       if (buffer.length > 5_000_000) return sendJSON(res, 400, { error: 'Image trop volumineuse (5 Mo maximum).' });
       const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
-      const uploadsDir = path.join(PUBLIC_DIR, 'uploads');
+      const uploadsDir = path.join(DATA_DIR, 'uploads');
       if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
       fs.writeFileSync(path.join(uploadsDir, filename), buffer);
       return sendJSON(res, 201, { url: `/uploads/${filename}` });
@@ -1593,6 +1766,22 @@ const server = http.createServer(async (req, res) => {
     if ((m = pathname.match(/^\/api\/countries\/(\d+)\/profile$/)) && method === 'GET') {
       const profile = db.prepare('SELECT * FROM country_profiles WHERE country_id = ?').get(Number(m[1]));
       return sendJSON(res, 200, profile || null);
+    }
+
+    if ((m = pathname.match(/^\/api\/countries\/(\d+)\/economic-stats$/)) && method === 'GET') {
+      const countryId = Number(m[1]);
+      const country = db.prepare('SELECT iso2 FROM countries WHERE id = ?').get(countryId);
+      if (!country) return sendJSON(res, 404, { error: 'Pays introuvable.' });
+      const stats = await getEconomicStats(countryId, country.iso2);
+      return sendJSON(res, 200, {
+        gdp_usd: stats.gdp_usd, gdp_year: stats.gdp_year,
+        gdp_per_capita_usd: stats.gdp_per_capita_usd, gdp_per_capita_year: stats.gdp_per_capita_year,
+        gdp_growth_pct: stats.gdp_growth_pct, gdp_growth_year: stats.gdp_growth_year,
+        unemployment_pct: stats.unemployment_pct, unemployment_year: stats.unemployment_year,
+        inflation_pct: stats.inflation_pct, inflation_year: stats.inflation_year,
+        status: stats.fetch_status,
+        source: 'Banque mondiale (api.worldbank.org)',
+      });
     }
 
     // --- Alertes de recherche ---

@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, '..', 'data');
+export const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 export const db = new DatabaseSync(path.join(DATA_DIR, 'atlas.db'));
@@ -188,6 +188,46 @@ db.exec(`
     details TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved','dismissed')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Événements professionnels (salons, conférences, forums d'affaires...)
+  -- rattachés à un pays (et optionnellement une ville) — nouveau type de
+  -- contenu, distinct des annonces classiques (pas d'achat/vente).
+  CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    country_id INTEGER NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
+    city_id INTEGER REFERENCES cities(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    event_date TEXT NOT NULL,
+    end_date TEXT,
+    location_name TEXT,
+    external_link TEXT,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_events_country ON events(country_id, event_date);
+
+  -- Cache des indicateurs économiques réels (API gratuite de la Banque
+  -- mondiale, aucune clé requise). Mis en cache car les données ne
+  -- changent qu'une fois par an, et pour rester utilisable même si
+  -- l'API est temporairement indisponible.
+  CREATE TABLE IF NOT EXISTS country_economic_stats (
+    country_id INTEGER PRIMARY KEY REFERENCES countries(id) ON DELETE CASCADE,
+    gdp_usd REAL,
+    gdp_year INTEGER,
+    gdp_per_capita_usd REAL,
+    gdp_per_capita_year INTEGER,
+    gdp_growth_pct REAL,
+    gdp_growth_year INTEGER,
+    unemployment_pct REAL,
+    unemployment_year INTEGER,
+    inflation_pct REAL,
+    inflation_year INTEGER,
+    fetch_status TEXT NOT NULL DEFAULT 'pending' CHECK (fetch_status IN ('pending','ok','error')),
+    fetched_at TEXT
   );
 
   CREATE TABLE IF NOT EXISTS email_outbox (
