@@ -1709,6 +1709,41 @@ async function loadSimilarListings(listingId, containerEl) {
 
 // ---------- Détail d'annonce ----------
 
+// Traduit automatiquement le titre/la description d'une annonce si sa
+// langue de rédaction diffère de la langue d'interface actuelle —
+// financé par la plateforme, sans que qui que ce soit ait besoin de sa
+// propre clé IA. Se dégrade silencieusement si aucune clé de plateforme
+// n'est configurée (aucune bannière, l'annonce reste juste dans sa
+// langue d'origine, comme avant cette fonctionnalité).
+async function autoTranslateListingIfNeeded(listing) {
+  const viewerLang = i18n.effectiveLang();
+  if (!listing.language || listing.language === viewerLang) return;
+  try {
+    const result = await api(`/listings/${listing.id}/translation?lang=${viewerLang}`);
+    if (result.unavailable || result.same_language) return;
+    const titleEl = document.getElementById('detailTitleText');
+    const descEl = document.getElementById('detailDescriptionText');
+    if (!titleEl || !descEl) return; // la personne a déjà changé de page
+    const originalTitle = listing.title;
+    const originalDescription = listing.description || i18n.t('detail.no_description');
+    titleEl.childNodes[0].textContent = result.title;
+    descEl.textContent = result.description || originalDescription;
+    const banner = el('div', { class: 'translation-banner' }, [
+      `🌐 ${i18n.t('detail.auto_translated')}`,
+      el('button', { class: 'translation-toggle', onclick: (e) => {
+        const showingOriginal = e.target.dataset.showingOriginal === 'true';
+        titleEl.childNodes[0].textContent = showingOriginal ? result.title : originalTitle;
+        descEl.textContent = showingOriginal ? (result.description || originalDescription) : originalDescription;
+        e.target.textContent = showingOriginal ? i18n.t('detail.see_original') : i18n.t('detail.see_translation');
+        e.target.dataset.showingOriginal = String(!showingOriginal);
+      }, 'data-showing-original': 'false' }, i18n.t('detail.see_original')),
+    ]);
+    titleEl.insertAdjacentElement('afterend', banner);
+  } catch {
+    /* silencieux : l'annonce reste affichée dans sa langue d'origine */
+  }
+}
+
 async function openListingDetail(id) {
   const l = await api(`/listings/${id}`);
   const newPath = `/annonce/${id}-${slugify(l.title)}`;
@@ -1724,29 +1759,32 @@ async function openListingDetail(id) {
     onclick: () => toggleFavorite(l.id, null),
   }, state.favoriteIds.has(l.id) ? i18n.t('favorites.remove') : i18n.t('favorites.add'));
   content.append(
-    img ? el('img', { class: 'detail-img', src: img, alt: l.title }) : el('div', { class: 'detail-img' }),
-    el('span', { class: 'detail-tag' }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
-    el('h2', {}, [l.title, l.owner_verified ? el('span', { class: 'verified-badge' }, `✓ ${i18n.t('detail.verified_seller')}`) : null]),
-    el('div', { class: 'detail-price' }, priceLabel(l) + (l.listing_type === 'location' ? ' / mois' : '')),
-    l.open_to_trade ? el('p', { class: 'trade-badge' }, `🔄 ${i18n.t('trade.open_badge')}${l.trade_description ? ' — ' + l.trade_description : ''}`) : null,
-    el('p', {}, l.description || i18n.t('detail.no_description')),
-    el('p', { class: 'detail-meta' }, [
-      `${l.city_name}, ${l.country_name} · ${i18n.t('detail.posted_by')} ${l.owner_name}${l.city_timezone ? ' · ' + (formatLocalTime(l.city_timezone) ? i18n.t('detail.local_time') + ' : ' + formatLocalTime(l.city_timezone) : '') : ''}`,
-      l.owner_review_count > 0 ? el('span', { class: 'seller-rating' }, `★ ${l.owner_avg_rating} (${l.owner_review_count})`) : null,
-    ]),
-    el('p', { class: 'view-count' }, `👁 ${i18n.t('detail.view_count', { count: l.view_count })}`),
-    favBtn,
-    el('button', { class: 'share-postcard-btn', onclick: () => shareListingAsPostcard(l) }, `📮 ${i18n.t('share.postcard_button')}`),
-    (state.user && state.user.id !== l.user_id && l.owner_phone)
-      ? el('a', {
-          class: 'whatsapp-btn',
-          href: `https://wa.me/${l.owner_phone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(i18n.t('whatsapp.prefill_message', { title: l.title }))}`,
-          target: '_blank', rel: 'noopener',
-        }, `💬 ${i18n.t('whatsapp.contact_button')}`)
-      : null
+    ...[
+      img ? el('img', { class: 'detail-img', src: img, alt: l.title }) : el('div', { class: 'detail-img' }),
+      el('span', { class: 'detail-tag' }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
+      el('h2', { id: 'detailTitleText' }, [l.title, l.owner_verified ? el('span', { class: 'verified-badge' }, `✓ ${i18n.t('detail.verified_seller')}`) : null]),
+      el('div', { class: 'detail-price' }, priceLabel(l) + (l.listing_type === 'location' ? ' / mois' : '')),
+      l.open_to_trade ? el('p', { class: 'trade-badge' }, `🔄 ${i18n.t('trade.open_badge')}${l.trade_description ? ' — ' + l.trade_description : ''}`) : null,
+      el('p', { id: 'detailDescriptionText' }, l.description || i18n.t('detail.no_description')),
+      el('p', { class: 'detail-meta' }, [
+        `${l.city_name}, ${l.country_name} · ${i18n.t('detail.posted_by')} ${l.owner_name}${l.city_timezone ? ' · ' + (formatLocalTime(l.city_timezone) ? i18n.t('detail.local_time') + ' : ' + formatLocalTime(l.city_timezone) : '') : ''}`,
+        l.owner_review_count > 0 ? el('span', { class: 'seller-rating' }, `★ ${l.owner_avg_rating} (${l.owner_review_count})`) : null,
+      ]),
+      el('p', { class: 'view-count' }, `👁 ${i18n.t('detail.view_count', { count: l.view_count })}`),
+      favBtn,
+      el('button', { class: 'share-postcard-btn', onclick: () => shareListingAsPostcard(l) }, `📮 ${i18n.t('share.postcard_button')}`),
+      (state.user && state.user.id !== l.user_id && l.owner_phone)
+        ? el('a', {
+            class: 'whatsapp-btn',
+            href: `https://wa.me/${l.owner_phone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(i18n.t('whatsapp.prefill_message', { title: l.title }))}`,
+            target: '_blank', rel: 'noopener',
+          }, `💬 ${i18n.t('whatsapp.contact_button')}`)
+        : null,
+    ].filter((node) => node != null)
   );
   trackRecentlyViewed(l);
   renderRecentlyViewed();
+  autoTranslateListingIfNeeded(l);
   const similarBox = el('div', { class: 'similar-listings', id: 'similarListingsBox' });
   content.append(similarBox);
   loadSimilarListings(l.id, similarBox);
@@ -1984,6 +2022,7 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     images: uploadedImageUrl ? [uploadedImageUrl] : (fd.get('image') ? [fd.get('image')] : []),
     open_to_trade: fd.get('open_to_trade') === 'on',
     trade_description: fd.get('trade_description'),
+    language: i18n.effectiveLang(),
   };
   const errEl = document.getElementById('publishError');
   errEl.hidden = true;
