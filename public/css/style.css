@@ -2076,3 +2076,14 @@ textarea { resize: vertical; }
   font-size: 0.84rem; color: rgba(241,233,216,0.75);
   font-family: var(--font-mono);
 }
+
+/* ---------- Réseaux sociaux (pied de page) ---------- */
+
+.footer-social { display: flex; gap: 12px; margin-top: 14px; }
+.footer-social-link {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--ink-700); border: 1px solid var(--ink-line);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(241,233,216,0.7); transition: color .15s, border-color .15s;
+}
+.footer-social-link:hover { color: var(--brass-300); border-color: var(--brass-500); }
