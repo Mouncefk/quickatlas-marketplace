@@ -229,6 +229,32 @@ base). **À confirmer une fois déployé**, avec une vraie clé API.
    s'affichait littéralement sur la fiche annonce dans certains cas.
    Corrigé en filtrant explicitement les valeurs nulles avant l'appel.
 
+## Alternative gratuite : traduction sans IA ni clé
+
+Suite à la question "est-ce qu'il n'y a pas de traduction sans IA ?" —
+oui, il y a maintenant une option **entièrement gratuite, sans clé à
+configurer** : l'API publique **MyMemory**, utilisée par défaut.
+
+**Ordre de priorité** :
+1. Si `PLATFORM_AI_API_KEY` est configurée → traduction par IA (meilleure
+   qualité, chaque traduction a un coût minime)
+2. Sinon → traduction gratuite via MyMemory, **automatiquement, sans
+   rien à configurer**
+3. Si les deux échouent → repli honnête (annonce affichée dans sa langue
+   d'origine, comme avant cette fonctionnalité)
+
+**Limite honnête de l'option gratuite** : qualité de traduction
+généralement moins naturelle qu'une IA (plus littérale), et quota
+quotidien partagé raisonnable mais non illimité — largement suffisant
+pour démarrer, à surveiller si le site grossit beaucoup.
+
+### ⚠️ Non testable dans l'environnement de développement
+Même limite que pour l'IA, Stripe et la Banque mondiale : **pas d'accès
+internet ici**. Le comportement de dégradation (sans connexion, l'appel
+échoue proprement et l'annonce reste dans sa langue d'origine) a été
+vérifié à fond ; le vrai appel à l'API MyMemory reste à confirmer une
+fois déployé.
+
 ## Passer en production : vider le contenu de démonstration
 
 ```
