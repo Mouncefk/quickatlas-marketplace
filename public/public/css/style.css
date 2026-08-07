@@ -2057,3 +2057,11 @@ textarea { resize: vertical; }
   cursor: pointer; font-size: 0.82rem; padding: 0; margin-left: auto;
 }
 .translation-toggle:hover { color: var(--parchment-100); }
+
+/* ---------- Note traduction automatique (formulaire publication) ---------- */
+
+.publish-translation-note {
+  background: rgba(198,161,91,0.1); border: 1px solid rgba(198,161,91,0.3);
+  border-radius: 8px; padding: 10px 14px; margin: 4px 0 18px;
+  font-size: 0.84rem; color: rgba(241,233,216,0.8);
+}

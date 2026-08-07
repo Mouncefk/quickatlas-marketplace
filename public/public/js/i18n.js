@@ -81,6 +81,7 @@ const LANGUAGE_CATALOG = [
 
 const T = {
   fr: {
+    'publish.translation_note': '🌐 Écrivez dans la langue de votre choix — votre annonce sera automatiquement traduite pour les personnes qui la consultent dans leur langue.',
     'detail.auto_translated': 'Traduit automatiquement', 'detail.see_original': "Voir l'original", 'detail.see_translation': 'Voir la traduction',
     'nav.explore': 'Explorer', 'nav.publish': 'Publier une annonce', 'nav.mine': 'Mes annonces',
     'nav.messages': 'Messages', 'messages.eyebrow': 'MESSAGERIE', 'messages.title': 'Messages',
@@ -348,6 +349,7 @@ const T = {
     'toast.listing_suspended': 'Annonce suspendue (masquée du site public).', 'toast.listing_reactivated': 'Annonce réactivée.',
   },
   en: {
+    'publish.translation_note': '🌐 Write in whichever language you prefer — your listing will be automatically translated into the language of whoever views it.',
     'detail.auto_translated': 'Automatically translated', 'detail.see_original': 'See original', 'detail.see_translation': 'See translation',
     'nav.explore': 'Explore', 'nav.publish': 'Post a listing', 'nav.mine': 'My listings',
     'nav.messages': 'Messages', 'messages.eyebrow': 'MESSAGES', 'messages.title': 'Messages',
@@ -615,6 +617,7 @@ const T = {
     'toast.listing_suspended': 'Listing suspended (hidden from the public site).', 'toast.listing_reactivated': 'Listing reactivated.',
   },
   it: {
+    'publish.translation_note': "🌐 Scrivi nella lingua che preferisci — il tuo annuncio verrà tradotto automaticamente nella lingua di chi lo consulta.",
     'detail.auto_translated': 'Tradotto automaticamente', 'detail.see_original': "Vedi l'originale", 'detail.see_translation': 'Vedi la traduzione',
     'stats_econ.title': 'Statistiche economiche', 'stats_econ.gdp': 'PIL',
     'stats_econ.gdp_per_capita': 'PIL pro capite', 'stats_econ.gdp_growth': 'Crescita del PIL',
@@ -882,6 +885,7 @@ const T = {
     'toast.listing_suspended': 'Annuncio sospeso (nascosto dal sito pubblico).', 'toast.listing_reactivated': 'Annuncio riattivato.',
   },
   ar: {
+    'publish.translation_note': '🌐 اكتب باللغة التي تفضلها — سيُترجَم إعلانك تلقائيًا إلى لغة كل شخص يشاهده.',
     'detail.auto_translated': 'مُترجَم تلقائيًا', 'detail.see_original': 'عرض النص الأصلي', 'detail.see_translation': 'عرض الترجمة',
     'nav.explore': 'استكشاف', 'nav.publish': 'نشر إعلان', 'nav.mine': 'إعلاناتي',
     'nav.messages': 'الرسائل', 'messages.eyebrow': 'الرسائل', 'messages.title': 'الرسائل',
@@ -1149,6 +1153,7 @@ const T = {
     'toast.listing_suspended': 'تم تعليق الإعلان (مخفي عن الموقع العام).', 'toast.listing_reactivated': 'تمت إعادة تنشيط الإعلان.',
   },
   es: {
+    'publish.translation_note': '🌐 Escriba en el idioma que prefiera — su anuncio se traducirá automáticamente al idioma de quien lo consulte.',
     'detail.auto_translated': 'Traducido automáticamente', 'detail.see_original': 'Ver original', 'detail.see_translation': 'Ver traducción',
     'nav.explore': 'Explorar', 'nav.publish': 'Publicar anuncio', 'nav.mine': 'Mis anuncios',
     'nav.messages': 'Mensajes', 'messages.eyebrow': 'MENSAJERÍA', 'messages.title': 'Mensajes',
@@ -1416,6 +1421,7 @@ const T = {
     'toast.listing_suspended': 'Anuncio suspendido (oculto del sitio público).', 'toast.listing_reactivated': 'Anuncio reactivado.',
   },
   pt: {
+    'publish.translation_note': '🌐 Escreva no idioma que preferir — o seu anúncio será traduzido automaticamente para o idioma de quem o consultar.',
     'detail.auto_translated': 'Traduzido automaticamente', 'detail.see_original': 'Ver original', 'detail.see_translation': 'Ver tradução',
     'nav.explore': 'Explorar', 'nav.publish': 'Publicar anúncio', 'nav.mine': 'Meus anúncios',
     'nav.messages': 'Mensagens', 'messages.eyebrow': 'MENSAGENS', 'messages.title': 'Mensagens',
