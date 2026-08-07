@@ -8,6 +8,7 @@ import { db, DATA_DIR } from './db.js';
 import { hashPassword, verifyPassword, signToken, verifyToken, generateRawToken, hashRawToken, passwordIssues, encryptApiKey, decryptApiKey } from './auth.js';
 import { sendMail } from './mailer.js';
 import { translateListing, draftListing, analyzeFraudRisk } from './ai.js';
+import { translateListingFree } from './free-translate.js';
 import crypto from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1134,23 +1135,38 @@ const server = http.createServer(async (req, res) => {
       const cached = db.prepare('SELECT title, description FROM listing_translations WHERE listing_id = ? AND lang_code = ?').get(listingId, targetLang);
       if (cached) return sendJSON(res, 200, { ...cached, cached: true, same_language: false });
 
-      if (!PLATFORM_AI_API_KEY) {
-        return sendJSON(res, 200, { unavailable: true });
+      // Priorité à la traduction gratuite (aucune configuration requise) ;
+      // l'IA de plateforme, si configurée, prend le relais pour une
+      // meilleure qualité.
+      let result = null;
+      let source = null;
+      if (PLATFORM_AI_API_KEY) {
+        try {
+          result = await translateListing({
+            provider: PLATFORM_AI_PROVIDER,
+            apiKey: PLATFORM_AI_API_KEY,
+            title: listing.title,
+            description: listing.description,
+            targetLangCode: targetLang,
+          });
+          source = 'ai';
+        } catch (err) {
+          console.error('[traduction IA]', err.message);
+        }
       }
-      try {
-        const result = await translateListing({
-          provider: PLATFORM_AI_PROVIDER,
-          apiKey: PLATFORM_AI_API_KEY,
+      if (!result) {
+        result = await translateListingFree({
           title: listing.title,
           description: listing.description,
+          sourceLangCode: listing.language,
           targetLangCode: targetLang,
         });
-        db.prepare('INSERT OR REPLACE INTO listing_translations (listing_id, lang_code, title, description) VALUES (?, ?, ?, ?)').run(listingId, targetLang, result.title, result.description);
-        return sendJSON(res, 200, { ...result, cached: false, same_language: false });
-      } catch (err) {
-        console.error('[traduction auto]', err.message);
-        return sendJSON(res, 200, { unavailable: true });
+        source = result ? 'free' : null;
       }
+      if (!result) return sendJSON(res, 200, { unavailable: true });
+
+      db.prepare('INSERT OR REPLACE INTO listing_translations (listing_id, lang_code, title, description) VALUES (?, ?, ?, ?)').run(listingId, targetLang, result.title, result.description);
+      return sendJSON(res, 200, { ...result, cached: false, same_language: false, source });
     }
 
     if ((m = pathname.match(/^\/api\/listings\/(\d+)\/similar$/)) && method === 'GET') {
