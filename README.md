@@ -168,6 +168,67 @@ automatiquement : les annonces de la nouvelle catégorie pour ce pays, les
 disponibles (réutilise la catégorie Emploi déjà existante) — le tout
 sans dupliquer aucune donnée.
 
+## Pied de page enrichi + politique de confidentialité
+
+Le pied de page comportait auparavant très peu de liens utiles. Il propose
+maintenant 3 colonnes, **avec uniquement ce qui existe vraiment sur
+QuickAtlas** (pas de badges App Store fictifs, pas d'"espace presse") :
+
+- **À propos** : mode d'emploi, programme de parrainage, explorer par pays
+- **Aide** : comment fonctionnent les alertes (ouvre le guide directement
+  sur la bonne section, dépliée), sécurité et confiance
+- **Informations légales** : conditions d'utilisation, politique de
+  confidentialité (nouvelle page, honnête et lisible — ce que le site
+  collecte, l'usage du stockage local sans cookies traceurs, les
+  services tiers utilisés, vos droits)
+
+Le guide "Comment fonctionnent les alertes" a aussi été enrichi de 4
+étapes concrètes et numérotées, testées de bout en bout.
+
+## Traduction automatique des annonces
+
+Jusqu'ici, une annonce restait affichée dans sa langue d'origine, quelle
+que soit la langue de la personne qui la consultait — le bouton "Traduire"
+existant nécessitait que **chaque visiteur** configure sa propre clé IA
+personnelle, ce que presque personne ne fait. Désormais :
+
+- Chaque annonce enregistre sa **langue de rédaction** (déduite de la
+  langue d'interface active au moment de la publication)
+- Si la langue de la personne qui consulte diffère, une **traduction
+  automatique s'affiche directement**, financée par une clé IA de la
+  **plateforme** (pas celle de chaque visiteur) — testé de bout en bout
+- **Mise en cache** : chaque paire (annonce, langue) n'est traduite
+  qu'une seule fois, jamais rappelée à l'IA ensuite
+- Bandeau "Traduit automatiquement" avec bouton **"Voir l'original"**,
+  testé dans les deux sens (aller-retour traduction ↔ original)
+- **Dégradation honnête** : sans clé configurée, l'annonce reste
+  simplement affichée dans sa langue d'origine, sans bandeau ni erreur
+
+### Configuration (`.env`)
+```
+PLATFORM_AI_PROVIDER=anthropic   # ou openai
+PLATFORM_AI_API_KEY=sk-...       # clé de LA PLATEFORME, jamais celle d'un visiteur
+```
+
+### ⚠️ Non testable dans l'environnement de développement
+Comme pour Stripe (Zellige) et l'API Banque mondiale, **je n'ai pas
+d'accès internet** ici — le véritable appel à l'IA n'a donc pas pu être
+vérifié en conditions réelles. Ce qui a été testé à fond : la
+dégradation propre sans clé, la mise en cache, l'affichage et la bascule
+côté interface (avec une traduction simulée directement insérée en
+base). **À confirmer une fois déployé**, avec une vraie clé API.
+
+### Deux bugs trouvés et corrigés en construisant cette fonctionnalité
+1. Une erreur de syntaxe (accolade manquante) introduite en modifiant le
+   fichier serveur — repérée immédiatement à la vérification systématique
+2. Un bug plus subtil et **préexistant**, découvert par hasard en testant :
+   `content.append(condition ? el(...) : null)` utilise la méthode native
+   du navigateur, qui convertit `null` en la **chaîne de caractères
+   "null"** plutôt que de l'ignorer — contrairement à l'assistant `el()`
+   du projet qui filtre bien ces cas. Résultat concret : le mot "null"
+   s'affichait littéralement sur la fiche annonce dans certains cas.
+   Corrigé en filtrant explicitement les valeurs nulles avant l'appel.
+
 ## Passer en production : vider le contenu de démonstration
 
 ```
