@@ -2044,3 +2044,16 @@ textarea { resize: vertical; }
 .economic-stat-label { font-size: 0.76rem; color: rgba(241,233,216,0.7); }
 .economic-stat-year { font-family: var(--font-mono); font-size: 0.68rem; color: rgba(241,233,216,0.4); }
 .economic-stats-source { font-size: 0.7rem; color: rgba(241,233,216,0.4); margin: 10px 0 0; }
+
+/* ---------- Bannière de traduction automatique ---------- */
+
+.translation-banner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: rgba(198,161,91,0.1); border: 1px solid rgba(198,161,91,0.3);
+  border-radius: 8px; padding: 8px 14px; margin: 10px 0; font-size: 0.82rem; color: rgba(241,233,216,0.8);
+}
+.translation-toggle {
+  background: none; border: none; color: var(--brass-300); text-decoration: underline;
+  cursor: pointer; font-size: 0.82rem; padding: 0; margin-left: auto;
+}
+.translation-toggle:hover { color: var(--parchment-100); }

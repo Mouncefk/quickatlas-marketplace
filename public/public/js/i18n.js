@@ -81,6 +81,7 @@ const LANGUAGE_CATALOG = [
 
 const T = {
   fr: {
+    'detail.auto_translated': 'Traduit automatiquement', 'detail.see_original': "Voir l'original", 'detail.see_translation': 'Voir la traduction',
     'nav.explore': 'Explorer', 'nav.publish': 'Publier une annonce', 'nav.mine': 'Mes annonces',
     'nav.messages': 'Messages', 'messages.eyebrow': 'MESSAGERIE', 'messages.title': 'Messages',
     'messages.select_conversation': 'Sélectionnez une conversation à gauche.',
@@ -347,6 +348,7 @@ const T = {
     'toast.listing_suspended': 'Annonce suspendue (masquée du site public).', 'toast.listing_reactivated': 'Annonce réactivée.',
   },
   en: {
+    'detail.auto_translated': 'Automatically translated', 'detail.see_original': 'See original', 'detail.see_translation': 'See translation',
     'nav.explore': 'Explore', 'nav.publish': 'Post a listing', 'nav.mine': 'My listings',
     'nav.messages': 'Messages', 'messages.eyebrow': 'MESSAGES', 'messages.title': 'Messages',
     'messages.select_conversation': 'Select a conversation on the left.',
@@ -613,6 +615,7 @@ const T = {
     'toast.listing_suspended': 'Listing suspended (hidden from the public site).', 'toast.listing_reactivated': 'Listing reactivated.',
   },
   it: {
+    'detail.auto_translated': 'Tradotto automaticamente', 'detail.see_original': "Vedi l'originale", 'detail.see_translation': 'Vedi la traduzione',
     'stats_econ.title': 'Statistiche economiche', 'stats_econ.gdp': 'PIL',
     'stats_econ.gdp_per_capita': 'PIL pro capite', 'stats_econ.gdp_growth': 'Crescita del PIL',
     'stats_econ.unemployment': 'Tasso di disoccupazione', 'stats_econ.inflation': 'Inflazione',
@@ -879,6 +882,7 @@ const T = {
     'toast.listing_suspended': 'Annuncio sospeso (nascosto dal sito pubblico).', 'toast.listing_reactivated': 'Annuncio riattivato.',
   },
   ar: {
+    'detail.auto_translated': 'مُترجَم تلقائيًا', 'detail.see_original': 'عرض النص الأصلي', 'detail.see_translation': 'عرض الترجمة',
     'nav.explore': 'استكشاف', 'nav.publish': 'نشر إعلان', 'nav.mine': 'إعلاناتي',
     'nav.messages': 'الرسائل', 'messages.eyebrow': 'الرسائل', 'messages.title': 'الرسائل',
     'messages.select_conversation': 'اختر محادثة من القائمة على اليسار.',
@@ -1145,6 +1149,7 @@ const T = {
     'toast.listing_suspended': 'تم تعليق الإعلان (مخفي عن الموقع العام).', 'toast.listing_reactivated': 'تمت إعادة تنشيط الإعلان.',
   },
   es: {
+    'detail.auto_translated': 'Traducido automáticamente', 'detail.see_original': 'Ver original', 'detail.see_translation': 'Ver traducción',
     'nav.explore': 'Explorar', 'nav.publish': 'Publicar anuncio', 'nav.mine': 'Mis anuncios',
     'nav.messages': 'Mensajes', 'messages.eyebrow': 'MENSAJERÍA', 'messages.title': 'Mensajes',
     'messages.select_conversation': 'Seleccione una conversación a la izquierda.',
@@ -1411,6 +1416,7 @@ const T = {
     'toast.listing_suspended': 'Anuncio suspendido (oculto del sitio público).', 'toast.listing_reactivated': 'Anuncio reactivado.',
   },
   pt: {
+    'detail.auto_translated': 'Traduzido automaticamente', 'detail.see_original': 'Ver original', 'detail.see_translation': 'Ver tradução',
     'nav.explore': 'Explorar', 'nav.publish': 'Publicar anúncio', 'nav.mine': 'Meus anúncios',
     'nav.messages': 'Mensagens', 'messages.eyebrow': 'MENSAGENS', 'messages.title': 'Mensagens',
     'messages.select_conversation': 'Selecione uma conversa à esquerda.',
