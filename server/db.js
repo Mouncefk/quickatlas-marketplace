@@ -30,6 +30,16 @@ db.exec(`
     referred_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     free_boost_credits INTEGER NOT NULL DEFAULT 0,
     google_sub TEXT UNIQUE,
+    -- Compte professionnel (annonceur) : logo mis en avant sur ses
+    -- annonces, palier de visibilité qui progresse avec le nombre
+    -- d'annonces publiées. Le site web est optionnel — s'il correspond
+    -- au domaine de l'email, un badge "Domaine vérifié" s'affiche
+    -- (signal de confiance honnête, jamais un blocage à l'inscription).
+    is_professional INTEGER NOT NULL DEFAULT 0,
+    company_name TEXT,
+    company_logo_url TEXT,
+    company_website TEXT,
+    pro_tier TEXT NOT NULL DEFAULT 'nouveau' CHECK (pro_tier IN ('nouveau','actif','confirme','expert')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -88,6 +98,10 @@ db.exec(`
     price REAL,
     currency TEXT NOT NULL DEFAULT 'EUR',
     images_json TEXT NOT NULL DEFAULT '[]',
+    -- Langue dans laquelle l'annonce a été rédigée (déduite de la langue
+    -- d'interface active au moment de la publication) — sert de base à
+    -- la traduction automatique pour les visiteurs d'une autre langue.
+    language TEXT NOT NULL DEFAULT 'fr',
     status TEXT NOT NULL DEFAULT 'active',
     view_count INTEGER NOT NULL DEFAULT 0,
     expires_at TEXT NOT NULL DEFAULT (datetime('now', '+60 days')),
@@ -178,6 +192,19 @@ db.exec(`
     expires_at TEXT NOT NULL,
     used_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Cache des traductions automatiques d'annonces (financées par la
+  -- plateforme, pas par une clé personnelle) — chaque paire
+  -- (annonce, langue) n'est traduite qu'une seule fois, jamais rappelée
+  -- à l'IA ensuite.
+  CREATE TABLE IF NOT EXISTS listing_translations (
+    listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    lang_code TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (listing_id, lang_code)
   );
 
   CREATE TABLE IF NOT EXISTS reports (

@@ -7,7 +7,7 @@
 // clé stockée, appelle le fournisseur, et ne renvoie que le texte traduit.
 
 const LANG_NAMES = {
-  fr: 'français', en: 'anglais', ar: 'arabe', es: 'espagnol', pt: 'portugais',
+  fr: 'français', en: 'anglais', ar: 'arabe', es: 'espagnol', pt: 'portugais', it: 'italien',
 };
 
 function buildPrompt(title, description, targetLangCode) {

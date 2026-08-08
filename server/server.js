@@ -8,12 +8,20 @@ import { db, DATA_DIR } from './db.js';
 import { hashPassword, verifyPassword, signToken, verifyToken, generateRawToken, hashRawToken, passwordIssues, encryptApiKey, decryptApiKey } from './auth.js';
 import { sendMail } from './mailer.js';
 import { translateListing, draftListing, analyzeFraudRisk } from './ai.js';
+import { translateListingFree } from './free-translate.js';
 import crypto from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const PORT = process.env.PORT || 3000;
 const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
+// Clé IA financée par la plateforme (pas par chaque utilisateur·rice) —
+// permet la traduction automatique des annonces pour tout le monde,
+// sans que chaque visiteur ait besoin de configurer sa propre clé.
+// Sans cette variable, la traduction automatique reste simplement
+// désactivée (repli honnête, comme Stripe sur Zellige).
+const PLATFORM_AI_PROVIDER = process.env.PLATFORM_AI_PROVIDER || 'anthropic';
+const PLATFORM_AI_API_KEY = process.env.PLATFORM_AI_API_KEY || null;
 
 // ---------- SEO : URLs propres, balises méta par page, sitemap ----------
 // L'application reste une SPA (une seule page HTML, JS côté client) —
@@ -116,7 +124,7 @@ function getAuthUser(req) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   const payload = verifyToken(token);
   if (!payload) return null;
-  return db.prepare('SELECT id, name, email, role, email_verified_at, phone, referral_code, free_boost_credits, created_at FROM users WHERE id = ?').get(payload.sub) || null;
+  return db.prepare('SELECT id, name, email, role, email_verified_at, phone, referral_code, free_boost_credits, is_professional, company_name, company_logo_url, company_website, pro_tier, created_at FROM users WHERE id = ?').get(payload.sub) || null;
 }
 
 function requireAuth(req, res) {
@@ -263,6 +271,56 @@ function isValidEmail(email) {
 
 function generateReferralCode() {
   return crypto.randomBytes(4).toString('hex').toUpperCase();
+}
+
+// ---------- Comptes professionnels : paliers de visibilité ----------
+// Plus un compte pro publie d'annonces, plus il monte de palier — chaque
+// palier franchi offre une mise en avant gratuite (réutilise le système
+// de crédits déjà en place pour le parrainage), et affiche un badge
+// visible sur ses annonces.
+const PRO_TIERS = [
+  { key: 'expert', threshold: 30 },
+  { key: 'confirme', threshold: 15 },
+  { key: 'actif', threshold: 5 },
+  { key: 'nouveau', threshold: 0 },
+];
+const TIER_ORDER = { nouveau: 0, actif: 1, confirme: 2, expert: 3 };
+
+function computeProTier(listingCount) {
+  for (const t of PRO_TIERS) {
+    if (listingCount >= t.threshold) return t.key;
+  }
+  return 'nouveau';
+}
+
+/** Vérifie si le site web renseigné partage le même domaine que l'email
+ * du compte — signal de confiance honnête, jamais un blocage à
+ * l'inscription (voir la discussion sur les emails "professionnels"). */
+function isDomainVerified(email, website) {
+  if (!website || !email) return false;
+  try {
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+    const websiteDomain = new URL(website.startsWith('http') ? website : `https://${website}`).hostname.replace(/^www\./, '').toLowerCase();
+    return !!emailDomain && emailDomain === websiteDomain;
+  } catch {
+    return false;
+  }
+}
+
+/** Recalcule le palier d'un compte pro après une nouvelle publication —
+ * si le palier progresse, offre automatiquement 1 crédit de mise en
+ * avant. Renvoie le nouveau palier si une progression a eu lieu, sinon
+ * null (silencieux, pas de fausse notification à chaque annonce). */
+function checkAndAwardTierBonus(userId) {
+  const user = db.prepare('SELECT pro_tier, is_professional FROM users WHERE id = ?').get(userId);
+  if (!user || !user.is_professional) return null;
+  const listingCount = db.prepare('SELECT COUNT(*) AS c FROM listings WHERE user_id = ?').get(userId).c;
+  const newTier = computeProTier(listingCount);
+  if (TIER_ORDER[newTier] > TIER_ORDER[user.pro_tier]) {
+    db.prepare('UPDATE users SET pro_tier = ?, free_boost_credits = free_boost_credits + 1 WHERE id = ?').run(newTier, userId);
+    return newTier;
+  }
+  return null;
 }
 
 function sortClause(sort) {
@@ -557,7 +615,7 @@ const server = http.createServer(async (req, res) => {
   try {
     // --- Auth ---
     if (pathname === '/api/auth/register' && method === 'POST') {
-      const { name, email, password, terms_accepted, referral_code } = await readBody(req);
+      const { name, email, password, terms_accepted, referral_code, is_professional, company_name, company_website } = await readBody(req);
       if (!name || !isValidEmail(email)) {
         return sendJSON(res, 400, { error: 'Nom et email valide requis.' });
       }
@@ -568,6 +626,9 @@ const server = http.createServer(async (req, res) => {
       if (!terms_accepted) {
         return sendJSON(res, 400, { error: "Vous devez accepter la charte de la communauté et les conditions d'utilisation." });
       }
+      if (is_professional && (!company_name || !company_name.trim())) {
+        return sendJSON(res, 400, { error: "Le nom de l'entreprise est requis pour un compte professionnel." });
+      }
       const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
       if (existing) return sendJSON(res, 409, { error: 'Un compte existe déjà avec cet email.' });
       const { salt, hash } = hashPassword(password);
@@ -576,9 +637,13 @@ const server = http.createServer(async (req, res) => {
       if (referral_code) referrer = db.prepare('SELECT id FROM users WHERE referral_code = ?').get(referral_code.trim().toUpperCase());
       const id = db
         .prepare(
-          "INSERT INTO users (name, email, password_hash, password_salt, terms_accepted_at, referral_code, referred_by_user_id) VALUES (?, ?, ?, ?, datetime('now'), ?, ?)"
+          `INSERT INTO users (name, email, password_hash, password_salt, terms_accepted_at, referral_code, referred_by_user_id, is_professional, company_name, company_website)
+           VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?)`
         )
-        .run(name.trim(), email.toLowerCase(), hash, salt, myReferralCode, referrer ? referrer.id : null).lastInsertRowid;
+        .run(
+          name.trim(), email.toLowerCase(), hash, salt, myReferralCode, referrer ? referrer.id : null,
+          is_professional ? 1 : 0, is_professional ? company_name.trim() : null, is_professional ? (company_website || '').trim() || null : null
+        ).lastInsertRowid;
       if (referrer) {
         db.prepare('UPDATE users SET free_boost_credits = free_boost_credits + 1 WHERE id = ?').run(referrer.id);
       }
@@ -586,7 +651,7 @@ const server = http.createServer(async (req, res) => {
 
       await sendVerificationEmail(id, name.trim(), email.toLowerCase());
 
-      return sendJSON(res, 201, { token, user: { id, name, email: email.toLowerCase(), role: 'user', email_verified: false, referral_code: myReferralCode, free_boost_credits: 0, phone: null } });
+      return sendJSON(res, 201, { token, user: { id, name, email: email.toLowerCase(), role: 'user', email_verified: false, referral_code: myReferralCode, free_boost_credits: 0, phone: null, is_professional: !!is_professional, company_name: is_professional ? company_name.trim() : null } });
     }
 
     if (pathname === '/api/auth/login' && method === 'POST') {
@@ -612,14 +677,38 @@ const server = http.createServer(async (req, res) => {
       const token = signToken({ sub: user.id });
       return sendJSON(res, 200, {
         token,
-        user: { id: user.id, name: user.name, email: user.email, role: user.role, email_verified: !!user.email_verified_at, phone: user.phone, referral_code: user.referral_code, free_boost_credits: user.free_boost_credits },
+        user: {
+          id: user.id, name: user.name, email: user.email, role: user.role, email_verified: !!user.email_verified_at,
+          phone: user.phone, referral_code: user.referral_code, free_boost_credits: user.free_boost_credits,
+          is_professional: !!user.is_professional, company_name: user.company_name, company_logo_url: user.company_logo_url,
+          company_website: user.company_website, pro_tier: user.pro_tier, domain_verified: isDomainVerified(user.email, user.company_website),
+        },
       });
     }
 
     if (pathname === '/api/auth/me' && method === 'GET') {
       const user = requireAuth(req, res);
       if (!user) return;
-      return sendJSON(res, 200, { user: { ...user, email_verified: !!user.email_verified_at } });
+      return sendJSON(res, 200, { user: { ...user, email_verified: !!user.email_verified_at, domain_verified: isDomainVerified(user.email, user.company_website) } });
+    }
+
+    if (pathname === '/api/me/professional-profile' && method === 'PUT') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const { is_professional, company_name, company_website, company_logo_url } = await readBody(req);
+      if (is_professional && (!company_name || !company_name.trim())) {
+        return sendJSON(res, 400, { error: "Le nom de l'entreprise est requis." });
+      }
+      db.prepare(
+        `UPDATE users SET is_professional = ?, company_name = ?, company_website = ?, company_logo_url = ? WHERE id = ?`
+      ).run(
+        is_professional ? 1 : 0,
+        is_professional ? company_name.trim() : null,
+        is_professional ? (company_website || '').trim() || null : null,
+        is_professional ? (company_logo_url || user.company_logo_url || null) : null,
+        user.id
+      );
+      return sendJSON(res, 200, { ok: true });
     }
 
     if (pathname === '/api/me/phone' && method === 'PUT') {
@@ -951,12 +1040,14 @@ const server = http.createServer(async (req, res) => {
         SELECT l.id, l.title, l.description, l.listing_type, l.price, l.currency, l.images_json, l.created_at, l.boosted_until,
                cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-               ci.name AS city_name, ci.timezone AS city_timezone, co.name AS country_name, co.currency AS country_currency
+               ci.name AS city_name, ci.timezone AS city_timezone, co.name AS country_name, co.currency AS country_currency,
+               u.is_professional, u.company_name, u.company_logo_url, u.pro_tier
         FROM listings l
         JOIN categories cat ON cat.id = l.category_id
         LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
         JOIN cities ci ON ci.id = l.city_id
         JOIN countries co ON co.id = ci.country_id
+        JOIN users u ON u.id = l.user_id
         WHERE l.status = 'active' AND l.expires_at > datetime('now')
       `;
       const params = [];
@@ -994,12 +1085,14 @@ const server = http.createServer(async (req, res) => {
         SELECT l.id, l.title, l.description, l.listing_type, l.price, l.currency, l.images_json, l.created_at, l.boosted_until,
                cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-               ci.name AS city_name, ci.timezone AS city_timezone, co.name AS country_name, co.currency AS country_currency
+               ci.name AS city_name, ci.timezone AS city_timezone, co.name AS country_name, co.currency AS country_currency,
+               u.is_professional, u.company_name, u.company_logo_url, u.pro_tier
         FROM listings l
         JOIN categories cat ON cat.id = l.category_id
         LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
         JOIN cities ci ON ci.id = l.city_id
         JOIN countries co ON co.id = ci.country_id
+        JOIN users u ON u.id = l.user_id
         WHERE l.city_id = ? AND l.status = 'active' AND l.expires_at > datetime('now')
       `;
       const params = [cityId];
@@ -1030,7 +1123,7 @@ const server = http.createServer(async (req, res) => {
       if (!user) return;
       if (!requireVerifiedEmail(user, res)) return;
       const body = await readBody(req);
-      const { title, description, listing_type, price, currency, city_id, category_id, subcategory_id, images, open_to_trade, trade_description } = body;
+      const { title, description, listing_type, price, currency, city_id, category_id, subcategory_id, images, open_to_trade, trade_description, language } = body;
       const VALID_TYPES = ['vente', 'location', 'achat', 'offre_emploi', 'demande_emploi'];
       if (!title || !listing_type || !VALID_TYPES.includes(listing_type)) {
         return sendJSON(res, 400, { error: "Titre et type d'annonce valide requis." });
@@ -1056,12 +1149,13 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, 400, { error: 'Merci de préciser la nature exacte de l\'annonce (sous-catégorie).' });
       }
       const imagesJson = JSON.stringify(Array.isArray(images) ? images.filter(Boolean).slice(0, 6) : []);
+      const listingLang = ['fr', 'en', 'ar', 'es', 'pt', 'it'].includes(language) ? language : 'fr';
       const id = db
         .prepare(
-          `INSERT INTO listings (user_id, city_id, category_id, subcategory_id, title, description, listing_type, price, currency, images_json, open_to_trade, trade_description)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO listings (user_id, city_id, category_id, subcategory_id, title, description, listing_type, price, currency, images_json, open_to_trade, trade_description, language)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
-        .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null)
+        .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null, listingLang)
         .lastInsertRowid;
       const risk = computeFraudRisk({ price: finalPrice, currency: currency || 'EUR', description: (description || '').trim(), images, subcategoryId, userId: user.id });
       if (risk.score > 0) {
@@ -1070,7 +1164,8 @@ const server = http.createServer(async (req, res) => {
       notifySavedSearchMatches({ id, title: title.trim(), description: (description || '').trim(), city_id: Number(city_id), category_id: Number(category_id), subcategory_id: subcategoryId, listing_type, user_id: user.id }).catch((err) =>
         console.error('[alertes] échec de la notification des recherches sauvegardées :', err.message)
       );
-      return sendJSON(res, 201, { id });
+      const tierUp = checkAndAwardTierBonus(user.id);
+      return sendJSON(res, 201, { id, tier_up: tierUp });
     }
 
     if ((m = pathname.match(/^\/api\/listings\/(\d+)$/)) && method === 'GET') {
@@ -1080,6 +1175,9 @@ const server = http.createServer(async (req, res) => {
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   ci.name AS city_name, ci.timezone AS city_timezone, co.name AS country_name, co.currency AS country_currency,
                   u.name AS owner_name, u.email_verified_at AS owner_verified_at, u.phone AS owner_phone,
+                  u.is_professional AS owner_is_professional, u.company_name AS owner_company_name,
+                  u.company_logo_url AS owner_company_logo_url, u.company_website AS owner_company_website,
+                  u.pro_tier AS owner_pro_tier, u.email AS owner_email,
                   (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.seller_id = l.user_id) AS owner_avg_rating,
                   (SELECT COUNT(*) FROM reviews r WHERE r.seller_id = l.user_id) AS owner_review_count
            FROM listings l
@@ -1096,11 +1194,70 @@ const server = http.createServer(async (req, res) => {
       row.view_count = row.view_count + 1;
       row.images = JSON.parse(row.images_json);
       row.owner_verified = !!row.owner_verified_at;
+      row.owner_domain_verified = isDomainVerified(row.owner_email, row.owner_company_website);
+      delete row.owner_email;
       const currentUser = getAuthUser(req);
       row.is_favorited = currentUser
         ? !!db.prepare('SELECT 1 FROM favorites WHERE user_id = ? AND listing_id = ?').get(currentUser.id, row.id)
         : false;
       return sendJSON(res, 200, row);
+    }
+
+    // ---------- Traduction automatique d'annonce (financée par la plateforme) ----------
+    // Contrairement à /api/ai/translate-listing (qui utilise la clé
+    // personnelle de qui consulte), cette route traduit avec la clé de la
+    // plateforme si elle est configurée — accessible à tout le monde,
+    // sans compte ni clé personnelle. Chaque paire (annonce, langue) n'est
+    // traduite qu'une seule fois, grâce au cache.
+    if ((m = pathname.match(/^\/api\/listings\/(\d+)\/translation$/)) && method === 'GET') {
+      const listingId = Number(m[1]);
+      const targetLang = url.searchParams.get('lang');
+      const validLangs = ['fr', 'en', 'ar', 'es', 'pt', 'it'];
+      if (!validLangs.includes(targetLang)) return sendJSON(res, 400, { error: 'Langue cible invalide.' });
+
+      const listing = db.prepare('SELECT title, description, language FROM listings WHERE id = ?').get(listingId);
+      if (!listing) return sendJSON(res, 404, { error: 'Annonce introuvable.' });
+
+      // Pas la peine de traduire si l'annonce est déjà dans la langue demandée.
+      if (listing.language === targetLang) {
+        return sendJSON(res, 200, { title: listing.title, description: listing.description, cached: true, same_language: true });
+      }
+
+      const cached = db.prepare('SELECT title, description FROM listing_translations WHERE listing_id = ? AND lang_code = ?').get(listingId, targetLang);
+      if (cached) return sendJSON(res, 200, { ...cached, cached: true, same_language: false });
+
+      // Priorité à la traduction gratuite (aucune configuration requise) ;
+      // l'IA de plateforme, si configurée, prend le relais pour une
+      // meilleure qualité.
+      let result = null;
+      let source = null;
+      if (PLATFORM_AI_API_KEY) {
+        try {
+          result = await translateListing({
+            provider: PLATFORM_AI_PROVIDER,
+            apiKey: PLATFORM_AI_API_KEY,
+            title: listing.title,
+            description: listing.description,
+            targetLangCode: targetLang,
+          });
+          source = 'ai';
+        } catch (err) {
+          console.error('[traduction IA]', err.message);
+        }
+      }
+      if (!result) {
+        result = await translateListingFree({
+          title: listing.title,
+          description: listing.description,
+          sourceLangCode: listing.language,
+          targetLangCode: targetLang,
+        });
+        source = result ? 'free' : null;
+      }
+      if (!result) return sendJSON(res, 200, { unavailable: true });
+
+      db.prepare('INSERT OR REPLACE INTO listing_translations (listing_id, lang_code, title, description) VALUES (?, ?, ?, ?)').run(listingId, targetLang, result.title, result.description);
+      return sendJSON(res, 200, { ...result, cached: false, same_language: false, source });
     }
 
     if ((m = pathname.match(/^\/api\/listings\/(\d+)\/similar$/)) && method === 'GET') {
