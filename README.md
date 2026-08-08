@@ -22,19 +22,17 @@ natifs de Node.js :
 
 ## Couverture mondiale
 
-QuickAtlas référence désormais **195 pays** (quasiment tous les États reconnus).
-Pour équilibrer largeur et profondeur :
+QuickAtlas référence désormais **195 pays** (quasiment tous les États reconnus)
+et **620 villes** au total. Pour équilibrer largeur et profondeur :
 - Les **15 pays d'origine** (France, Maroc, États-Unis, Espagne, Italie,
   Allemagne, Royaume-Uni, Canada, Japon, Brésil, Émirats arabes unis,
   Sénégal, Portugal, Égypte, Mexique) restent les plus détaillés : 6 à 8
   grandes villes chacun, et pour 6 d'entre eux une division par état/province.
-- Les **180 pays ajoutés** sont référencés avec leur capitale (et une
-  seconde grande ville pour une vingtaine de pays étendus ou multi-fuseaux :
-  Russie, Chine, Inde, Indonésie, Australie, Turquie, Pakistan, Argentine,
-  Colombie, Corée du Sud, Vietnam, Thaïlande, Arabie saoudite, Israël,
-  Kenya, Nigeria, Philippines, Suisse, Nouvelle-Zélande…), chacun avec sa
-  devise locale et son fuseau horaire — mais sans détail par état/province
-  ni annonces de démonstration.
+- **Tous les 180 autres pays** disposent désormais eux aussi de 2 à 6 villes
+  chacun (au lieu d'une seule capitale) — seuls 12 micro-états gardent une
+  seule ville (Vatican, Singapour, et quelques nations insulaires du
+  Pacifique), chacun avec sa devise locale et son fuseau horaire — mais sans
+  détail par état/province ni annonces de démonstration.
 
 Ces 180 pays sont pleinement fonctionnels : navigables sur la carte,
 recherchables, et n'importe qui peut y publier une annonce dès aujourd'hui.
@@ -117,8 +115,9 @@ Administration → Emails, avec le lien à copier-coller manuellement si besoin.
 
 Le formulaire de publication permet désormais d'envoyer une photo directement
 depuis son appareil (JPEG/PNG/WEBP/GIF, 5 Mo max), avec aperçu avant envoi.
-Les fichiers sont stockés dans `public/uploads/`. Le champ "image (URL)"
-reste disponible en alternative.
+Les fichiers sont stockés dans `data/uploads/` (voir la section "Prêt pour
+le déploiement" plus bas — regroupé avec la base de données pour survivre
+aux redéploiements). Le champ "image (URL)" reste disponible en alternative.
 
 ## Italien : 6ᵉ langue pleinement traduite
 
@@ -184,6 +183,60 @@ QuickAtlas** (pas de badges App Store fictifs, pas d'"espace presse") :
 
 Le guide "Comment fonctionnent les alertes" a aussi été enrichi de 4
 étapes concrètes et numérotées, testées de bout en bout.
+
+## Suite à un audit externe (autre IA) : 3 correctifs de sécurité/conformité
+
+Un audit technique mené par une autre IA a été vérifié point par point
+contre le vrai code avant d'appliquer quoi que ce soit — certaines de
+ses observations étaient déjà couvertes (limitation de débit sur la
+connexion, protection XSS par construction du DOM), d'autres non
+applicables telles quelles (mise en cache des taux de change : ils sont
+récupérés directement par le navigateur, pas par le serveur). Les 3
+points suivants étaient de vrais manques, corrigés et testés :
+
+### 1. En-têtes de sécurité HTTP
+`Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`,
+`Referrer-Policy` — ajoutés sur toutes les réponses. Testé : le site
+continue de fonctionner normalement (carte, connexion, navigation) avec
+ces en-têtes actifs. Note assumée : `style-src` inclut `'unsafe-inline'`
+car le code utilise des styles inline un peu partout — `script-src`
+reste strict (aucun script inline nulle part).
+
+### 2. Pagination réelle des résultats de recherche
+Avant : une limite fixe de 60 résultats, sans moyen d'en voir plus.
+Maintenant : bouton "Charger plus de résultats", testé avec plus de 60
+annonces (60 → clic → 69, bouton qui se cache une fois tout chargé).
+
+**Un bug trouvé et corrigé en testant** : le bouton utilisait un style
+inline `display:block`, qui annule le comportement natif de l'attribut
+`hidden` (les styles en ligne ont toujours priorité) — le bouton restait
+visuellement affiché même une fois cette valeur mise à `hidden=true`.
+Corrigé avec une vraie classe CSS.
+
+### 3. Suppression de compte (droit à l'oubli, RGPD)
+Nouveau bouton "Supprimer mon compte" (page Passeport), avec
+confirmation par mot de passe + saisie exacte de "SUPPRIMER". Supprime
+réellement toutes les données associées (annonces, messages, avis,
+favoris, recherches enregistrées, événements) — **testé avec un compte
+ayant une annonce ET un favori posé par un autre compte**, tout
+disparaît, les autres comptes restent intacts.
+
+**Découverte importante en construisant cette fonctionnalité** : les
+clés étrangères (`PRAGMA foreign_keys`) ne sont **jamais activées** dans
+cette base SQLite — tous les `ON DELETE CASCADE` du schéma sont donc
+décoratifs et n'agissent pas réellement. La suppression de compte a été
+construite en tenant compte de ça (nettoyage manuel table par table,
+vérifié exhaustivement par test). Activer cette option globalement
+apporterait une vraie garantie d'intégrité mais nécessiterait de
+retester tous les chemins d'écriture du site — à envisager comme
+chantier séparé, pas fait dans l'urgence ici.
+
+**Un second bug trouvé et corrigé** : un mot de passe incorrect sur
+cette action renvoyait un code 401, que la fonction `api()` du site
+interprète globalement comme "session expirée" — la personne se
+retrouvait déconnectée et la modale de connexion s'ouvrait par-dessus
+la modale de suppression, bloquant tout. Corrigé en utilisant le code
+403, plus juste sémantiquement (authentifié, mais action refusée).
 
 ## Comptes professionnels (annonceurs)
 
@@ -509,30 +562,10 @@ le même principe : `server/ai.js` centralise les appels aux fournisseurs.
   notes en vrac — toujours avec la clé personnelle de l'utilisateur, sur le
   même principe que la traduction.
 
-## Fiche pays enrichie — 30 pays couverts
-
-Après les 15 pays phares, un second lot de 15 grandes économies a été ajouté :
-Chine, Inde, Russie, Australie, Afrique du Sud, Nigeria, Argentine, Pays-Bas,
-Suisse, Belgique, Suède, Turquie, Arabie saoudite, Indonésie, Corée du Sud.
-Même structure et même ton factuel que le premier lot (voir plus haut).
-
 ## Fiche pays enrichie — 60 pays couverts
 
-Après les 3 premiers lots (45 pays), un 4ᵉ lot de 15 pays a été ajouté :
-Ukraine, Roumanie, République tchèque, Hongrie, Autriche, Irlande, Danemark,
-Norvège, Finlande, Nouvelle-Zélande, Singapour, Pakistan, Bangladesh,
-Éthiopie, Ghana. Détail des 3 premiers lots (45 pays) :
-France, Maroc, États-Unis, Espagne, Italie, Allemagne, Royaume-Uni, Canada,
-Japon, Brésil, Émirats arabes unis, Sénégal, Portugal, Égypte, Mexique,
-Chine, Inde, Russie, Australie, Afrique du Sud, Nigeria, Argentine,
-Pays-Bas, Suisse, Belgique, Suède, Turquie, Arabie saoudite, Indonésie,
-Corée du Sud, Pologne, Grèce, Israël, Qatar, Vietnam, Thaïlande, Malaisie,
-Philippines, Colombie, Chili, Pérou, Kenya, Algérie, Tunisie, Côte d'Ivoire.
-
-## Fiche pays enrichie (15 pays phares)
-
-Pour les 15 pays les plus détaillés d'QuickAtlas, la fiche pays s'ouvre désormais
-sur une section « En savoir plus » à onglets :
+Pour 60 pays (les plus représentés parmi les 195 référencés), la fiche
+pays s'ouvre sur une section « En savoir plus » à onglets :
 - 💼 **Climat des affaires** (secteurs économiques, cadre légal — factuel,
   sans notation ni jugement)
 - 🤝 **Culture** (usages sociaux et professionnels)
@@ -544,7 +577,7 @@ Un avertissement rappelle systématiquement que ces informations sont
 générales et non exhaustives — à vérifier auprès d'une source officielle
 avant toute décision d'affaires ou de voyage réelle.
 
-Pour les 180 autres pays, un message « Contenu détaillé bientôt disponible »
+Pour les 135 autres pays, un message « Contenu détaillé bientôt disponible »
 s'affiche à la place — le contenu est dans `server/country-profiles.js`,
 prêt à être étendu pays par pays (structure simple : `business_climate`,
 `culture`, `gastronomy`, `practical_tips`, `holidays`).
@@ -620,14 +653,14 @@ npm run make-admin -- votre@email.com --revoke
 
 ## Couverture géographique
 
-QuickAtlas référence désormais **195 pays** (couverture quasi mondiale) :
+QuickAtlas référence désormais **195 pays** (couverture quasi mondiale) et
+**620 villes** au total :
 - Les **15 pays d'origine** restent les plus détaillés : 6 à 8 grandes villes
   chacun, et pour 6 d'entre eux (États-Unis, Canada, Allemagne, Brésil,
   Émirats arabes unis, Mexique) un découpage complet par état/province.
-- Les **180 autres pays** sont référencés avec leur capitale (et une ou
-  deux grandes villes supplémentaires pour les plus vastes — ex. la Russie
-  avec Moscou, Saint-Pétersbourg et Vladivostok sur trois fuseaux horaires
-  différents), leur devise locale et le fuseau horaire exact de chaque ville.
+- **Tous les 180 autres pays** disposent désormais eux aussi de 2 à 6 villes
+  chacune (au lieu d'une seule capitale comme au tout début du projet),
+  leur devise locale et le fuseau horaire exact de chaque ville.
   Ils sont cliquables sur la carte, cherchables et utilisables pour publier
   une annonce, mais avec moins de villes détaillées que les 15 premiers.
 
@@ -650,16 +683,17 @@ Le salaire est optionnel — une annonce peut afficher « Salaire à négocier �
 ## Langues
 
 Le site est multilingue. Le sélecteur en haut à droite propose :
-- **5 langues intégralement traduites** : Français, English, العربية (avec
-  bascule automatique de la mise en page en RTL), Español, Português — ces
-  langues couvrent les langues officielles de la grande majorité des pays
-  les plus représentés parmi les 195 référencés.
+- **6 langues intégralement traduites** : Français, English, العربية (avec
+  bascule automatique de la mise en page en RTL), Español, Português, Italiano
+  — ces langues couvrent les langues officielles de la grande majorité des
+  pays les plus représentés parmi les 195 référencés.
 - **Un large éventail d'autres langues et dialectes officiels par pays**
   (tamazight et darija pour le Maroc, wolof pour le Sénégal, catalan/basque/
   galicien pour l'Espagne, gallois/gaélique écossais pour le Royaume-Uni,
-  allemand, italien, japonais, náhuatl/maya pour le Mexique, etc.). Tant que
-  leur traduction complète n'est pas disponible, le site bascule automatiquement
-  vers la langue pleinement traduite la plus proche, **avec un message affiché
+  allemand, japonais, náhuatl/maya pour le Mexique, etc. — 54 langues au
+  total dans le catalogue, dont 48 en bêta). Tant que leur traduction
+  complète n'est pas disponible, le site bascule automatiquement vers la
+  langue pleinement traduite la plus proche, **avec un message affiché
   clairement** à l'utilisateur plutôt qu'un changement silencieux.
 
 Architecture : tout le texte traduit vit dans `public/js/i18n.js` (un objet
@@ -839,7 +873,7 @@ La sous-catégorie s'adapte automatiquement à la catégorie choisie, aussi bien
 
 ```bash
 node --version        # doit être >= 22.5.0
-npm run seed           # crée data/atlas.db et le peuple (195 pays, ~300 villes, annonces de démo)
+npm run seed           # crée data/atlas.db et le peuple (195 pays, 620 villes, 12 catégories, annonces de démo)
 npm start               # démarre le serveur sur http://localhost:3000
 ```
 
@@ -900,16 +934,14 @@ en ligne, plusieurs options simples :
   scaler horizontalement).
 
 Autres limites à connaître :
-- **Images** : les annonces utilisent une URL d'image externe (pas d'upload de
-  fichier depuis le poste de l'utilisateur). Ajouter un vrai upload demande un
-  stockage (disque, S3…) — non inclus ici pour rester sans dépendance.
-- **Pays/villes** : 195 pays sont référencés (voir « Couverture mondiale »),
-  mais seuls les 15 pays d'origine ont plusieurs villes détaillées et des
-  annonces de démonstration. Ajouter des villes à un pays se fait aujourd'hui
-  directement dans `server/seed.js` ; il n'y a pas encore d'interface
-  d'administration pour ça.
-- **Modération, messagerie entre utilisateurs, paiement en ligne** : non
-  implémentés. Ce sont les extensions naturelles si vous voulez aller plus loin.
+- **Pays/villes** : 195 pays et 620 villes sont référencés (voir « Couverture
+  mondiale »), mais seuls les 15 pays d'origine ont des annonces de
+  démonstration. Ajouter des villes à un pays se fait aujourd'hui directement
+  dans `server/seed.js` ; il n'y a pas encore d'interface d'administration
+  pour ça.
+- **Paiement en ligne** : non implémenté (les transactions se négocient entre
+  acheteur·se et vendeur·se, comme sur une petite annonce classique — voir
+  aussi le système d'offres en argent ou en échange déjà en place).
 - Le module `node:sqlite` est encore marqué *expérimental* par Node.js (stable
   dans son usage mais l'API peut changer dans de futures versions de Node).
 
