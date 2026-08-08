@@ -1324,6 +1324,26 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+/** Envoie un fichier image à l'API d'upload et renvoie son URL —
+ * factorisée pour être réutilisée par le formulaire de publication et
+ * par l'upload de logo professionnel. */
+async function uploadImageFile(file) {
+  if (file.size > 5_000_000) throw new Error(i18n.t('upload.too_large'));
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const res = await api('/uploads', { method: 'POST', body: JSON.stringify({ data: base64, mime: file.type }) });
+  return res.url;
+}
+
+function proBadge(tier) {
+  if (!tier) return null;
+  return el('span', { class: `pro-badge pro-badge--${tier}` }, `⭐ ${i18n.t(`pro.tier_${tier}`)}`);
+}
+
 function renderListingCard(l) {
   const img = (l.images && l.images[0]) || '';
   const natureLabel = l.subcategory_name ? `${l.category_icon} ${l.subcategory_name}` : `${l.category_icon} ${l.category_name}`;
@@ -1339,6 +1359,11 @@ function renderListingCard(l) {
     el('div', { class: 'card-body' }, [
       el('span', { class: `card-tag ${(l.listing_type === 'location' || l.listing_type === 'demande_emploi') ? 'card-tag--location' : ''} ${l.listing_type === 'achat' ? 'card-tag--achat' : ''}` }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
       el('h3', { class: 'card-title' }, l.title),
+      l.is_professional ? el('div', { style: 'margin:4px 0;' }, [
+        l.company_logo_url ? el('img', { class: 'company-logo', src: l.company_logo_url, alt: l.company_name || '' }) : null,
+        el('span', { style: 'font-size:0.78rem;color:var(--brass-300);font-weight:600;' }, l.company_name || ''),
+        proBadge(l.pro_tier),
+      ]) : null,
       el('span', { class: 'card-place' }, `${l.city_name}${l.country_name ? ', ' + l.country_name : ''}`),
       el('span', { class: 'card-price' }, priceLabel(l)),
     ]),
@@ -1578,6 +1603,73 @@ async function loadPassport() {
   const referralLink = `${window.location.origin}/?ref=${state.user.referral_code || ''}`;
   document.getElementById('referralLinkInput').value = referralLink;
   document.getElementById('referralCreditsText').textContent = i18n.t('passport.credits_balance', { count: state.user.free_boost_credits || 0 });
+  renderProProfile();
+}
+
+function renderProProfile() {
+  const box = document.getElementById('proProfileContent');
+  box.innerHTML = '';
+  const u = state.user;
+
+  if (!u.is_professional) {
+    box.append(
+      el('button', { class: 'btn btn--primary btn--small', onclick: () => renderProProfileForm(box, {}) }, i18n.t('pro.become_professional'))
+    );
+    return;
+  }
+
+  const tierRow = el('div', { style: 'display:flex;gap:10px;align-items:center;margin:10px 0;' }, [
+    u.company_logo_url ? el('img', { class: 'company-logo-detail', src: u.company_logo_url, alt: u.company_name || '' }) : null,
+    el('div', {}, [
+      el('div', { style: 'font-weight:700;font-size:1.05rem;' }, u.company_name),
+      el('div', { style: 'display:flex;gap:8px;align-items:center;margin-top:4px;' }, [
+        proBadge(u.pro_tier),
+        u.domain_verified ? el('span', { class: 'pro-domain-badge' }, `✓ ${i18n.t('pro.domain_verified')}`) : null,
+      ]),
+    ]),
+  ]);
+  const nextTierInfo = el('p', { class: 'form-hint' }, i18n.t('pro.next_tier_hint', { tier: i18n.t(`pro.tier_${u.pro_tier}`) }));
+  const editBtn = el('button', { class: 'btn btn--ghost btn--small', onclick: () => renderProProfileForm(box, u) }, i18n.t('pro.edit_profile'));
+  box.append(tierRow, nextTierInfo, editBtn);
+}
+
+function renderProProfileForm(box, current) {
+  box.innerHTML = '';
+  const nameInput = el('input', { type: 'text', name: 'company_name', value: current.company_name || '', placeholder: i18n.t('auth.company_name'), required: true });
+  const websiteInput = el('input', { type: 'text', name: 'company_website', value: current.company_website || '', placeholder: 'monentreprise.com' });
+  const logoPreview = el('img', { class: 'company-logo-detail', src: current.company_logo_url || '', style: current.company_logo_url ? '' : 'display:none;' });
+  let logoUrl = current.company_logo_url || null;
+  const logoInput = el('input', { type: 'file', accept: 'image/*', onchange: async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const uploaded = await uploadImageFile(file);
+      logoUrl = uploaded;
+      logoPreview.src = uploaded;
+      logoPreview.style.display = '';
+    } catch { showToast(i18n.t('toast.upload_failed')); }
+  } });
+  const errEl = el('p', { class: 'form-error', hidden: true });
+  const saveBtn = el('button', { class: 'btn btn--primary btn--small', onclick: async () => {
+    errEl.hidden = true;
+    try {
+      await api('/me/professional-profile', {
+        method: 'PUT',
+        body: JSON.stringify({ is_professional: true, company_name: nameInput.value, company_website: websiteInput.value, company_logo_url: logoUrl }),
+      });
+      const { user } = await api('/auth/me');
+      state.user = { ...state.user, ...user };
+      localStorage.setItem('atlas_user', JSON.stringify(state.user));
+      showToast(i18n.t('pro.profile_saved'));
+      renderProProfile();
+    } catch (err) { errEl.textContent = friendlyErrorMessage(err); errEl.hidden = false; }
+  } }, i18n.t('pro.save_profile'));
+  box.append(
+    el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('auth.company_name')), nameInput])]),
+    el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('auth.company_website')), websiteInput])]),
+    el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.logo_label')), logoInput]), logoPreview]),
+    errEl, saveBtn
+  );
 }
 
 function renderStampRow(countries) {
@@ -1766,6 +1858,16 @@ async function openListingDetail(id) {
       el('div', { class: 'detail-price' }, priceLabel(l) + (l.listing_type === 'location' ? ' / mois' : '')),
       l.open_to_trade ? el('p', { class: 'trade-badge' }, `🔄 ${i18n.t('trade.open_badge')}${l.trade_description ? ' — ' + l.trade_description : ''}`) : null,
       el('p', { id: 'detailDescriptionText' }, l.description || i18n.t('detail.no_description')),
+      l.owner_is_professional ? el('div', { class: 'detail-pro-block' }, [
+        l.owner_company_logo_url ? el('img', { class: 'company-logo-detail', src: l.owner_company_logo_url, alt: l.owner_company_name || '' }) : null,
+        el('div', {}, [
+          el('div', { style: 'font-weight:700;' }, l.owner_company_name || l.owner_name),
+          el('div', { style: 'display:flex;gap:8px;align-items:center;margin-top:4px;' }, [
+            proBadge(l.owner_pro_tier),
+            l.owner_domain_verified ? el('span', { class: 'pro-domain-badge' }, `✓ ${i18n.t('pro.domain_verified')}`) : null,
+          ]),
+        ]),
+      ]) : null,
       el('p', { class: 'detail-meta' }, [
         `${l.city_name}, ${l.country_name} · ${i18n.t('detail.posted_by')} ${l.owner_name}${l.city_timezone ? ' · ' + (formatLocalTime(l.city_timezone) ? i18n.t('detail.local_time') + ' : ' + formatLocalTime(l.city_timezone) : '') : ''}`,
         l.owner_review_count > 0 ? el('span', { class: 'seller-rating' }, `★ ${l.owner_avg_rating} (${l.owner_review_count})`) : null,
@@ -2027,8 +2129,11 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
   const errEl = document.getElementById('publishError');
   errEl.hidden = true;
   try {
-    await api('/listings', { method: 'POST', body: JSON.stringify(payload) });
+    const result = await api('/listings', { method: 'POST', body: JSON.stringify(payload) });
     showToast(i18n.t('toast.listing_published'));
+    if (result.tier_up) {
+      setTimeout(() => showToast(i18n.t('pro.tier_up_toast', { tier: i18n.t(`pro.tier_${result.tier_up}`) })), 3800);
+    }
     form.reset();
     resetImageUpload();
     document.getElementById('publishImageUrl').disabled = false;
@@ -2190,15 +2295,25 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   }
 });
 
+document.getElementById('registerIsProfessional').addEventListener('change', (e) => {
+  document.getElementById('registerProFields').hidden = !e.target.checked;
+  document.querySelector('#registerProFields input[name="company_name"]').required = e.target.checked;
+});
+
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
   const errEl = document.getElementById('registerError');
   errEl.hidden = true;
+  const isPro = fd.get('is_professional') === 'on';
   try {
     const data = await api('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name: fd.get('name'), email: fd.get('email'), password: fd.get('password'), terms_accepted: fd.get('terms_accepted') === 'on', referral_code: new URLSearchParams(window.location.search).get('ref') || null }),
+      body: JSON.stringify({
+        name: fd.get('name'), email: fd.get('email'), password: fd.get('password'), terms_accepted: fd.get('terms_accepted') === 'on',
+        referral_code: new URLSearchParams(window.location.search).get('ref') || null,
+        is_professional: isPro, company_name: fd.get('company_name'), company_website: fd.get('company_website'),
+      }),
     });
     onAuthSuccess(data);
   } catch (err) {
