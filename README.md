@@ -185,6 +185,41 @@ QuickAtlas** (pas de badges App Store fictifs, pas d'"espace presse") :
 Le guide "Comment fonctionnent les alertes" a aussi été enrichi de 4
 étapes concrètes et numérotées, testées de bout en bout.
 
+## Comptes professionnels (annonceurs)
+
+Un compte peut s'inscrire comme "professionnel" (case à cocher à
+l'inscription, ou activable plus tard depuis "Passeport") avec nom
+d'entreprise, logo, et site web optionnel.
+
+- **Logo mis en avant** : sur chaque annonce (carte + fiche détail),
+  dans un encadré dédié — testé de bout en bout
+- **Paliers de visibilité qui progressent avec les publications** :
+  Nouveau (0-4 annonces) → Actif (5+) → Confirmé (15+) → Expert (30+).
+  Testé précisément sur 5 publications d'affilée : `tier_up: null` sur
+  les 4 premières, puis `"actif"` exactement à la 5ᵉ
+- **Récompense automatique à chaque palier franchi** : 1 crédit de mise
+  en avant gratuite offert (réutilise le système déjà en place pour le
+  parrainage), avec une notification dédiée sur le site
+- **Badge "Domaine vérifié"** : si l'email du compte correspond au
+  domaine du site web renseigné (ex. `contact@monentreprise.com` + site
+  `monentreprise.com`) — un vrai signal de confiance, jamais un blocage
+
+### Sur l'exigence d'un "email professionnel"
+
+Discuté avec l'utilisateur avant de construire : imposer un email
+"professionnel" à l'inscription n'est **pas fiable techniquement** (aucun
+moyen de distinguer un email pro d'un email personnel autrement qu'en
+bloquant des domaines connus comme Gmail — ce qui exclurait une grande
+partie des vrais petits vendeurs/artisans). Le badge "Domaine vérifié"
+ci-dessus est la solution retenue à la place : incitatif, jamais bloquant.
+
+### Bug trouvé et corrigé en testant
+La connexion (`/api/auth/login`) ne renvoyait pas les champs
+professionnels dans sa réponse (contrairement à `/api/auth/me`) — un
+compte professionnel qui se reconnectait voyait "Devenir professionnel"
+au lieu de son vrai profil. Repéré en testant précisément ce scénario,
+corrigé, revérifié.
+
 ## Traduction automatique des annonces
 
 Jusqu'ici, une annonce restait affichée dans sa langue d'origine, quelle
