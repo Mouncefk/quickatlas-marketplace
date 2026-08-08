@@ -355,6 +355,12 @@
         <p class="referral-credits" id="referralCreditsText"></p>
       </div>
 
+      <div class="referral-highlight" id="proProfileSection">
+        <h2>💼 <span data-i18n="pro.section_title">Profil professionnel</span></h2>
+        <p class="hero-sub" data-i18n="pro.section_intro">Mettez votre logo en avant sur vos annonces, et gagnez en visibilité au fil de vos publications.</p>
+        <div id="proProfileContent"></div>
+      </div>
+
       <div class="passport-book" id="passportBook"></div>
 
       <div class="passport-section">
@@ -828,6 +834,15 @@
           <span id="passwordStrengthLabel"></span>
         </div>
         <p class="form-hint" data-i18n="auth.password_rules">8 caractères minimum, avec au moins une lettre et un chiffre.</p>
+      </div>
+      <label class="pro-account-toggle">
+        <input type="checkbox" name="is_professional" id="registerIsProfessional" />
+        <span data-i18n="auth.professional_toggle">Je m'inscris en tant que professionnel (annonceur)</span>
+      </label>
+      <div id="registerProFields" class="pro-fields" hidden>
+        <div class="form-row"><label><span data-i18n="auth.company_name">Nom de l'entreprise</span> <input type="text" name="company_name" /></label></div>
+        <div class="form-row"><label><span data-i18n="auth.company_website">Site web (optionnel)</span> <input type="text" name="company_website" placeholder="monentreprise.com" /></label></div>
+        <p class="form-hint" data-i18n="auth.domain_verified_hint">💡 Si votre email correspond au domaine de ce site, un badge "Domaine vérifié" s'affichera automatiquement.</p>
       </div>
       <label class="terms-checkbox">
         <input type="checkbox" name="terms_accepted" required />
