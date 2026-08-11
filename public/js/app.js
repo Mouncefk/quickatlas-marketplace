@@ -1098,8 +1098,8 @@ function collapseMapOnce() {
 }
 
 async function selectCountry(country) {
-async function selectCountry(country) {
   document.body.classList.add('atlas-engaged');
+   collapseMapOnce();
   showSearchMode(false);
   stopCityClock();
   state.selectedCountry = country;
