@@ -3,6 +3,20 @@
    ========================================================== */
 
 const API = '/api';
+
+function categoryLabel(cat) {
+  return cat && cat.slug ? i18n.t('category.' + cat.slug) : (cat ? cat.name : '');
+}
+function subcategoryLabel(sub) {
+  return sub && sub.slug ? i18n.t('subcategory.' + sub.slug) : (sub ? sub.name : '');
+}
+function listingCategoryLabel(l) {
+  return l && l.category_slug ? i18n.t('category.' + l.category_slug) : (l ? l.category_name : '');
+}
+function listingSubcategoryLabel(l) {
+  return l && l.subcategory_slug ? i18n.t('subcategory.' + l.subcategory_slug) : (l ? l.subcategory_name : '');
+}
+
 const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 const state = {
@@ -322,7 +336,7 @@ function renderCategoryIconRow() {
   row.innerHTML = '';
   for (const c of state.categories) {
     row.append(
-      el('button', { class: 'category-pill', onclick: () => browseCategory(c) }, c.name)
+      el('button', { class: 'category-pill', onclick: () => browseCategory(c) }, categoryLabel(c))
     );
   }
 }
@@ -426,11 +440,11 @@ function renderCategoryBreadcrumb() {
   const { category, subcategory } = state.categoryBrowse;
   bc.append(el('button', { onclick: () => { showSearchMode(false); } }, i18n.t('filter.all_categories')));
   if (category) {
-    bc.append(document.createTextNode(' / '), el('span', {}, `${category.icon} ${category.name}`));
+    bc.append(document.createTextNode(' / '), el('span', {}, `${category.icon} ${categoryLabel(category)}`));
   }
   if (subcategory) {
     const sub = category.subcategories.find((s) => s.slug === subcategory);
-    if (sub) bc.append(document.createTextNode(' / '), el('span', {}, sub.name));
+    if (sub) bc.append(document.createTextNode(' / '), el('span', {}, subcategoryLabel(sub)));
   }
   const type = state.categoryBrowse.type;
   if (type) bc.append(document.createTextNode(' / '), el('span', {}, listingTypeLabel(type)));
@@ -438,7 +452,7 @@ function renderCategoryBreadcrumb() {
 
 async function runCategoryBrowseSearch() {
   const { category, subcategory, type, sort } = state.categoryBrowse;
-  document.getElementById('searchResultsTitle').textContent = `${category.icon} ${category.name}`;
+  document.getElementById('searchResultsTitle').textContent = `${category.icon} ${categoryLabel(category)}`;
   const params = new URLSearchParams({ category: category.slug, sort });
   if (subcategory) params.set('subcategory', subcategory);
   if (type) params.set('type', type);
@@ -567,9 +581,9 @@ async function loadCategories() {
   const pubCat = document.getElementById('publishCategory');
   const footerCats = document.getElementById('footerCats');
   for (const c of state.categories) {
-    catFilter.append(el('option', { value: c.slug }, `${c.icon} ${c.name}`));
-    pubCat.append(el('option', { value: c.id }, `${c.icon} ${c.name}`));
-    footerCats.append(el('span', {}, `${c.icon} ${c.name}`));
+    catFilter.append(el('option', { value: c.slug }, `${c.icon} ${categoryLabel(c)}`));
+    pubCat.append(el('option', { value: c.id }, `${c.icon} ${categoryLabel(c)}`));
+    footerCats.append(el('span', {}, `${c.icon} ${categoryLabel(c)}`));
   }
   renderCategoryIconRow();
   fillSubcategorySelect(document.getElementById('publishSubcategory'), findCategoryById(pubCat.value), false);
@@ -655,7 +669,7 @@ function fillSubcategorySelect(selectEl, category, withAllOption) {
   }
   selectEl.disabled = false;
   for (const s of category.subcategories) {
-    selectEl.append(el('option', { value: withAllOption ? s.slug : s.id }, s.name));
+    selectEl.append(el('option', { value: withAllOption ? s.slug : s.id }, subcategoryLabel(s)));
   }
 }
 
@@ -1346,7 +1360,7 @@ function proBadge(tier) {
 
 function renderListingCard(l) {
   const img = (l.images && l.images[0]) || '';
-  const natureLabel = l.subcategory_name ? `${l.category_icon} ${l.subcategory_name}` : `${l.category_icon} ${l.category_name}`;
+  const natureLabel = l.subcategory_name ? `${l.category_icon} ${listingSubcategoryLabel(l)}` : `${l.category_icon} ${listingCategoryLabel(l)}`;
   const isFav = state.favoriteIds.has(l.id);
   const favBtn = el('button', {
     class: `favorite-btn ${isFav ? 'is-active' : ''}`,
@@ -1716,7 +1730,7 @@ async function loadAlerts() {
       return;
     }
     for (const s of searches) {
-      const criteriaBits = [s.country_name, s.city_name, s.category_name, s.subcategory_name, s.listing_type ? listingTypeLabel(s.listing_type) : null, s.keyword ? `« ${s.keyword} »` : null].filter(Boolean);
+      const criteriaBits = [s.country_name, s.city_name, listingCategoryLabel(s), listingSubcategoryLabel(s), s.listing_type ? listingTypeLabel(s.listing_type) : null, s.keyword ? `« ${s.keyword} »` : null].filter(Boolean);
       const matchesBox = el('div', { hidden: 'true' });
       const card = el('div', { class: 'alert-card' }, [
         el('div', { class: 'alert-card-top' }, [
@@ -1769,7 +1783,7 @@ function trackRecentlyViewed(listing) {
   items.unshift({
     id: listing.id, title: listing.title, price: listing.price, currency: listing.currency,
     listing_type: listing.listing_type, images: listing.images, category_icon: listing.category_icon,
-    category_name: listing.category_name, subcategory_name: listing.subcategory_name,
+    category_name: listing.category_name, subcategory_name: listing.subcategory_name, category_slug: listing.category_slug, subcategory_slug: listing.subcategory_slug,
     city_name: listing.city_name, country_name: listing.country_name,
   });
   items = items.slice(0, RECENTLY_VIEWED_MAX);
@@ -1843,7 +1857,7 @@ async function openListingDetail(id) {
   const content = document.getElementById('listingModalContent');
   content.innerHTML = '';
   const img = (l.images && l.images[0]) || '';
-  const natureLabel = l.subcategory_name ? `${l.category_icon} ${l.category_name} · ${l.subcategory_name}` : `${l.category_icon} ${l.category_name}`;
+  const natureLabel = l.subcategory_name ? `${l.category_icon} ${listingCategoryLabel(l)} · ${listingSubcategoryLabel(l)}` : `${l.category_icon} ${listingCategoryLabel(l)}`;
   const favBtn = el('button', {
     class: `detail-favorite-btn ${state.favoriteIds.has(l.id) ? 'is-active' : ''}`,
     id: 'detailFavoriteBtn',
@@ -2257,7 +2271,7 @@ function renderMyListings(listings) {
         (l.images && l.images[0]) ? el('img', { class: 'card-img', src: l.images[0], alt: l.title }) : el('div', { class: 'card-img' }),
         isBoosted ? el('span', { class: 'boost-badge' }, `🚀 ${i18n.t('boost.active_badge')}`) : null,
         el('div', { class: 'card-body' }, [
-          el('span', { class: 'card-tag' }, `${l.subcategory_name || l.category_name} · ${listingTypeLabel(l.listing_type)} · ${l.status}`),
+          el('span', { class: 'card-tag' }, `${l.subcategory_name ? listingSubcategoryLabel(l) : listingCategoryLabel(l)} · ${listingTypeLabel(l.listing_type)} · ${l.status}`),
           el('h3', { class: 'card-title' }, l.title),
           el('span', { class: 'card-place' }, `${l.city_name}, ${l.country_name}`),
           el('span', { class: 'card-price' }, priceLabel(l)),
@@ -2873,7 +2887,7 @@ function renderAdminDashboard(stats) {
     );
   }
 
-  renderHorizontalBarChart('dashboardCategoryChart', stats.byCategory.map((c) => ({ label: `${c.icon} ${c.name}`, value: c.count })));
+  renderHorizontalBarChart('dashboardCategoryChart', stats.byCategory.map((c) => ({ label: `${c.icon} ${categoryLabel(c)}`, value: c.count })));
   renderHorizontalBarChart('dashboardTypeChart', stats.byType.map((t) => ({ label: listingTypeLabel(t.listing_type), value: t.count })));
   renderHorizontalBarChart('dashboardCountryChart', stats.byCountry.map((c) => ({ label: c.name, value: c.count })));
   renderVerticalBarChart('dashboardActivityChart', stats.daily);
