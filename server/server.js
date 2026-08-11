@@ -1268,7 +1268,7 @@ const server = http.createServer(async (req, res) => {
         .prepare(
           `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
-                  sub.name AS subcategory_name, ci.name AS city_name, co.name AS country_name
+                  sub.slug AS subcategory_slug, sub.name AS subcategory_name, ci.name AS city_name, co.name AS country_name
            FROM listings l
            JOIN categories cat ON cat.id = l.category_id
            LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
@@ -1424,8 +1424,8 @@ const server = http.createServer(async (req, res) => {
         .prepare(
           `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.status, l.images_json, l.created_at,
                   l.expires_at, l.boosted_until, l.view_count,
-                  ci.name AS city_name, co.name AS country_name, cat.name AS category_name,
-                  sub.name AS subcategory_name,
+                  ci.name AS city_name, co.name AS country_name, cat.slug AS category_slug, cat.name AS category_name,
+                  sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   (SELECT COUNT(*) FROM favorites f WHERE f.listing_id = l.id) AS favorite_count
            FROM listings l
            JOIN cities ci ON ci.id = l.city_id
@@ -2016,7 +2016,7 @@ const server = http.createServer(async (req, res) => {
         .prepare(
           `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.created_at, l.view_count,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
-                  sub.name AS subcategory_name,
+                  sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   ci.name AS city_name, co.name AS country_name
            FROM favorites f
            JOIN listings l ON l.id = f.listing_id
@@ -2100,7 +2100,7 @@ const server = http.createServer(async (req, res) => {
       if (!user) return;
       const rows = db
         .prepare(
-          `SELECT ss.*, co.name AS country_name, ci.name AS city_name, cat.name AS category_name, sub.name AS subcategory_name,
+          `SELECT ss.*, co.name AS country_name, ci.name AS city_name, cat.slug AS category_slug, cat.name AS category_name, sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   (SELECT COUNT(*) FROM saved_search_matches m WHERE m.saved_search_id = ss.id AND m.seen = 0) AS unseen_count
            FROM saved_searches ss
            LEFT JOIN countries co ON co.id = ss.country_id
@@ -2143,7 +2143,7 @@ const server = http.createServer(async (req, res) => {
         .prepare(
           `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
-                  sub.name AS subcategory_name, ci.name AS city_name, co.name AS country_name
+                  sub.slug AS subcategory_slug, sub.name AS subcategory_name, ci.name AS city_name, co.name AS country_name
            FROM saved_search_matches m
            JOIN listings l ON l.id = m.listing_id
            JOIN categories cat ON cat.id = l.category_id
