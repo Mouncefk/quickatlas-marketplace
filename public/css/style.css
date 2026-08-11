@@ -329,6 +329,16 @@ body:not(.atlas-engaged) #recentlyViewedSection {
 
 .map-container svg { width: 100%; height: 100%; display: block; }
 
+.map-wrap {
+  overflow: hidden;
+  transition: max-height .5s ease, opacity .35s ease, margin-bottom .5s ease;
+}
+.map-wrap.is-collapsed {
+  opacity: 0;
+  margin-bottom: 0 !important;
+  pointer-events: none;
+}
+
 .country-shape {
   fill: #223755;
   stroke: #0e1b2e;
