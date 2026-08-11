@@ -341,6 +341,62 @@ function renderCategoryIconRow() {
   }
 }
 
+/** Régénère tous les libellés de catégories/sous-catégories affichés dans
+ * l'UI (pastilles, menus déroulants, fil d'ariane) après un changement de
+ * langue — sans quoi seuls les prix/annonces se retraduisaient, laissant
+ * les menus figés dans l'ancienne langue jusqu'au prochain F5. */
+function refreshCategoryTexts() {
+  renderCategoryIconRow();
+
+  const catFilter = document.getElementById('categoryFilter');
+  const pubCat = document.getElementById('publishCategory');
+  if (catFilter) {
+    for (const opt of catFilter.options) {
+      const cat = findCategoryBySlug(opt.value);
+      if (cat) opt.textContent = `${cat.icon} ${categoryLabel(cat)}`;
+    }
+  }
+  if (pubCat) {
+    for (const opt of pubCat.options) {
+      const cat = findCategoryById(opt.value);
+      if (cat) opt.textContent = `${cat.icon} ${categoryLabel(cat)}`;
+    }
+  }
+  const footerCats = document.getElementById('footerCats');
+  if (footerCats) {
+    footerCats.innerHTML = '';
+    for (const c of state.categories) {
+      footerCats.append(el('span', {}, `${c.icon} ${categoryLabel(c)}`));
+    }
+  }
+
+  const subFilter = document.getElementById('subcategoryFilter');
+  if (subFilter && catFilter) {
+    const prevVal = subFilter.value;
+    fillSubcategorySelect(subFilter, findCategoryBySlug(catFilter.value), true);
+    subFilter.value = prevVal;
+  }
+
+  const pubSub = document.getElementById('publishSubcategory');
+  if (pubSub && pubCat) {
+    const prevVal = pubSub.value;
+    fillSubcategorySelect(pubSub, findCategoryById(pubCat.value), false);
+    pubSub.value = prevVal;
+  }
+
+  if (state.categoryBrowse && state.categoryBrowse.category) {
+    const catBrowseSub = document.getElementById('categoryBrowseSubcategory');
+    if (catBrowseSub) {
+      const prevVal = catBrowseSub.value;
+      fillSubcategorySelect(catBrowseSub, state.categoryBrowse.category, true);
+      catBrowseSub.value = prevVal;
+    }
+    renderCategoryBreadcrumb();
+    const title = document.getElementById('searchResultsTitle');
+    if (title) title.textContent = `${state.categoryBrowse.category.icon} ${categoryLabel(state.categoryBrowse.category)}`;
+  }
+}
+
 async function loadPromoBanner() {
   try {
     const promo = await api('/listings/promo');
@@ -3094,6 +3150,7 @@ function onLanguageApplied() {
   if (state.lists.adminListings.length) renderAdminListings(state.lists.adminListings);
   if (state.lists.adminStats) renderAdminDashboard(state.lists.adminStats);
   if (state.lists.favorites.length) renderCardsInto('favoritesGrid', state.lists.favorites);
+  refreshCategoryTexts();
   rerenderAllPrices();
 }
 
@@ -3184,6 +3241,19 @@ async function handleGoogleCredential(response) {
 function handleInitialUrlRoute() {
   const path = window.location.pathname;
   let m;
+  if ((m = path.match(/^\/pays\/([a-z0-9-]+)\/([a-z0-9-]+)$/))) {
+    const country = (state.countries || []).find((c) => slugify(c.name) === m[1]);
+    if (country) {
+      navigate('explore');
+      selectCountry(country).then(() => {
+        const citySlug = m[2];
+        const cities = state.lastCities || [];
+        const city = cities.find((c) => slugify(c.name) === citySlug);
+        if (city) selectCity(city);
+      });
+    }
+    return;
+  }
   if ((m = path.match(/^\/pays\/([a-z0-9-]+)$/))) {
     const country = (state.countries || []).find((c) => slugify(c.name) === m[1]);
     if (country) { navigate('explore'); selectCountry(country); }
