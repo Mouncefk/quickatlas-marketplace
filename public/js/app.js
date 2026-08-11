@@ -1080,7 +1080,24 @@ async function loadBusinessOpportunities(country) {
 function formatEventDate(dateStr) {
   return new Date(dateStr).toLocaleDateString();
 }
+/** Replie fluidement la carte du monde une fois un pays sélectionné, pour
+ * libérer l'espace au profit des catégories, villes et surtout des
+ * annonces — le vrai objectif de la page. Mesure la hauteur réelle avant
+ * de l'animer vers 0 (plus fluide qu'un max-height CSS fixe arbitraire). */
+function collapseMapOnce() {
+  const wrap = document.querySelector('.map-wrap');
+  if (!wrap || wrap.dataset.collapsed) return;
+  wrap.dataset.collapsed = '1';
+  wrap.style.maxHeight = wrap.scrollHeight + 'px';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      wrap.classList.add('is-collapsed');
+      wrap.style.maxHeight = '0px';
+    });
+  });
+}
 
+async function selectCountry(country) {
 async function selectCountry(country) {
   document.body.classList.add('atlas-engaged');
   showSearchMode(false);
@@ -1228,7 +1245,7 @@ document.getElementById('globalSearchForm').addEventListener('submit', async (e)
   e.preventDefault();
   const q = document.getElementById('globalSearchInput').value.trim();
   if (!q) return;
-  document.body.classList.add('atlas-engaged');
+  document.body.classList.add('atlas-engaged'); collapseMapOnce();
   resetExplore();
   showSearchMode(true);
   document.getElementById('searchResultsTitle').textContent = i18n.t('search.results_title', { q });
