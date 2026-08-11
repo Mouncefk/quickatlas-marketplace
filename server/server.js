@@ -536,10 +536,18 @@ const server = http.createServer(async (req, res) => {
       const listings = db
         .prepare("SELECT id, updated_at FROM listings WHERE status = 'active' AND expires_at > datetime('now')")
         .all();
+      const cities = db
+        .prepare(
+          `SELECT ci.name AS city_name, co.name AS country_name
+           FROM cities ci JOIN countries co ON co.id = ci.country_id
+           WHERE EXISTS (SELECT 1 FROM listings l WHERE l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now'))`
+        )
+        .all();
       const urls = [
         { loc: '/', priority: '1.0' },
         ...countries.map((c) => ({ loc: `/pays/${slugify(c.name)}`, priority: '0.8' })),
         ...categories.map((c) => ({ loc: `/categorie/${c.slug}`, priority: '0.7' })),
+        ...cities.map((c) => ({ loc: `/pays/${slugify(c.country_name)}/${slugify(c.city_name)}`, priority: '0.7' })),
         ...listings.map((l) => ({ loc: `/annonce/${l.id}`, priority: '0.6', lastmod: (l.updated_at || '').slice(0, 10) })),
       ];
       const xml =
@@ -569,6 +577,31 @@ const server = http.createServer(async (req, res) => {
             canonicalPath: `/pays/${m[1]}`,
           })
         );
+      }
+    }
+
+    if ((m = pathname.match(/^\/pays\/([a-z0-9-]+)\/([a-z0-9-]+)$/))) {
+      const countries = db.prepare('SELECT id, name FROM countries').all();
+      const country = countries.find((c) => slugify(c.name) === m[1]);
+      if (country) {
+        const cities = db.prepare('SELECT id, name FROM cities WHERE country_id = ?').all(country.id);
+        const city = cities.find((c) => slugify(c.name) === m[2]);
+        if (city) {
+          const cityStats = db
+            .prepare(
+              `SELECT COUNT(*) AS listings FROM listings
+               WHERE city_id = ? AND status = 'active' AND expires_at > datetime('now')`
+            )
+            .get(city.id);
+          return sendHtml(
+            res,
+            renderHtmlWithMeta({
+              title: `Annonces à ${city.name}, ${country.name} — QuickAtlas`,
+              description: `Parcourez ${cityStats.listings || 0} annonce(s) à ${city.name}, ${country.name} sur QuickAtlas : immobilier, véhicules, emploi et objets à vendre, louer ou pourvoir.`,
+              canonicalPath: `/pays/${m[1]}/${m[2]}`,
+            })
+          );
+        }
       }
     }
 
