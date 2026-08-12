@@ -339,6 +339,16 @@ body:not(.atlas-engaged) #recentlyViewedSection {
   pointer-events: none;
 }
 
+.hero-and-map {
+  overflow: hidden;
+  transition: max-height .5s ease, opacity .35s ease, margin-bottom .5s ease;
+}
+.hero-and-map.is-collapsed {
+  opacity: 0;
+  margin-bottom: 0 !important;
+  pointer-events: none;
+}
+
 .country-shape {
   fill: #223755;
   stroke: #0e1b2e;
