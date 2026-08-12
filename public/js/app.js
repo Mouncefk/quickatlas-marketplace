@@ -366,7 +366,9 @@ function setExploreStageVisibility(stage) {
   const hideTopBar = stage !== 'landing';
   force(ticker, hideTopBar);
   force(promo, hideTopBar);
-  force(countrySection, hideTopBar);
+  // countrySection (recherche de pays) reste visible tant qu'aucune ville n'est
+  // choisie : c'est la 2e façon de changer de pays, avec le bouton "Voir la carte".
+  force(countrySection, stage === 'city');
   // Stats et sélecteur de devise : masqués uniquement pendant le choix de la
   // ville (étape 'country'), mais réaffichés une fois les annonces visibles
   // ('city') — utiles pour comparer les prix une fois sur place.
@@ -1215,6 +1217,8 @@ async function selectCountry(country) {
   state.selectedState = null;
   state.selectedCity = null;
   document.getElementById('countrySearchInput').value = country.name;
+  const activeCountryHeading = document.getElementById('activeCountryHeading');
+  if (activeCountryHeading) { activeCountryHeading.textContent = country.name; activeCountryHeading.hidden = false; }
   highlightCountryOnMap(country.iso_numeric);
   loadFeatured();
   openCountrySheet(country);
@@ -1301,25 +1305,29 @@ async function selectCity(city) {
 }
 
 function renderBreadcrumb() {
+  // Le pays actif est désormais affiché comme titre au-dessus des villes
+  // (voir activeCountryHeading dans selectCountry), et "Tous les pays" est
+  // remplacé par la section de recherche de pays toujours visible juste au-dessus.
+  // Ce fil d'ariane ne montre donc plus que l'État / la Ville, s'il y a lieu.
   const bc = document.getElementById('breadcrumb');
   bc.innerHTML = '';
-  bc.append(el('button', { onclick: resetExplore }, i18n.t('breadcrumb.all_countries')));
-  if (state.selectedCountry) {
-    bc.append(document.createTextNode(' / '));
-    bc.append(el('button', { onclick: () => selectCountry(state.selectedCountry) }, state.selectedCountry.name));
-  }
+  const crumbs = [];
   if (state.selectedState) {
-    bc.append(document.createTextNode(' / '));
-    bc.append(el('button', { onclick: () => selectState(state.selectedState) }, state.selectedState.name));
+    crumbs.push(el('button', { onclick: () => selectState(state.selectedState) }, state.selectedState.name));
   }
   if (state.selectedCity) {
-    bc.append(document.createTextNode(' / '));
-    bc.append(el('span', {}, state.selectedCity.name));
+    crumbs.push(el('span', {}, state.selectedCity.name));
   }
+  crumbs.forEach((node, i) => {
+    if (i > 0) bc.append(document.createTextNode(' / '));
+    bc.append(node);
+  });
 }
 
 function resetExplore() {
   setExploreStageVisibility('landing');
+  const activeCountryHeading = document.getElementById('activeCountryHeading');
+  if (activeCountryHeading) { activeCountryHeading.hidden = true; activeCountryHeading.textContent = ''; }
   state.selectedCountry = null;
   state.selectedState = null;
   state.selectedCity = null;
