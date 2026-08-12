@@ -956,7 +956,7 @@ function openCountrySheet(country) {
           const target = document.getElementById('stateGrid').hidden
             ? document.getElementById('cityGrid')
             : document.getElementById('stateGrid');
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 550);
         },
       }, i18n.t('country.explore_cities')),
     ]),
