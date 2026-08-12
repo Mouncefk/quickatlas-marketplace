@@ -1141,7 +1141,7 @@ function formatEventDate(dateStr) {
  * annonces — le vrai objectif de la page. Mesure la hauteur réelle avant
  * de l'animer vers 0 (plus fluide qu'un max-height CSS fixe arbitraire). */
 function collapseMapOnce() {
-  const wrap = document.querySelector('.map-wrap');
+  const wrap = document.querySelector('.hero-and-map');
   if (!wrap || wrap.dataset.collapsed) return;
   wrap.dataset.collapsed = '1';
   wrap.style.maxHeight = wrap.scrollHeight + 'px';
