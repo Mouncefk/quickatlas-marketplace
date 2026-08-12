@@ -1144,6 +1144,7 @@ function collapseMapOnce() {
   const wrap = document.querySelector('.hero-and-map');
   if (!wrap || wrap.dataset.collapsed) return;
   wrap.dataset.collapsed = '1';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   wrap.style.maxHeight = wrap.scrollHeight + 'px';
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
