@@ -353,6 +353,10 @@ body:not(.atlas-engaged) #recentlyViewedSection {
   pointer-events: none;
 }
 
+.explore-force-hidden {
+  display: none !important;
+}
+
 .country-shape {
   fill: #223755;
   stroke: #0e1b2e;
