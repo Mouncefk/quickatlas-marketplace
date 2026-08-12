@@ -68,6 +68,10 @@ button, input, select, textarea { font-family: inherit; }
   border-bottom: 1px solid var(--ink-line);
 }
 
+#stateGrid, #cityGrid, #breadcrumb, #listingsHeader, #categoryBreadcrumb, #searchResultsSection, #countrySection {
+  scroll-margin-top: 90px;
+}
+
 .header-inner {
   max-width: 1240px;
   margin: 0 auto;
