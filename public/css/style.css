@@ -212,9 +212,9 @@ button, input, select, textarea { font-family: inherit; }
 }
 .map-click-hint {
   text-align: center;
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-  color: rgba(241,233,216,0.45);
+  font-family: var(--font-fun);
+  font-size: 1.15rem;
+  color: rgba(241,233,216,0.8);
   margin: 0 0 10px;
 }
 .global-search--discreet {
