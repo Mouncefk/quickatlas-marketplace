@@ -860,6 +860,12 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { ok: true });
     }
 
+    // --- Compteur de visites (une fois par session, sans cookie ni IP stockée) ---
+    if (pathname === '/api/track-visit' && method === 'POST') {
+      db.prepare('INSERT INTO site_visits DEFAULT VALUES').run();
+      return sendJSON(res, 201, { ok: true });
+    }
+
     // --- Référentiels ---
     if (pathname === '/api/config' && method === 'GET') {
       return sendJSON(res, 200, { google_client_id: process.env.GOOGLE_CLIENT_ID || null });
@@ -1552,6 +1558,8 @@ const server = http.createServer(async (req, res) => {
       const suspendedListings = totalListings - activeListings;
       const newListings7d = db.prepare("SELECT COUNT(*) AS c FROM listings WHERE created_at >= datetime('now', '-7 days')").get().c;
       const newUsers7d = db.prepare("SELECT COUNT(*) AS c FROM users WHERE created_at >= datetime('now', '-7 days')").get().c;
+      const totalVisits = db.prepare('SELECT COUNT(*) AS c FROM site_visits').get().c;
+      const visits7d = db.prepare("SELECT COUNT(*) AS c FROM site_visits WHERE created_at >= datetime('now', '-7 days')").get().c;
       const countriesWithListings = db
         .prepare(
           `SELECT COUNT(DISTINCT co.id) AS c
@@ -1601,10 +1609,25 @@ const server = http.createServer(async (req, res) => {
         daily.push({ day: d, count: dailyMap[d] || 0 });
       }
 
+      const dailyVisitRows = db
+        .prepare(
+          `SELECT date(created_at) AS day, COUNT(*) AS count
+           FROM site_visits
+           WHERE created_at >= datetime('now', '-29 days')
+           GROUP BY day ORDER BY day`
+        )
+        .all();
+      const dailyVisitMap = Object.fromEntries(dailyVisitRows.map((r) => [r.day, r.count]));
+      const dailyVisits = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+        dailyVisits.push({ day: d, count: dailyVisitMap[d] || 0 });
+      }
+
       return sendJSON(res, 200, {
         totalUsers, totalAdmins, totalListings, activeListings, suspendedListings,
-        newListings7d, newUsers7d, countriesWithListings,
-        byCategory, byType, byCountry, daily,
+        newListings7d, newUsers7d, countriesWithListings, totalVisits, visits7d,
+        byCategory, byType, byCountry, daily, dailyVisits,
       });
     }
 
