@@ -304,4 +304,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_reports_listing ON reports(listing_id);
 `);
 
+// Compteur de visites du site — un enregistrement par visite de session
+// (une fois par onglet ouvert, pas à chaque clic interne). Sert uniquement
+// à afficher un total et une tendance sur 30 jours dans le tableau de bord
+// admin — aucune donnée personnelle, aucun cookie, aucun service tiers.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS site_visits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_site_visits_created ON site_visits(created_at);
+`);
+
 export default db;
