@@ -341,6 +341,41 @@ function renderCategoryIconRow() {
   }
 }
 
+/** Contrôle ce qui est visible à chaque étape du parcours pays → ville → annonces,
+ * pour que la page reste courte et focalisée : le bandeau d'activité, les stats,
+ * le sélecteur de devise, "Vus récemment", "À la une" et la recherche de pays ne
+ * doivent apparaître qu'à l'accueil — pas pendant qu'on choisit une ville, ni une
+ * fois les annonces affichées. Utilise une classe CSS dédiée plutôt que l'attribut
+ * hidden natif, pour ne jamais entrer en conflit avec la logique propre de chaque
+ * section (ex. featuredSection ne s'affiche que si elle a du contenu). */
+function setExploreStageVisibility(stage) {
+  const byId = (id) => document.getElementById(id);
+  const force = (el, hide) => { if (el) el.classList.toggle('explore-force-hidden', hide); };
+
+  const ticker = byId('activityTicker');
+  const promo = byId('promoBanner');
+  const stats = byId('statsBar');
+  const currency = document.querySelector('.currency-picker');
+  const countrySection = byId('countrySection');
+  const categoryRow = byId('categoryIconRow');
+  const recently = byId('recentlyViewedSection');
+  const featured = byId('featuredSection');
+
+  const hideTopBar = stage !== 'landing';
+  force(ticker, hideTopBar);
+  force(promo, hideTopBar);
+  force(countrySection, hideTopBar);
+  // Stats et sélecteur de devise : masqués uniquement pendant le choix de la
+  // ville (étape 'country'), mais réaffichés une fois les annonces visibles
+  // ('city') — utiles pour comparer les prix une fois sur place.
+  force(stats, stage === 'country');
+  force(currency, stage === 'country');
+
+  force(categoryRow, stage === 'city');
+  force(recently, stage === 'country');
+  force(featured, stage === 'country');
+}
+
 /** Régénère tous les libellés de catégories/sous-catégories affichés dans
  * l'UI (pastilles, menus déroulants, fil d'ariane) après un changement de
  * langue — sans quoi seuls les prix/annonces se retraduisaient, laissant
@@ -1156,7 +1191,8 @@ function collapseMapOnce() {
 
 async function selectCountry(country) {
   document.body.classList.add('atlas-engaged');
-   collapseMapOnce();
+  collapseMapOnce();
+  setExploreStageVisibility('country');
   showSearchMode(false);
   stopCityClock();
   state.selectedCountry = country;
@@ -1238,6 +1274,7 @@ function renderCityTiles(cities) {
 
 async function selectCity(city) {
   state.selectedCity = city;
+  setExploreStageVisibility('city');
   document.getElementById('coordEyebrow').textContent = `${city.name.toUpperCase()}, ${state.selectedCountry.name.toUpperCase()}`;
   renderBreadcrumb();
   document.getElementById('listingsHeader').hidden = false;
@@ -1266,6 +1303,7 @@ function renderBreadcrumb() {
 }
 
 function resetExplore() {
+  setExploreStageVisibility('landing');
   state.selectedCountry = null;
   state.selectedState = null;
   state.selectedCity = null;
