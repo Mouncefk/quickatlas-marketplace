@@ -360,6 +360,8 @@ function setExploreStageVisibility(stage) {
   const categoryRow = byId('categoryIconRow');
   const recently = byId('recentlyViewedSection');
   const featured = byId('featuredSection');
+  const reopenMapBtn = byId('reopenMapBtn');
+  if (reopenMapBtn) reopenMapBtn.hidden = stage === 'landing';
 
   const hideTopBar = stage !== 'landing';
   force(ticker, hideTopBar);
@@ -573,6 +575,7 @@ document.getElementById('categoryBrowseSort').addEventListener('change', (e) => 
   runCategoryBrowseSearch();
 });
 
+document.getElementById('reopenMapBtn').addEventListener('click', reopenMap);
 // ---------- Navigation entre écrans ----------
 
 function navigate(view) {
@@ -1187,6 +1190,19 @@ function collapseMapOnce() {
       wrap.style.maxHeight = '0px';
     });
   });
+}
+
+/** Fait réapparaître la carte et le bloc titre après un repliement — pour
+ * permettre de changer de pays sans devoir recharger toute la page. */
+function reopenMap() {
+  const wrap = document.querySelector('.hero-and-map');
+  if (wrap) {
+    wrap.classList.remove('is-collapsed');
+    wrap.style.maxHeight = '';
+    delete wrap.dataset.collapsed;
+  }
+  resetExplore();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function selectCountry(country) {
