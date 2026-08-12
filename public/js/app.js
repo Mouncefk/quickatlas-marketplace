@@ -3200,6 +3200,49 @@ async function removeListingAsAdmin(id) {
 
 // ---------- Langue ----------
 
+/** Régénère tous les libellés de PAYS affichés dans l'UI (menu déroulant de
+ * publication, champ de recherche, titre au-dessus des villes, indication
+ * de coordonnées, fiche pays si ouverte, passeport) après un changement de
+ * langue — même logique que refreshCategoryTexts() pour les catégories. */
+function refreshCountryTexts() {
+  const pubCountry = document.getElementById('publishCountry');
+  if (pubCountry) {
+    for (const opt of pubCountry.options) {
+      const c = findCountryById(opt.value);
+      if (c) opt.textContent = countryLabel(c);
+    }
+  }
+
+  if (state.selectedCountry) {
+    const searchInput = document.getElementById('countrySearchInput');
+    if (searchInput) searchInput.value = countryLabel(state.selectedCountry);
+
+    const activeCountryHeading = document.getElementById('activeCountryHeading');
+    if (activeCountryHeading && !activeCountryHeading.hidden) activeCountryHeading.textContent = countryLabel(state.selectedCountry);
+
+    const eyebrow = document.getElementById('coordEyebrow');
+    if (eyebrow) {
+      if (state.selectedCity) {
+        eyebrow.textContent = `${state.selectedCity.name.toUpperCase()}, ${countryLabel(state.selectedCountry).toUpperCase()}`;
+      } else if (state.selectedState) {
+        eyebrow.textContent = `${state.selectedState.name.toUpperCase()}, ${countryLabel(state.selectedCountry).toUpperCase()} — ${i18n.t('eyebrow.choose_city_suffix')}`;
+      } else {
+        const suffixKey = state.selectedCountry.is_federal ? 'eyebrow.choose_state_suffix' : 'eyebrow.choose_city_suffix';
+        eyebrow.textContent = `${countryLabel(state.selectedCountry).toUpperCase()} — ${i18n.t(suffixKey)}`;
+      }
+    }
+
+    const countryModal = document.getElementById('countryModal');
+    if (countryModal && !countryModal.hidden) {
+      const h2 = countryModal.querySelector('.country-sheet-title h2');
+      if (h2) h2.textContent = countryLabel(state.selectedCountry);
+    }
+  }
+
+  const passportView = document.getElementById('view-passport');
+  if (state.user && passportView && !passportView.hidden) loadPassport();
+}
+
 function onLanguageApplied() {
   renderAuthZone();
   renderStatsBar();
@@ -3217,6 +3260,7 @@ function onLanguageApplied() {
   if (state.lists.adminStats) renderAdminDashboard(state.lists.adminStats);
   if (state.lists.favorites.length) renderCardsInto('favoritesGrid', state.lists.favorites);
   refreshCategoryTexts();
+  refreshCountryTexts();
   rerenderAllPrices();
 }
 
