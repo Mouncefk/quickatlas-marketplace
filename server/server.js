@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { db, DATA_DIR } from './db.js';
 import { hashPassword, verifyPassword, signToken, verifyToken, generateRawToken, hashRawToken, passwordIssues, encryptApiKey, decryptApiKey } from './auth.js';
 import { sendMail } from './mailer.js';
-import { translateListing, draftListing, analyzeFraudRisk } from './ai.js';
+import { translateListing, draftListing, analyzeFraudRisk, translateText } from './ai.js';
 import { translateListingFree } from './free-translate.js';
 import crypto from 'node:crypto';
 
@@ -1977,6 +1977,37 @@ const server = http.createServer(async (req, res) => {
       const encrypted = encryptApiKey(api_key.trim());
       db.prepare('UPDATE users SET ai_provider = ?, ai_api_key_encrypted = ? WHERE id = ?').run(provider, encrypted, user.id);
       return sendJSON(res, 200, { provider, has_key: true });
+    }
+
+    // Traduit une seule rubrique de la fiche pays (climat des affaires, culture,
+    // gastronomie, conseils pratiques, jours fériés) avec la clé personnelle de
+    // l'utilisateur — déclenché manuellement par un bouton, jamais automatique.
+    if (pathname === '/api/ai/translate-country-profile' && method === 'POST') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const account = db.prepare('SELECT ai_provider, ai_api_key_encrypted FROM users WHERE id = ?').get(user.id);
+      if (!account.ai_api_key_encrypted) {
+        return sendJSON(res, 400, { error: 'AI_NOT_CONFIGURED' });
+      }
+      const { country_id, field, target_lang } = await readBody(req);
+      const allowedFields = ['business_climate', 'culture', 'gastronomy', 'practical_tips', 'holidays'];
+      if (!allowedFields.includes(field)) {
+        return sendJSON(res, 400, { error: 'Rubrique invalide.' });
+      }
+      const profile = db.prepare(`SELECT ${field} AS text FROM country_profiles WHERE country_id = ?`).get(country_id);
+      if (!profile || !profile.text) return sendJSON(res, 404, { error: 'Rubrique introuvable pour ce pays.' });
+      try {
+        const apiKey = decryptApiKey(account.ai_api_key_encrypted);
+        const translated = await translateText({
+          provider: account.ai_provider,
+          apiKey,
+          text: profile.text,
+          targetLangCode: target_lang,
+        });
+        return sendJSON(res, 200, { text: translated });
+      } catch (err) {
+        return sendJSON(res, 502, { error: `La traduction a échoué : ${err.message}` });
+      }
     }
 
     if (pathname === '/api/ai/translate-listing' && method === 'POST') {
