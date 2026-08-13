@@ -16,6 +16,9 @@ function listingCategoryLabel(l) {
 function listingSubcategoryLabel(l) {
   return l && l.subcategory_slug ? i18n.t('subcategory.' + l.subcategory_slug) : (l ? l.subcategory_name : '');
 }
+function countryLabel(c) {
+  return c && c.iso2 ? i18n.t('countryname.' + c.iso2.toLowerCase()) : (c ? c.name : '');
+}
 
 const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
@@ -578,6 +581,9 @@ document.getElementById('categoryBrowseSort').addEventListener('change', (e) => 
 });
 
 document.getElementById('reopenMapBtn').addEventListener('click', reopenMap);
+document.getElementById('showCountrySheetBtn').addEventListener('click', () => {
+  if (state.selectedCountry) openCountrySheet(state.selectedCountry);
+});
 // ---------- Navigation entre écrans ----------
 
 function navigate(view) {
@@ -782,7 +788,7 @@ async function loadCountries() {
     ? [...state.countries].sort((a, b) => (a.id === guessedId ? -1 : b.id === guessedId ? 1 : 0))
     : state.countries;
   for (const c of ordered) {
-    pubCountry.append(el('option', { value: c.id, selected: c.id === guessedId ? 'selected' : null }, c.name));
+    pubCountry.append(el('option', { value: c.id, selected: c.id === guessedId ? 'selected' : null }, countryLabel(c)));
   }
   pubCountry.addEventListener('change', () => handlePublishCountryChange(pubCountry.value));
   if (state.countries[0]) handlePublishCountryChange(pubCountry.value || state.countries[0].id);
@@ -858,7 +864,7 @@ async function loadFeatured() {
     grid.hidden = false;
     const isFromVisitedCountry = state.selectedCountry && listings.some((l) => l.country_name === state.selectedCountry.name);
     document.getElementById('featuredSectionTitle').textContent = isFromVisitedCountry
-      ? i18n.t('featured.title_country', { country: state.selectedCountry.name })
+      ? i18n.t('featured.title_country', { country: countryLabel(state.selectedCountry) })
       : i18n.t('featured.title');
     renderCardsInto('featuredGrid', listings);
   } catch {
@@ -900,9 +906,9 @@ function setupCountryCombobox() {
             class: 'combobox-option',
             role: 'option',
             id: `combo-opt-${i}`,
-            onclick: () => { input.value = c.name; closeOptions(); selectCountry(c); },
+            onclick: () => { input.value = countryLabel(c); closeOptions(); selectCountry(c, { openSheet: false }); },
           }, [
-            el('span', { class: 'combobox-option-name' }, c.name),
+            el('span', { class: 'combobox-option-name' }, countryLabel(c)),
             el('span', { class: 'combobox-option-meta' }, i18n.t('tile.meta_country', { cities: c.city_count, listings: c.listing_count })),
           ])
         );
@@ -939,7 +945,7 @@ function setupCountryCombobox() {
     else if (e.key === 'Enter') {
       e.preventDefault();
       const chosen = comboFilteredCountries[comboActiveIndex] || comboFilteredCountries[0];
-      if (chosen) { input.value = chosen.name; closeOptions(); selectCountry(chosen); }
+      if (chosen) { input.value = countryLabel(chosen); closeOptions(); selectCountry(chosen, { openSheet: false }); }
     } else if (e.key === 'Escape') {
       closeOptions();
     }
@@ -977,7 +983,7 @@ function openCountrySheet(country) {
     el('div', { class: 'country-sheet-header' }, [
       el('span', { class: 'country-sheet-flag' }, flagEmoji(country.iso2)),
       el('div', { class: 'country-sheet-title' }, [
-        el('h2', {}, country.name),
+        el('h2', {}, countryLabel(country)),
         el('span', { class: 'country-sheet-continent' }, country.continent || ''),
       ]),
     ]),
@@ -1207,7 +1213,7 @@ function reopenMap() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-async function selectCountry(country) {
+async function selectCountry(country, { openSheet = true } = {}) {
   document.body.classList.add('atlas-engaged');
   collapseMapOnce();
   setExploreStageVisibility('country');
@@ -1216,12 +1222,14 @@ async function selectCountry(country) {
   state.selectedCountry = country;
   state.selectedState = null;
   state.selectedCity = null;
-  document.getElementById('countrySearchInput').value = country.name;
+  document.getElementById('countrySearchInput').value = countryLabel(country);
   const activeCountryHeading = document.getElementById('activeCountryHeading');
-  if (activeCountryHeading) { activeCountryHeading.textContent = country.name; activeCountryHeading.hidden = false; }
+  if (activeCountryHeading) { activeCountryHeading.textContent = countryLabel(country); activeCountryHeading.hidden = false; }
+  const showCountrySheetBtn = document.getElementById('showCountrySheetBtn');
+  if (showCountrySheetBtn) showCountrySheetBtn.hidden = false;
   highlightCountryOnMap(country.iso_numeric);
   loadFeatured();
-  openCountrySheet(country);
+  if (openSheet) openCountrySheet(country);
 
   const stateGrid = document.getElementById('stateGrid');
   const cityGrid = document.getElementById('cityGrid');
@@ -1230,7 +1238,7 @@ async function selectCountry(country) {
   cityGrid.hidden = true;
 
   if (country.is_federal) {
-    document.getElementById('coordEyebrow').textContent = `${country.name.toUpperCase()} — ${i18n.t('eyebrow.choose_state_suffix')}`;
+    document.getElementById('coordEyebrow').textContent = `${countryLabel(country).toUpperCase()} — ${i18n.t('eyebrow.choose_state_suffix')}`;
     const states = await api(`/countries/${country.id}/states`);
     state.lastStates = states;
     state.lastCities = null;
@@ -1238,7 +1246,7 @@ async function selectCountry(country) {
   } else {
     stateGrid.hidden = true;
     state.lastStates = null;
-    document.getElementById('coordEyebrow').textContent = `${country.name.toUpperCase()} — ${i18n.t('eyebrow.choose_city_suffix')}`;
+    document.getElementById('coordEyebrow').textContent = `${countryLabel(country).toUpperCase()} — ${i18n.t('eyebrow.choose_city_suffix')}`;
     const cities = await api(`/countries/${country.id}/cities`);
     state.lastCities = cities;
     renderCityTiles(cities);
@@ -1268,7 +1276,7 @@ function renderStateTiles(states) {
 async function selectState(st) {
   state.selectedState = st;
   state.selectedCity = null;
-  document.getElementById('coordEyebrow').textContent = `${st.name.toUpperCase()}, ${state.selectedCountry.name.toUpperCase()} — ${i18n.t('eyebrow.choose_city_suffix')}`;
+  document.getElementById('coordEyebrow').textContent = `${st.name.toUpperCase()}, ${countryLabel(state.selectedCountry).toUpperCase()} — ${i18n.t('eyebrow.choose_city_suffix')}`;
   const cities = await api(`/states/${st.id}/cities`);
   state.lastCities = cities;
   renderCityTiles(cities);
@@ -1295,7 +1303,7 @@ function renderCityTiles(cities) {
 async function selectCity(city) {
   state.selectedCity = city;
   setExploreStageVisibility('city');
-  document.getElementById('coordEyebrow').textContent = `${city.name.toUpperCase()}, ${state.selectedCountry.name.toUpperCase()}`;
+  document.getElementById('coordEyebrow').textContent = `${city.name.toUpperCase()}, ${countryLabel(state.selectedCountry).toUpperCase()}`;
   renderBreadcrumb();
   document.getElementById('listingsHeader').hidden = false;
   document.getElementById('listingsTitle').textContent = `${i18n.t('listings.title_prefix')} ${city.name}`;
@@ -1328,6 +1336,8 @@ function resetExplore() {
   setExploreStageVisibility('landing');
   const activeCountryHeading = document.getElementById('activeCountryHeading');
   if (activeCountryHeading) { activeCountryHeading.hidden = true; activeCountryHeading.textContent = ''; }
+  const showCountrySheetBtn = document.getElementById('showCountrySheetBtn');
+  if (showCountrySheetBtn) showCountrySheetBtn.hidden = true;
   state.selectedCountry = null;
   state.selectedState = null;
   state.selectedCity = null;
@@ -1829,7 +1839,7 @@ function renderStampRow(countries) {
   return el('div', { class: 'passport-stamps' }, countries.map((c, i) =>
     el('div', { class: 'passport-stamp', style: `--stamp-tilt: ${(i % 2 === 0 ? -1 : 1) * (2 + (i % 3))}deg` }, [
       el('span', { class: 'flag' }, flagEmoji(c.iso2)),
-      el('span', { class: 'country-name' }, c.name),
+      el('span', { class: 'country-name' }, countryLabel(c)),
       el('span', { class: 'stamp-date' }, new Date(c.first_at).toLocaleDateString()),
     ])
   ));
@@ -3200,6 +3210,49 @@ async function removeListingAsAdmin(id) {
 
 // ---------- Langue ----------
 
+/** Régénère tous les libellés de PAYS affichés dans l'UI (menu déroulant de
+ * publication, champ de recherche, titre au-dessus des villes, indication
+ * de coordonnées, fiche pays si ouverte, passeport) après un changement de
+ * langue — même logique que refreshCategoryTexts() pour les catégories. */
+function refreshCountryTexts() {
+  const pubCountry = document.getElementById('publishCountry');
+  if (pubCountry) {
+    for (const opt of pubCountry.options) {
+      const c = findCountryById(opt.value);
+      if (c) opt.textContent = countryLabel(c);
+    }
+  }
+
+  if (state.selectedCountry) {
+    const searchInput = document.getElementById('countrySearchInput');
+    if (searchInput) searchInput.value = countryLabel(state.selectedCountry);
+
+    const activeCountryHeading = document.getElementById('activeCountryHeading');
+    if (activeCountryHeading && !activeCountryHeading.hidden) activeCountryHeading.textContent = countryLabel(state.selectedCountry);
+
+    const eyebrow = document.getElementById('coordEyebrow');
+    if (eyebrow) {
+      if (state.selectedCity) {
+        eyebrow.textContent = `${state.selectedCity.name.toUpperCase()}, ${countryLabel(state.selectedCountry).toUpperCase()}`;
+      } else if (state.selectedState) {
+        eyebrow.textContent = `${state.selectedState.name.toUpperCase()}, ${countryLabel(state.selectedCountry).toUpperCase()} — ${i18n.t('eyebrow.choose_city_suffix')}`;
+      } else {
+        const suffixKey = state.selectedCountry.is_federal ? 'eyebrow.choose_state_suffix' : 'eyebrow.choose_city_suffix';
+        eyebrow.textContent = `${countryLabel(state.selectedCountry).toUpperCase()} — ${i18n.t(suffixKey)}`;
+      }
+    }
+
+    const countryModal = document.getElementById('countryModal');
+    if (countryModal && !countryModal.hidden) {
+      const h2 = countryModal.querySelector('.country-sheet-title h2');
+      if (h2) h2.textContent = countryLabel(state.selectedCountry);
+    }
+  }
+
+  const passportView = document.getElementById('view-passport');
+  if (state.user && passportView && !passportView.hidden) loadPassport();
+}
+
 function onLanguageApplied() {
   renderAuthZone();
   renderStatsBar();
@@ -3217,6 +3270,7 @@ function onLanguageApplied() {
   if (state.lists.adminStats) renderAdminDashboard(state.lists.adminStats);
   if (state.lists.favorites.length) renderCardsInto('favoritesGrid', state.lists.favorites);
   refreshCategoryTexts();
+  refreshCountryTexts();
   rerenderAllPrices();
 }
 
