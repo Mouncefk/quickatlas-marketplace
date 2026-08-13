@@ -146,3 +146,26 @@ export async function analyzeFraudRisk({ provider, apiKey, title, description, p
   const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt);
   return parseFraudResponse(raw);
 }
+
+function buildTextTranslationPrompt(text, targetLangCode) {
+  const targetLang = LANG_NAMES[targetLangCode] || targetLangCode;
+  return [
+    `Traduis le texte suivant en ${targetLang}. Réponds UNIQUEMENT avec le texte traduit,`,
+    `sans aucun texte avant ou après, sans guillemets, sans balises markdown, en conservant`,
+    `les sauts de ligne éventuels.`,
+    ``,
+    text,
+  ].join('\n');
+}
+
+/**
+ * Traduit un texte libre (ex. une rubrique de fiche pays) via le
+ * fournisseur/clé de l'utilisateur. Pas de mise en cache ici : c'est une
+ * traduction à la demande, déclenchée manuellement par un clic.
+ * @returns {Promise<string>}
+ */
+export async function translateText({ provider, apiKey, text, targetLangCode }) {
+  const prompt = buildTextTranslationPrompt(text, targetLangCode);
+  const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt);
+  return raw.trim().replace(/^["']|["']$/g, '');
+}
