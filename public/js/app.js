@@ -1043,7 +1043,46 @@ async function loadCountryProfile(country) {
   }
   const tabs = el('div', { class: 'country-sheet-tabs' });
   const body = el('div', { class: 'country-sheet-tab-body' });
+  const translateBox = el('div', { class: 'ai-translate-box' });
+  let activeKey = null;
   let firstTab = null;
+
+  /** Reconstruit le bouton "Traduire" pour la rubrique actuellement affichée —
+   * ne fait rien si l'utilisateur n'a pas configuré sa propre clé IA (le
+   * bouton reste alors simplement absent, pas grisé, pour ne pas donner
+   * l'impression d'une fonctionnalité cassée). */
+  function renderTranslateControls() {
+    translateBox.innerHTML = '';
+    if (!state.user || !state.aiSettings.has_key) return;
+    const btn = el('button', {
+      class: 'ai-translate-link',
+      title: i18n.t('country.translate_tooltip'),
+      onclick: async () => {
+        const originalLabel = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = i18n.t('ai.translating');
+        try {
+          const result = await api('/ai/translate-country-profile', {
+            method: 'POST',
+            body: JSON.stringify({ country_id: country.id, field: activeKey, target_lang: i18n.effectiveLang() }),
+          });
+          body.textContent = result.text;
+          const revertBtn = el('button', {
+            class: 'ai-translate-link',
+            onclick: () => { body.textContent = profile[activeKey]; revertBtn.remove(); },
+          }, i18n.t('detail.see_original'));
+          translateBox.append(revertBtn);
+        } catch (err) {
+          showToast(friendlyErrorMessage(err));
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalLabel;
+        }
+      },
+    }, `🌐 ${i18n.t('country.translate_button')}`);
+    translateBox.append(btn);
+  }
+
   for (const [key, labelKey, icon] of COUNTRY_PROFILE_TABS) {
     if (!profile[key]) continue;
     const btn = el('button', {
@@ -1052,6 +1091,8 @@ async function loadCountryProfile(country) {
         tabs.querySelectorAll('.country-sheet-tab').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         body.textContent = profile[key];
+        activeKey = key;
+        renderTranslateControls();
       },
     }, `${icon} ${i18n.t(labelKey)}`);
     tabs.append(btn);
@@ -1063,10 +1104,12 @@ async function loadCountryProfile(country) {
   }
   container.append(
     el('p', { class: 'country-sheet-disclaimer' }, i18n.t('country.profile_disclaimer')),
-    tabs, body
+    tabs, body, translateBox
   );
   firstTab.btn.classList.add('active');
   body.textContent = profile[firstTab.key];
+  activeKey = firstTab.key;
+  renderTranslateControls();
 }
 
 // ---------- Opportunités d'affaires ----------
