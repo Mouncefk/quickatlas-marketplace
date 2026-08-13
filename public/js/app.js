@@ -19,6 +19,9 @@ function listingSubcategoryLabel(l) {
 function countryLabel(c) {
   return c && c.iso2 ? i18n.t('countryname.' + c.iso2.toLowerCase()) : (c ? c.name : '');
 }
+function listingCountryLabel(l) {
+  return l && l.country_iso2 ? i18n.t('countryname.' + l.country_iso2.toLowerCase()) : (l ? l.country_name : '');
+}
 
 const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
@@ -448,7 +451,7 @@ async function loadPromoBanner() {
     banner.onclick = (e) => { e.preventDefault(); openListingDetail(promo.id); };
     document.getElementById('promoBannerIcon').textContent = promo.category_icon;
     document.getElementById('promoBannerTitle').textContent = promo.title;
-    document.getElementById('promoBannerPlace').textContent = `${promo.city_name}, ${promo.country_name}`;
+    document.getElementById('promoBannerPlace').textContent = `${promo.city_name}, ${listingCountryLabel(promo)}`;
     banner.hidden = false;
   } catch {
     document.getElementById('promoBanner').hidden = true;
@@ -469,7 +472,7 @@ async function loadActivityTicker() {
         el('span', { class: 'activity-ticker-item' }, [
           `${item.category_icon} `,
           el('strong', {}, item.title),
-          ` — ${item.city_name}, ${item.country_name}`,
+          ` — ${item.city_name}, ${listingCountryLabel(item)}`,
         ])
       );
     }
@@ -1524,7 +1527,7 @@ function renderListingCard(l) {
         el('span', { style: 'font-size:0.78rem;color:var(--brass-300);font-weight:600;' }, l.company_name || ''),
         proBadge(l.pro_tier),
       ]) : null,
-      el('span', { class: 'card-place' }, `${l.city_name}${l.country_name ? ', ' + l.country_name : ''}`),
+      el('span', { class: 'card-place' }, `${l.city_name}${l.country_name ? ', ' + listingCountryLabel(l) : ''}`),
       el('span', { class: 'card-price' }, priceLabel(l)),
     ]),
   ]);
@@ -1687,7 +1690,7 @@ async function shareListingAsPostcard(listing) {
     wrapCanvasText(ctx, listing.title, 570, 110, 380, 40);
     ctx.font = '20px Georgia, serif';
     ctx.fillStyle = '#DDC48C';
-    ctx.fillText(`${flagEmoji(listing.country_iso2 || '')} ${listing.city_name}, ${listing.country_name}`.trim(), 570, 200);
+    ctx.fillText(`${flagEmoji(listing.country_iso2 || '')} ${listing.city_name}, ${listingCountryLabel(listing)}`.trim(), 570, 200);
     ctx.font = 'bold 28px monospace';
     ctx.fillStyle = '#F1E9D8';
     ctx.fillText(priceLabel(listing), 570, 250);
@@ -1876,7 +1879,7 @@ async function loadAlerts() {
       return;
     }
     for (const s of searches) {
-      const criteriaBits = [s.country_name, s.city_name, listingCategoryLabel(s), listingSubcategoryLabel(s), s.listing_type ? listingTypeLabel(s.listing_type) : null, s.keyword ? `« ${s.keyword} »` : null].filter(Boolean);
+      const criteriaBits = [listingCountryLabel(s), s.city_name, listingCategoryLabel(s), listingSubcategoryLabel(s), s.listing_type ? listingTypeLabel(s.listing_type) : null, s.keyword ? `« ${s.keyword} »` : null].filter(Boolean);
       const matchesBox = el('div', { hidden: 'true' });
       const card = el('div', { class: 'alert-card' }, [
         el('div', { class: 'alert-card-top' }, [
@@ -1930,7 +1933,7 @@ function trackRecentlyViewed(listing) {
     id: listing.id, title: listing.title, price: listing.price, currency: listing.currency,
     listing_type: listing.listing_type, images: listing.images, category_icon: listing.category_icon,
     category_name: listing.category_name, subcategory_name: listing.subcategory_name, category_slug: listing.category_slug, subcategory_slug: listing.subcategory_slug,
-    city_name: listing.city_name, country_name: listing.country_name,
+    city_name: listing.city_name, country_name: listing.country_name, country_iso2: listing.country_iso2,
   });
   items = items.slice(0, RECENTLY_VIEWED_MAX);
   localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(items));
@@ -2029,7 +2032,7 @@ async function openListingDetail(id) {
         ]),
       ]) : null,
       el('p', { class: 'detail-meta' }, [
-        `${l.city_name}, ${l.country_name} · ${i18n.t('detail.posted_by')} ${l.owner_name}${l.city_timezone ? ' · ' + (formatLocalTime(l.city_timezone) ? i18n.t('detail.local_time') + ' : ' + formatLocalTime(l.city_timezone) : '') : ''}`,
+        `${l.city_name}, ${listingCountryLabel(l)} · ${i18n.t('detail.posted_by')} ${l.owner_name}${l.city_timezone ? ' · ' + (formatLocalTime(l.city_timezone) ? i18n.t('detail.local_time') + ' : ' + formatLocalTime(l.city_timezone) : '') : ''}`,
         l.owner_review_count > 0 ? el('span', { class: 'seller-rating' }, `★ ${l.owner_avg_rating} (${l.owner_review_count})`) : null,
       ]),
       el('p', { class: 'view-count' }, `👁 ${i18n.t('detail.view_count', { count: l.view_count })}`),
@@ -2419,7 +2422,7 @@ function renderMyListings(listings) {
         el('div', { class: 'card-body' }, [
           el('span', { class: 'card-tag' }, `${l.subcategory_name ? listingSubcategoryLabel(l) : listingCategoryLabel(l)} · ${listingTypeLabel(l.listing_type)} · ${l.status}`),
           el('h3', { class: 'card-title' }, l.title),
-          el('span', { class: 'card-place' }, `${l.city_name}, ${l.country_name}`),
+          el('span', { class: 'card-place' }, `${l.city_name}, ${listingCountryLabel(l)}`),
           el('span', { class: 'card-price' }, priceLabel(l)),
           el('span', { class: 'card-mini-stats' }, `👁 ${l.view_count}   ·   ♥ ${l.favorite_count}`),
           expiry.expired
@@ -3172,7 +3175,7 @@ function renderAdminListings(listings) {
       el('tr', {}, [
         el('td', {}, el('button', { class: 'btn btn--ghost btn--small', onclick: () => openListingDetail(l.id) }, l.title)),
         el('td', {}, `${l.owner_name} (${l.owner_email})`),
-        el('td', {}, `${l.city_name}, ${l.country_name}`),
+        el('td', {}, `${l.city_name}, ${listingCountryLabel(l)}`),
         riskCell,
         el('td', {}, i18n.t(isActive ? 'admin.status_active' : 'admin.status_suspended')),
         el('td', {}, el('div', { class: 'admin-actions' }, [
