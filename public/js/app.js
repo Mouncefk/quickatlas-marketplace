@@ -1053,7 +1053,17 @@ async function loadCountryProfile(country) {
    * l'impression d'une fonctionnalité cassée). */
   function renderTranslateControls() {
     translateBox.innerHTML = '';
-    if (!state.user || !state.aiSettings.has_key) return;
+    if (!state.user) return;
+    if (!state.aiSettings.has_key) {
+      translateBox.append(
+        el('button', {
+          class: 'ai-translate-link',
+          title: i18n.t('country.translate_tooltip'),
+          onclick: openAiSettingsModal,
+        }, `🌐 ${i18n.t('country.translate_setup_prompt')}`)
+      );
+      return;
+    }
     const btn = el('button', {
       class: 'ai-translate-link',
       title: i18n.t('country.translate_tooltip'),
