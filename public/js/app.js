@@ -1,9 +1,7 @@
 /* ==========================================================
    QuickAtlas — logique front-end (vanilla JS, sans framework)
    ========================================================== */
-
 const API = '/api';
-
 function categoryLabel(cat) {
   return cat && cat.slug ? i18n.t('category.' + cat.slug) : (cat ? cat.name : '');
 }
@@ -22,9 +20,7 @@ function countryLabel(c) {
 function listingCountryLabel(l) {
   return l && l.country_iso2 ? i18n.t('countryname.' + l.country_iso2.toLowerCase()) : (l ? l.country_name : '');
 }
-
 const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
-
 const state = {
   token: localStorage.getItem('atlas_token') || null,
   user: JSON.parse(localStorage.getItem('atlas_user') || 'null'),
@@ -43,18 +39,13 @@ const state = {
   lastCities: null,
   clockTimer: null,
 };
-
 // ---------- Helpers API ----------
-
 async function api(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
   const res = await fetch(`${API}${path}`, { ...options, headers, cache: 'no-store' });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && state.token) {
-    // Le jeton stocké n'est plus valide (secret serveur régénéré, expiration, etc.)
-    // On nettoie la session locale et on invite la personne à se reconnecter,
-    // plutôt que de la laisser dans un état "connecté" trompeur.
     state.token = null;
     state.user = null;
     localStorage.removeItem('atlas_token');
@@ -66,7 +57,6 @@ async function api(path, options = {}) {
   if (!res.ok) throw new Error(data.error || 'Erreur inconnue');
   return data;
 }
-
 function listingTypeLabel(type) {
   const key = { vente: 'type.vente', location: 'type.location', achat: 'type.achat', offre_emploi: 'type.offre_emploi', demande_emploi: 'type.demande_emploi' }[type];
   return key ? i18n.t(key) : type;
@@ -77,7 +67,6 @@ function isJobType(type) {
 function hasOptionalPrice(type) {
   return isJobType(type) || type === 'achat';
 }
-
 function fmtPrice(price, currency) {
   try {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(price);
@@ -85,8 +74,6 @@ function fmtPrice(price, currency) {
     return `${price} ${currency}`;
   }
 }
-
-// Convertit et formate le prix d'une annonce selon la devise d'affichage choisie.
 function priceLabel(listing) {
   if (listing.price === null || listing.price === undefined) {
     if (listing.listing_type === 'achat') return i18n.t('price.budget_open');
@@ -104,7 +91,6 @@ function priceLabel(listing) {
   const converted = (listing.price / rateFrom) * rateTo;
   return `${prefix}${fmtPrice(converted, state.displayCurrency)}${suffix}  ·  ${native}${suffix}`;
 }
-
 async function loadExchangeRates() {
   const note = document.getElementById('currencyNote');
   try {
@@ -121,7 +107,6 @@ async function loadExchangeRates() {
     note.textContent = i18n.t('currency.note_fail');
   }
 }
-
 function populateCurrencySelect() {
   const select = document.getElementById('displayCurrency');
   const currencies = Array.from(new Set(state.countries.map((c) => c.currency))).sort();
@@ -133,7 +118,6 @@ function populateCurrencySelect() {
     rerenderAllPrices();
   });
 }
-
 function rerenderAllPrices() {
   renderCardsInto('featuredGrid', state.lists.featured);
   renderCardsInto('listingGrid', state.lists.city);
@@ -142,7 +126,6 @@ function rerenderAllPrices() {
   if (state.lists.favorites.length) renderCardsInto('favoritesGrid', state.lists.favorites);
   renderRecentlyViewed();
 }
-
 function renderCardsInto(containerId, listings) {
   const grid = document.getElementById(containerId);
   if (!grid || grid.hidden || !listings) return;
@@ -153,9 +136,7 @@ function renderCardsInto(containerId, listings) {
   }
   for (const l of listings) grid.append(renderListingCard(l));
 }
-
 // ---------- Heure locale ----------
-
 function formatLocalTime(timezone) {
   try {
     const now = new Date();
@@ -167,7 +148,6 @@ function formatLocalTime(timezone) {
     return null;
   }
 }
-
 function startCityClock(timezone) {
   stopCityClock();
   const el2 = document.getElementById('localTime');
@@ -180,11 +160,9 @@ function startCityClock(timezone) {
   tick();
   state.clockTimer = setInterval(tick, 1000);
 }
-
 function stopCityClock() {
   if (state.clockTimer) { clearInterval(state.clockTimer); state.clockTimer = null; }
 }
-
 function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -192,13 +170,11 @@ function showToast(msg) {
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => { el.hidden = true; }, 3200);
 }
-
 function friendlyErrorMessage(err) {
   if (err.message === 'EMAIL_NOT_VERIFIED') return i18n.t('verify.required_action');
   if (err.message === 'AI_NOT_CONFIGURED') return i18n.t('ai.not_configured_error');
   return err.message;
 }
-
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -213,9 +189,7 @@ function el(tag, attrs = {}, children = []) {
   }
   return node;
 }
-
 // ---------- Auth zone ----------
-
 function renderAuthZone() {
   const zone = document.getElementById('authZone');
   zone.innerHTML = '';
@@ -236,7 +210,6 @@ function renderAuthZone() {
     zone.append(el('button', { class: 'btn btn--primary btn--small', onclick: () => openAuthModal('login') }, i18n.t('auth.login')));
   }
 }
-
 function logout() {
   state.token = null;
   state.user = null;
@@ -246,12 +219,10 @@ function logout() {
   showToast(i18n.t('toast.logged_out'));
   navigate('explore');
 }
-
 function openAuthModal(tab = 'login') {
   document.getElementById('authModal').hidden = false;
   switchAuthTab(tab);
 }
-
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === (tab === 'forgot' || tab === 'reset' ? 'login' : tab)));
   document.querySelector('.auth-tabs').hidden = tab === 'forgot' || tab === 'reset';
@@ -260,10 +231,8 @@ function switchAuthTab(tab) {
   document.getElementById('forgotPasswordForm').hidden = tab !== 'forgot';
   document.getElementById('resetPasswordForm').hidden = tab !== 'reset';
 }
-
 document.getElementById('forgotPasswordLink').addEventListener('click', () => switchAuthTab('forgot'));
 document.getElementById('backToLoginLink').addEventListener('click', () => switchAuthTab('login'));
-
 document.getElementById('forgotPasswordForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -279,9 +248,7 @@ document.getElementById('forgotPasswordForm').addEventListener('submit', async (
     errEl.hidden = false;
   }
 });
-
 let pendingResetToken = null;
-
 document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -298,7 +265,6 @@ document.getElementById('resetPasswordForm').addEventListener('submit', async (e
     errEl.hidden = false;
   }
 });
-
 function setupPasswordStrengthMeter(inputId, wrapId, fillId, labelId) {
   const input = document.getElementById(inputId);
   const wrap = document.getElementById(wrapId);
@@ -321,7 +287,6 @@ function setupPasswordStrengthMeter(inputId, wrapId, fillId, labelId) {
     label.textContent = i18n.t(level.key);
   });
 }
-
 function passwordStrengthScore(password) {
   let score = 0;
   if (password.length >= 8) score++;
@@ -331,12 +296,9 @@ function passwordStrengthScore(password) {
   if (/[^a-zA-Z0-9]/.test(password)) score++;
   return Math.min(score, 4);
 }
-
 setupPasswordStrengthMeter('registerPassword', 'passwordStrength', 'passwordStrengthFill', 'passwordStrengthLabel');
 setupPasswordStrengthMeter('resetPassword', 'resetPasswordStrength', 'resetPasswordStrengthFill', 'resetPasswordStrengthLabel');
-
 // ---------- Bannière : icônes catégories, promo, navigation par catégorie ----------
-
 function renderCategoryIconRow() {
   const row = document.getElementById('categoryIconRow');
   row.innerHTML = '';
@@ -346,18 +308,9 @@ function renderCategoryIconRow() {
     );
   }
 }
-
-/** Contrôle ce qui est visible à chaque étape du parcours pays → ville → annonces,
- * pour que la page reste courte et focalisée : le bandeau d'activité, les stats,
- * le sélecteur de devise, "Vus récemment", "À la une" et la recherche de pays ne
- * doivent apparaître qu'à l'accueil — pas pendant qu'on choisit une ville, ni une
- * fois les annonces affichées. Utilise une classe CSS dédiée plutôt que l'attribut
- * hidden natif, pour ne jamais entrer en conflit avec la logique propre de chaque
- * section (ex. featuredSection ne s'affiche que si elle a du contenu). */
 function setExploreStageVisibility(stage) {
   const byId = (id) => document.getElementById(id);
   const force = (el, hide) => { if (el) el.classList.toggle('explore-force-hidden', hide); };
-
   const ticker = byId('activityTicker');
   const promo = byId('promoBanner');
   const stats = byId('statsBar');
@@ -368,31 +321,18 @@ function setExploreStageVisibility(stage) {
   const featured = byId('featuredSection');
   const reopenMapBtn = byId('reopenMapBtn');
   if (reopenMapBtn) reopenMapBtn.hidden = stage === 'landing';
-
   const hideTopBar = stage !== 'landing';
   force(ticker, hideTopBar);
   force(promo, hideTopBar);
-  // countrySection (recherche de pays) reste visible tant qu'aucune ville n'est
-  // choisie : c'est la 2e façon de changer de pays, avec le bouton "Voir la carte".
   force(countrySection, stage === 'city');
-  // Stats et sélecteur de devise : masqués uniquement pendant le choix de la
-  // ville (étape 'country'), mais réaffichés une fois les annonces visibles
-  // ('city') — utiles pour comparer les prix une fois sur place.
   force(stats, stage === 'country');
   force(currency, stage === 'country');
-
   force(categoryRow, stage === 'city');
   force(recently, stage === 'country');
   force(featured, stage === 'country');
 }
-
-/** Régénère tous les libellés de catégories/sous-catégories affichés dans
- * l'UI (pastilles, menus déroulants, fil d'ariane) après un changement de
- * langue — sans quoi seuls les prix/annonces se retraduisaient, laissant
- * les menus figés dans l'ancienne langue jusqu'au prochain F5. */
 function refreshCategoryTexts() {
   renderCategoryIconRow();
-
   const catFilter = document.getElementById('categoryFilter');
   const pubCat = document.getElementById('publishCategory');
   if (catFilter) {
@@ -414,21 +354,18 @@ function refreshCategoryTexts() {
       footerCats.append(el('span', {}, `${c.icon} ${categoryLabel(c)}`));
     }
   }
-
   const subFilter = document.getElementById('subcategoryFilter');
   if (subFilter && catFilter) {
     const prevVal = subFilter.value;
     fillSubcategorySelect(subFilter, findCategoryBySlug(catFilter.value), true);
     subFilter.value = prevVal;
   }
-
   const pubSub = document.getElementById('publishSubcategory');
   if (pubSub && pubCat) {
     const prevVal = pubSub.value;
     fillSubcategorySelect(pubSub, findCategoryById(pubCat.value), false);
     pubSub.value = prevVal;
   }
-
   if (state.categoryBrowse && state.categoryBrowse.category) {
     const catBrowseSub = document.getElementById('categoryBrowseSubcategory');
     if (catBrowseSub) {
@@ -441,7 +378,6 @@ function refreshCategoryTexts() {
     if (title) title.textContent = `${state.categoryBrowse.category.icon} ${categoryLabel(state.categoryBrowse.category)}`;
   }
 }
-
 async function loadPromoBanner() {
   try {
     const promo = await api('/listings/promo');
@@ -457,11 +393,8 @@ async function loadPromoBanner() {
     document.getElementById('promoBanner').hidden = true;
   }
 }
-
 // ---------- Ticker d'activité mondiale + carte vivante ----------
-
 let knownActivityIds = null;
-
 async function loadActivityTicker() {
   try {
     const items = await api('/activity-feed');
@@ -485,7 +418,6 @@ async function loadActivityTicker() {
     knownActivityIds = currentIds;
   } catch { /* silencieux */ }
 }
-
 function pulseCountry(isoNumeric) {
   if (!mapSelection || !isoNumeric) return;
   const path = mapSelection.select(`path[data-iso="${String(Number(isoNumeric))}"]`);
@@ -502,9 +434,7 @@ function pulseCountry(isoNumeric) {
     .style('opacity', 0)
     .on('end', function () { d3.select(this).remove(); });
 }
-
 state.categoryBrowse = { category: null, subcategory: '', type: '', sort: 'newest' };
-
 async function browseCategory(category) {
   resetExplore();
   state.categoryBrowse = { category, subcategory: '', type: '', sort: 'newest' };
@@ -518,7 +448,6 @@ async function browseCategory(category) {
   await runCategoryBrowseSearch();
   document.getElementById('searchResultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-
 function updateCategoryBrowseTypeOptions(categorySlug) {
   const select = document.getElementById('categoryBrowseType');
   const isEmploi = categorySlug === 'emploi';
@@ -534,7 +463,6 @@ function updateCategoryBrowseTypeOptions(categorySlug) {
     select.append(el('option', { value: 'achat' }, i18n.t('filter.type_buy')));
   }
 }
-
 function renderCategoryBreadcrumb() {
   const bc = document.getElementById('categoryBreadcrumb');
   bc.innerHTML = '';
@@ -550,7 +478,6 @@ function renderCategoryBreadcrumb() {
   const type = state.categoryBrowse.type;
   if (type) bc.append(document.createTextNode(' / '), el('span', {}, listingTypeLabel(type)));
 }
-
 async function runCategoryBrowseSearch() {
   const { category, subcategory, type, sort } = state.categoryBrowse;
   document.getElementById('searchResultsTitle').textContent = `${category.icon} ${categoryLabel(category)}`;
@@ -567,7 +494,6 @@ async function runCategoryBrowseSearch() {
     grid.append(el('div', { class: 'empty-state' }, i18n.t('empty.search_failed')));
   }
 }
-
 document.getElementById('categoryBrowseSubcategory').addEventListener('change', (e) => {
   state.categoryBrowse.subcategory = e.target.value;
   renderCategoryBreadcrumb();
@@ -582,13 +508,11 @@ document.getElementById('categoryBrowseSort').addEventListener('change', (e) => 
   state.categoryBrowse.sort = e.target.value;
   runCategoryBrowseSearch();
 });
-
 document.getElementById('reopenMapBtn').addEventListener('click', reopenMap);
 document.getElementById('showCountrySheetBtn').addEventListener('click', () => {
   if (state.selectedCountry) openCountrySheet(state.selectedCountry);
 });
 // ---------- Navigation entre écrans ----------
-
 function navigate(view) {
   document.getElementById('authModal').hidden = true;
   document.getElementById('listingModal').hidden = true;
@@ -630,10 +554,8 @@ function navigate(view) {
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-
 document.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.nav)));
 document.getElementById('burgerBtn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
-
 document.querySelectorAll('[data-close]').forEach((b) =>
   b.addEventListener('click', () => (document.getElementById(b.dataset.close).hidden = true))
 );
@@ -641,45 +563,36 @@ document.querySelectorAll('.modal-overlay').forEach((ov) =>
   ov.addEventListener('click', (e) => { if (e.target === ov) ov.hidden = true; })
 );
 document.querySelectorAll('.auth-tab').forEach((b) => b.addEventListener('click', () => switchAuthTab(b.dataset.tab)));
-
 // ---------- Mode d'emploi / guide ----------
-
 document.getElementById('helpFabBtn').addEventListener('click', () => {
   document.getElementById('helpModal').hidden = false;
 });
-
 document.getElementById('footerHowItWorksBtn').addEventListener('click', () => {
   document.getElementById('helpModal').hidden = false;
 });
-
 document.getElementById('footerAlertsHowToBtn').addEventListener('click', () => {
   document.getElementById('helpModal').hidden = false;
   const section = document.getElementById('helpAlertsSection');
   section.open = true;
   setTimeout(() => section.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
 });
-
 document.getElementById('footerPrivacyBtn').addEventListener('click', () => {
   navigate('terms');
   setTimeout(() => {
     document.querySelector('[data-i18n="privacy.title"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 100);
 });
-
 document.getElementById('helpDontShowAgain').addEventListener('change', (e) => {
   if (e.target.checked) localStorage.setItem('quickatlas_guide_dismissed', '1');
   else localStorage.removeItem('quickatlas_guide_dismissed');
 });
-
 function maybeShowGuideOnFirstVisit() {
   if (localStorage.getItem('quickatlas_guide_dismissed')) return;
   if (localStorage.getItem('quickatlas_guide_seen')) return;
   localStorage.setItem('quickatlas_guide_seen', '1');
   document.getElementById('helpModal').hidden = false;
 }
-
 // ---------- Chargement des référentiels ----------
-
 async function loadCategories() {
   state.categories = await api('/categories');
   const catFilter = document.getElementById('categoryFilter');
@@ -705,7 +618,6 @@ async function loadCategories() {
   updateTypeFilterOptions(catFilter.value);
   document.getElementById('subcategoryFilter').addEventListener('change', refreshListings);
 }
-
 function updatePublishTypeAndPriceUI(category) {
   const typeSelect = document.getElementById('publishListingType');
   const priceLabelEl = document.getElementById('publishPriceLabel');
@@ -738,7 +650,6 @@ function updatePublishTypeAndPriceUI(category) {
   if ([...typeSelect.options].some((o) => o.value === previousValue)) typeSelect.value = previousValue;
   applyPriceRequirement();
 }
-
 function updateTypeFilterOptions(categorySlug) {
   const typeFilter = document.getElementById('typeFilter');
   const isEmploi = categorySlug === 'emploi';
@@ -756,14 +667,12 @@ function updateTypeFilterOptions(categorySlug) {
   }
   if ([...typeFilter.options].some((o) => o.value === previousValue)) typeFilter.value = previousValue;
 }
-
 function findCategoryById(id) {
   return state.categories.find((c) => String(c.id) === String(id));
 }
 function findCategoryBySlug(slug) {
   return state.categories.find((c) => c.slug === slug);
 }
-
 function fillSubcategorySelect(selectEl, category, withAllOption) {
   selectEl.innerHTML = '';
   if (withAllOption) selectEl.append(el('option', { value: '' }, i18n.t('filter.all_natures')));
@@ -777,7 +686,6 @@ function fillSubcategorySelect(selectEl, category, withAllOption) {
     selectEl.append(el('option', { value: withAllOption ? s.slug : s.id }, subcategoryLabel(s)));
   }
 }
-
 async function loadCountries() {
   state.countries = await api('/countries');
   renderCountryGrid();
@@ -785,7 +693,6 @@ async function loadCountries() {
   populateCurrencySelect();
   const pubCountry = document.getElementById('publishCountry');
   pubCountry.innerHTML = '';
-
   const guessedId = await guessUserCountryId();
   const ordered = guessedId
     ? [...state.countries].sort((a, b) => (a.id === guessedId ? -1 : b.id === guessedId ? 1 : 0))
@@ -796,7 +703,6 @@ async function loadCountries() {
   pubCountry.addEventListener('change', () => handlePublishCountryChange(pubCountry.value));
   if (state.countries[0]) handlePublishCountryChange(pubCountry.value || state.countries[0].id);
 }
-
 async function guessUserCountryId() {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -807,14 +713,12 @@ async function guessUserCountryId() {
     return null;
   }
 }
-
 async function handlePublishCountryChange(countryId) {
   const country = findCountryById(countryId);
   if (!country) return;
   document.getElementById('publishForm').querySelector('input[name=currency]').value = country.currency;
   const stateLabel = document.getElementById('publishStateLabel');
   const stateSelect = document.getElementById('publishState');
-
   if (country.is_federal) {
     stateLabel.hidden = false;
     const states = await api(`/countries/${country.id}/states`);
@@ -828,18 +732,15 @@ async function handlePublishCountryChange(countryId) {
     fillPublishCities(country.id);
   }
 }
-
 function findCountryById(id) {
   return state.countries.find((c) => String(c.id) === String(id));
 }
-
 async function fillPublishCitiesFromStates(stateId) {
   const cities = await api(`/states/${stateId}/cities`);
   const sel = document.getElementById('publishCity');
   sel.innerHTML = '';
   for (const c of cities) sel.append(el('option', { value: c.id }, c.name));
 }
-
 function renderStatsBar() {
   const bar = document.getElementById('statsBar');
   bar.innerHTML = '';
@@ -854,7 +755,6 @@ function renderStatsBar() {
     bar.append(el('div', {}, [el('dd', {}, String(value)), el('dt', {}, label)]));
   }
 }
-
 async function loadFeatured() {
   try {
     const countryId = state.selectedCountry ? state.selectedCountry.id : '';
@@ -874,25 +774,20 @@ async function loadFeatured() {
     /* section reste masquée si l'appel échoue */
   }
 }
-
 async function fillPublishCities(countryId) {
   const cities = await api(`/countries/${countryId}/cities`);
   const sel = document.getElementById('publishCity');
   sel.innerHTML = '';
   for (const c of cities) sel.append(el('option', { value: c.id }, c.name));
 }
-
 function renderCountryGrid() {
   setupCountryCombobox();
 }
-
 let comboActiveIndex = -1;
 let comboFilteredCountries = [];
-
 function setupCountryCombobox() {
   const input = document.getElementById('countrySearchInput');
   const list = document.getElementById('countryOptions');
-
   function renderOptions(query) {
     const q = (query || '').trim().toLowerCase();
     comboFilteredCountries = q
@@ -918,7 +813,6 @@ function setupCountryCombobox() {
       });
     }
   }
-
   function openOptions() {
     renderOptions(input.value);
     list.hidden = false;
@@ -937,7 +831,6 @@ function setupCountryCombobox() {
     }
     comboActiveIndex = index;
   }
-
   input.addEventListener('focus', openOptions);
   input.addEventListener('input', openOptions);
   input.addEventListener('blur', () => setTimeout(closeOptions, 150));
@@ -954,21 +847,17 @@ function setupCountryCombobox() {
     }
   });
 }
-
 // ---------- Sélection pays / ville ----------
-
 function flagEmoji(iso2) {
   if (!iso2 || iso2.length !== 2) return '🌍';
   const codePoints = [...iso2.toUpperCase()].map((c) => 0x1f1e6 + (c.charCodeAt(0) - 65));
   return String.fromCodePoint(...codePoints);
 }
-
 function formatPopulation(millions) {
   if (millions === null || millions === undefined) return '—';
   if (millions < 1) return `${Math.round(millions * 1000).toLocaleString('fr-FR')} ${i18n.t('country.thousand_inhabitants')}`;
   return `${millions.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ${i18n.t('country.million_inhabitants')}`;
 }
-
 function slugify(text) {
   return String(text)
     .toLowerCase()
@@ -976,7 +865,6 @@ function slugify(text) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
-
 function openCountrySheet(country) {
   const newPath = `/pays/${slugify(country.name)}`;
   if (window.location.pathname !== newPath) window.history.pushState({ type: 'country', id: country.id }, '', newPath);
@@ -1018,7 +906,6 @@ function openCountrySheet(country) {
   loadEconomicStats(country);
   loadBusinessOpportunities(country);
 }
-
 const COUNTRY_PROFILE_TABS = [
   ['business_climate', 'country.tab_business', '💼'],
   ['culture', 'country.tab_culture', '🤝'],
@@ -1026,7 +913,6 @@ const COUNTRY_PROFILE_TABS = [
   ['practical_tips', 'country.tab_tips', '🧭'],
   ['holidays', 'country.tab_holidays', '📅'],
 ];
-
 async function loadCountryProfile(country) {
   const container = document.getElementById('countrySheetProfile');
   let profile;
@@ -1046,11 +932,6 @@ async function loadCountryProfile(country) {
   const translateBox = el('div', { class: 'ai-translate-box' });
   let activeKey = null;
   let firstTab = null;
-
-  /** Reconstruit le bouton "Traduire" pour la rubrique actuellement affichée —
-   * ne fait rien si l'utilisateur n'a pas configuré sa propre clé IA (le
-   * bouton reste alors simplement absent, pas grisé, pour ne pas donner
-   * l'impression d'une fonctionnalité cassée). */
   function renderTranslateControls() {
     translateBox.innerHTML = '';
     if (!state.user) return;
@@ -1092,7 +973,6 @@ async function loadCountryProfile(country) {
     }, `🌐 ${i18n.t('country.translate_button')}`);
     translateBox.append(btn);
   }
-
   for (const [key, labelKey, icon] of COUNTRY_PROFILE_TABS) {
     if (!profile[key]) continue;
     const btn = el('button', {
@@ -1121,9 +1001,7 @@ async function loadCountryProfile(country) {
   activeKey = firstTab.key;
   renderTranslateControls();
 }
-
 // ---------- Opportunités d'affaires ----------
-
 async function loadEconomicStats(country) {
   const container = document.getElementById('economicStats');
   if (!container) return;
@@ -1135,7 +1013,6 @@ async function loadEconomicStats(country) {
     return; // section reste vide si l'appel échoue, pas de message d'erreur intrusif
   }
   if (document.getElementById('countryModal').hidden) return; // fermé entre-temps
-
   const figures = [
     ['gdp_usd', 'gdp_year', i18n.t('stats_econ.gdp'), (v) => formatCompactCurrency(v, 'USD')],
     ['gdp_per_capita_usd', 'gdp_per_capita_year', i18n.t('stats_econ.gdp_per_capita'), (v) => formatCompactCurrency(v, 'USD')],
@@ -1144,7 +1021,6 @@ async function loadEconomicStats(country) {
     ['inflation_pct', 'inflation_year', i18n.t('stats_econ.inflation'), (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`],
   ];
   const available = figures.filter(([key]) => stats[key] !== null && stats[key] !== undefined);
-
   if (available.length === 0) {
     container.append(
       el('h3', { class: 'economic-stats-title' }, `📊 ${i18n.t('stats_econ.title')}`),
@@ -1152,7 +1028,6 @@ async function loadEconomicStats(country) {
     );
     return;
   }
-
   container.append(
     el('h3', { class: 'economic-stats-title' }, `📊 ${i18n.t('stats_econ.title')}`),
     el('div', { class: 'economic-stats-grid' }, available.map(([key, yearKey, label, formatter]) =>
@@ -1165,7 +1040,6 @@ async function loadEconomicStats(country) {
     el('p', { class: 'economic-stats-source' }, i18n.t('stats_econ.source'))
   );
 }
-
 function formatCompactCurrency(value, currency) {
   const abs = Math.abs(value);
   if (abs >= 1e12) return `${(value / 1e12).toFixed(2)} T${currency === 'USD' ? '$' : currency}`;
@@ -1174,7 +1048,6 @@ function formatCompactCurrency(value, currency) {
   if (abs >= 1e3) return `${(value / 1e3).toFixed(1)} k${currency === 'USD' ? '$' : currency}`;
   return `${value.toFixed(0)} ${currency}`;
 }
-
 async function loadBusinessOpportunities(country) {
   const container = document.getElementById('businessOpportunities');
   if (!container) return;
@@ -1187,12 +1060,10 @@ async function loadBusinessOpportunities(country) {
     return;
   }
   if (document.getElementById('countryModal').hidden) return; // fermé entre-temps
-
   const nothing = data.listings.length === 0 && data.events.length === 0 && data.job_offers_count === 0;
   if (nothing) {
     container.append(el('p', { class: 'business-opp-empty' }, i18n.t('business.empty')));
   }
-
   if (data.job_offers_count > 0) {
     container.append(
       el('button', {
@@ -1205,13 +1076,11 @@ async function loadBusinessOpportunities(country) {
       }, `👥 ${i18n.t('business.job_offers_count', { count: data.job_offers_count })}`)
     );
   }
-
   if (data.listings.length > 0) {
     container.append(
       el('div', { class: 'business-opp-listings' }, data.listings.map((l) => renderListingCard(l)))
     );
   }
-
   if (data.events.length > 0) {
     container.append(
       el('div', { class: 'business-opp-events' }, data.events.map((ev) => {
@@ -1229,19 +1098,13 @@ async function loadBusinessOpportunities(country) {
       }))
     );
   }
-
   container.append(
     el('button', { class: 'btn btn--ghost btn--small', onclick: () => openEventModal(country) }, `+ ${i18n.t('business.propose_event')}`)
   );
 }
-
 function formatEventDate(dateStr) {
   return new Date(dateStr).toLocaleDateString();
 }
-/** Replie fluidement la carte du monde une fois un pays sélectionné, pour
- * libérer l'espace au profit des catégories, villes et surtout des
- * annonces — le vrai objectif de la page. Mesure la hauteur réelle avant
- * de l'animer vers 0 (plus fluide qu'un max-height CSS fixe arbitraire). */
 function collapseMapOnce() {
   const wrap = document.querySelector('.hero-and-map');
   if (!wrap || wrap.dataset.collapsed) return;
@@ -1255,9 +1118,6 @@ function collapseMapOnce() {
     });
   });
 }
-
-/** Fait réapparaître la carte et le bloc titre après un repliement — pour
- * permettre de changer de pays sans devoir recharger toute la page. */
 function reopenMap() {
   const wrap = document.querySelector('.hero-and-map');
   if (wrap) {
@@ -1268,7 +1128,6 @@ function reopenMap() {
   resetExplore();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-
 async function selectCountry(country, { openSheet = true } = {}) {
   document.body.classList.add('atlas-engaged');
   collapseMapOnce();
@@ -1286,13 +1145,11 @@ async function selectCountry(country, { openSheet = true } = {}) {
   highlightCountryOnMap(country.iso_numeric);
   loadFeatured();
   if (openSheet) openCountrySheet(country);
-
   const stateGrid = document.getElementById('stateGrid');
   const cityGrid = document.getElementById('cityGrid');
   stateGrid.innerHTML = '';
   cityGrid.innerHTML = '';
   cityGrid.hidden = true;
-
   if (country.is_federal) {
     document.getElementById('coordEyebrow').textContent = `${countryLabel(country).toUpperCase()} — ${i18n.t('eyebrow.choose_state_suffix')}`;
     const states = await api(`/countries/${country.id}/states`);
@@ -1307,14 +1164,12 @@ async function selectCountry(country, { openSheet = true } = {}) {
     state.lastCities = cities;
     renderCityTiles(cities);
   }
-
   document.getElementById('breadcrumb').hidden = false;
   renderBreadcrumb();
   document.getElementById('listingsHeader').hidden = true;
   document.getElementById('listingGrid').hidden = true;
   document.getElementById('breadcrumb').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
-
 function renderStateTiles(states) {
   const stateGrid = document.getElementById('stateGrid');
   stateGrid.innerHTML = '';
@@ -1328,7 +1183,6 @@ function renderStateTiles(states) {
     );
   }
 }
-
 async function selectState(st) {
   state.selectedState = st;
   state.selectedCity = null;
@@ -1341,7 +1195,6 @@ async function selectState(st) {
   document.getElementById('listingGrid').hidden = true;
   document.getElementById('cityGrid').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
-
 function renderCityTiles(cities) {
   const cityGrid = document.getElementById('cityGrid');
   cityGrid.innerHTML = '';
@@ -1355,7 +1208,6 @@ function renderCityTiles(cities) {
     );
   }
 }
-
 async function selectCity(city) {
   state.selectedCity = city;
   setExploreStageVisibility('city');
@@ -1367,12 +1219,7 @@ async function selectCity(city) {
   await refreshListings();
   document.getElementById('listingsHeader').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-
 function renderBreadcrumb() {
-  // Le pays actif est désormais affiché comme titre au-dessus des villes
-  // (voir activeCountryHeading dans selectCountry), et "Tous les pays" est
-  // remplacé par la section de recherche de pays toujours visible juste au-dessus.
-  // Ce fil d'ariane ne montre donc plus que l'État / la Ville, s'il y a lieu.
   const bc = document.getElementById('breadcrumb');
   bc.innerHTML = '';
   const crumbs = [];
@@ -1387,7 +1234,6 @@ function renderBreadcrumb() {
     bc.append(node);
   });
 }
-
 function resetExplore() {
   setExploreStageVisibility('landing');
   const activeCountryHeading = document.getElementById('activeCountryHeading');
@@ -1409,7 +1255,6 @@ function resetExplore() {
   document.getElementById('listingGrid').hidden = true;
   highlightCountryOnMap(null);
 }
-
 function showSearchMode(active) {
   document.getElementById('searchResultsSection').hidden = !active;
   document.getElementById('countrySection').hidden = active;
@@ -1425,7 +1270,6 @@ function showSearchMode(active) {
     document.getElementById('cityMiniMap').hidden = true;
   }
 }
-
 document.getElementById('globalSearchForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const q = document.getElementById('globalSearchInput').value.trim();
@@ -1449,12 +1293,10 @@ document.getElementById('globalSearchForm').addEventListener('submit', async (e)
   }
   document.getElementById('searchResultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
-
 document.getElementById('clearSearchBtn').addEventListener('click', () => {
   document.getElementById('globalSearchInput').value = '';
   showSearchMode(false);
 });
-
 async function refreshListings() {
   if (!state.selectedCity) return;
   const params = new URLSearchParams();
@@ -1476,14 +1318,12 @@ async function refreshListings() {
   renderCardsInto('listingGrid', listings);
   renderCityMiniMap(listings);
 }
-
 function hashListingId(id) {
   let h = 0;
   const s = String(id);
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h;
 }
-
 function renderCityMiniMap(listings) {
   const box = document.getElementById('cityMiniMap');
   if (!listings || listings.length === 0) { box.hidden = true; return; }
@@ -1495,7 +1335,6 @@ function renderCityMiniMap(listings) {
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('width', '100%');
   svg.setAttribute('height', '150');
-  // trame de rues stylisée (purement décorative, pas une vraie carte)
   for (let x = 30; x < W; x += 55) {
     const line = document.createElementNS(svgNS, 'line');
     line.setAttribute('x1', x); line.setAttribute('y1', 0); line.setAttribute('x2', x); line.setAttribute('y2', H);
@@ -1530,19 +1369,13 @@ function renderCityMiniMap(listings) {
   }
   box.append(svg, el('p', { class: 'city-mini-map-caption' }, i18n.t('map.mini_map_caption', { city: state.selectedCity.name })));
 }
-
 document.getElementById('typeFilter').addEventListener('change', refreshListings);
 document.getElementById('sortFilter').addEventListener('change', refreshListings);
 document.getElementById('searchInput').addEventListener('input', debounce(refreshListings, 300));
-
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
-
-/** Envoie un fichier image à l'API d'upload et renvoie son URL —
- * factorisée pour être réutilisée par le formulaire de publication et
- * par l'upload de logo professionnel. */
 async function uploadImageFile(file) {
   if (file.size > 5_000_000) throw new Error(i18n.t('upload.too_large'));
   const base64 = await new Promise((resolve, reject) => {
@@ -1554,12 +1387,10 @@ async function uploadImageFile(file) {
   const res = await api('/uploads', { method: 'POST', body: JSON.stringify({ data: base64, mime: file.type }) });
   return res.url;
 }
-
 function proBadge(tier) {
   if (!tier) return null;
   return el('span', { class: `pro-badge pro-badge--${tier}` }, `⭐ ${i18n.t(`pro.tier_${tier}`)}`);
 }
-
 function renderListingCard(l) {
   const img = (l.images && l.images[0]) || '';
   const natureLabel = l.subcategory_name ? `${l.category_icon} ${listingSubcategoryLabel(l)}` : `${l.category_icon} ${listingCategoryLabel(l)}`;
@@ -1585,7 +1416,6 @@ function renderListingCard(l) {
     ]),
   ]);
 }
-
 async function toggleFavorite(listingId, btnEl) {
   if (!state.user) { openAuthModal('login'); return; }
   const isFav = state.favoriteIds.has(listingId);
@@ -1611,7 +1441,6 @@ async function toggleFavorite(listingId, btnEl) {
     showToast(friendlyErrorMessage(e));
   }
 }
-
 async function loadFavoriteIds() {
   if (!state.user) { state.favoriteIds = new Set(); return; }
   try {
@@ -1621,7 +1450,6 @@ async function loadFavoriteIds() {
     state.favoriteIds = new Set();
   }
 }
-
 async function loadFavorites() {
   try {
     const favorites = await api('/favorites');
@@ -1631,11 +1459,8 @@ async function loadFavorites() {
     showToast(friendlyErrorMessage(e));
   }
 }
-
 // ---------- Alertes de recherche ----------
-
 let pendingAlertCriteria = null;
-
 function currentCityFilterCriteria() {
   if (!state.selectedCity) return null;
   const category = findCategoryBySlug(document.getElementById('categoryFilter').value);
@@ -1651,7 +1476,6 @@ function currentCityFilterCriteria() {
     keyword: document.getElementById('searchInput').value.trim() || null,
   };
 }
-
 function currentCategoryBrowseCriteria() {
   const { category, subcategory, type } = state.categoryBrowse;
   if (!category) return null;
@@ -1665,7 +1489,6 @@ function currentCategoryBrowseCriteria() {
     keyword: null,
   };
 }
-
 function openSaveAlertModal(criteria) {
   if (!state.user) { openAuthModal('login'); return; }
   pendingAlertCriteria = criteria;
@@ -1674,10 +1497,8 @@ function openSaveAlertModal(criteria) {
   document.getElementById('saveAlertModal').hidden = false;
   document.getElementById('saveAlertLabelInput').focus();
 }
-
 document.getElementById('saveSearchBtn').addEventListener('click', () => openSaveAlertModal(currentCityFilterCriteria()));
 document.getElementById('saveCategorySearchBtn').addEventListener('click', () => openSaveAlertModal(currentCategoryBrowseCriteria()));
-
 document.getElementById('saveAlertForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -1695,7 +1516,6 @@ document.getElementById('saveAlertForm').addEventListener('submit', async (e) =>
     errEl.hidden = false;
   }
 });
-
 async function refreshAlertsBadge() {
   if (!state.user) return;
   try {
@@ -1705,9 +1525,7 @@ async function refreshAlertsBadge() {
     badge.hidden = count === 0;
   } catch { /* silencieux */ }
 }
-
 // ---------- Partage façon carte postale ----------
-
 function loadImageSafe(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -1717,11 +1535,9 @@ function loadImageSafe(src) {
     img.src = src;
   });
 }
-
 async function shareListingAsPostcard(listing) {
   const url = `${window.location.origin}/?listing=${listing.id}`;
   const shareText = i18n.t('share.postcard_text', { title: listing.title, city: listing.city_name });
-
   try {
     const canvas = document.createElement('canvas');
     canvas.width = 1000;
@@ -1758,7 +1574,6 @@ async function shareListingAsPostcard(listing) {
     ctx.fillText('QUICKATLAS', 880, 495);
     ctx.fillText((listing.city_name || '').toUpperCase(), 880, 517);
     ctx.textAlign = 'left';
-
     const blob = await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
     const file = new File([blob], 'quickatlas-annonce.png', { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1778,7 +1593,6 @@ async function shareListingAsPostcard(listing) {
     showToast(i18n.t('toast.link_copied'));
   }
 }
-
 function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
   const words = text.split(' ');
   let line = '';
@@ -1795,9 +1609,7 @@ function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
   }
   ctx.fillText(line, x, curY);
 }
-
 // ---------- Passeport QuickAtlas ----------
-
 async function loadPassport() {
   const box = document.getElementById('passportBook');
   box.innerHTML = '';
@@ -1814,26 +1626,22 @@ async function loadPassport() {
   } catch (e) {
     box.append(el('p', { class: 'passport-empty' }, friendlyErrorMessage(e)));
   }
-
   document.getElementById('phoneInput').value = state.user.phone || '';
   const referralLink = `${window.location.origin}/?ref=${state.user.referral_code || ''}`;
   document.getElementById('referralLinkInput').value = referralLink;
   document.getElementById('referralCreditsText').textContent = i18n.t('passport.credits_balance', { count: state.user.free_boost_credits || 0 });
   renderProProfile();
 }
-
 function renderProProfile() {
   const box = document.getElementById('proProfileContent');
   box.innerHTML = '';
   const u = state.user;
-
   if (!u.is_professional) {
     box.append(
       el('button', { class: 'btn btn--primary btn--small', onclick: () => renderProProfileForm(box, {}) }, i18n.t('pro.become_professional'))
     );
     return;
   }
-
   const tierRow = el('div', { style: 'display:flex;gap:10px;align-items:center;margin:10px 0;' }, [
     u.company_logo_url ? el('img', { class: 'company-logo-detail', src: u.company_logo_url, alt: u.company_name || '' }) : null,
     el('div', {}, [
@@ -1848,7 +1656,6 @@ function renderProProfile() {
   const editBtn = el('button', { class: 'btn btn--ghost btn--small', onclick: () => renderProProfileForm(box, u) }, i18n.t('pro.edit_profile'));
   box.append(tierRow, nextTierInfo, editBtn);
 }
-
 function renderProProfileForm(box, current) {
   box.innerHTML = '';
   const nameInput = el('input', { type: 'text', name: 'company_name', value: current.company_name || '', placeholder: i18n.t('auth.company_name'), required: true });
@@ -1887,7 +1694,6 @@ function renderProProfileForm(box, current) {
     errEl, saveBtn
   );
 }
-
 function renderStampRow(countries) {
   if (!countries || countries.length === 0) {
     return el('p', { class: 'passport-empty' }, i18n.t('passport.no_stamps'));
@@ -1900,7 +1706,6 @@ function renderStampRow(countries) {
     ])
   ));
 }
-
 document.getElementById('phoneForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -1916,12 +1721,10 @@ document.getElementById('phoneForm').addEventListener('submit', async (e) => {
     errEl.hidden = false;
   }
 });
-
 document.getElementById('copyReferralBtn').addEventListener('click', () => {
   navigator.clipboard.writeText(document.getElementById('referralLinkInput').value);
   showToast(i18n.t('toast.link_copied'));
 });
-
 async function loadAlerts() {
   const container = document.getElementById('alertsList');
   try {
@@ -1972,12 +1775,9 @@ async function loadAlerts() {
     showToast(friendlyErrorMessage(e));
   }
 }
-
 // ---------- Vus récemment (localStorage, sans backend) ----------
-
 const RECENTLY_VIEWED_KEY = 'atlas_recently_viewed';
 const RECENTLY_VIEWED_MAX = 8;
-
 function trackRecentlyViewed(listing) {
   let items = [];
   try { items = JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]'); } catch { items = []; }
@@ -1991,7 +1791,6 @@ function trackRecentlyViewed(listing) {
   items = items.slice(0, RECENTLY_VIEWED_MAX);
   localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(items));
 }
-
 function renderRecentlyViewed() {
   let items = [];
   try { items = JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]'); } catch { items = []; }
@@ -2000,7 +1799,6 @@ function renderRecentlyViewed() {
   section.hidden = false;
   renderCardsInto('recentlyViewedGrid', items);
 }
-
 async function loadSimilarListings(listingId, containerEl) {
   try {
     const similar = await api(`/listings/${listingId}/similar`);
@@ -2014,15 +1812,7 @@ async function loadSimilarListings(listingId, containerEl) {
     containerEl.innerHTML = '';
   }
 }
-
 // ---------- Détail d'annonce ----------
-
-// Traduit automatiquement le titre/la description d'une annonce si sa
-// langue de rédaction diffère de la langue d'interface actuelle —
-// financé par la plateforme, sans que qui que ce soit ait besoin de sa
-// propre clé IA. Se dégrade silencieusement si aucune clé de plateforme
-// n'est configurée (aucune bannière, l'annonce reste juste dans sa
-// langue d'origine, comme avant cette fonctionnalité).
 async function autoTranslateListingIfNeeded(listing) {
   const viewerLang = i18n.effectiveLang();
   if (!listing.language || listing.language === viewerLang) return;
@@ -2051,7 +1841,6 @@ async function autoTranslateListingIfNeeded(listing) {
     /* silencieux : l'annonce reste affichée dans sa langue d'origine */
   }
 }
-
 async function openListingDetail(id) {
   const l = await api(`/listings/${id}`);
   const newPath = `/annonce/${id}-${slugify(l.title)}`;
@@ -2162,11 +1951,10 @@ async function openListingDetail(id) {
   }
   document.getElementById('listingModal').hidden = false;
 }
-
-function toggleReportBox(listingId) {
-  const box = document.getElementById('reportBox');
-  if (!box.hidden) { box.hidden = true; return; }
-  box.hidden = false;
+/** Construit le contenu du formulaire de signalement (motif + détails) à
+ * l'intérieur de la boîte fournie — factorisé pour être réutilisé aussi
+ * bien depuis le détail d'une annonce que depuis une conversation. */
+function renderReportBoxContent(box, listingId) {
   box.innerHTML = '';
   const select = el('select', {}, [
     el('option', { value: 'spam' }, i18n.t('report.reason_spam')),
@@ -2194,7 +1982,12 @@ function toggleReportBox(listingId) {
     }, i18n.t('report.submit'))
   );
 }
-
+function toggleReportBox(listingId) {
+  const box = document.getElementById('reportBox');
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false;
+  renderReportBoxContent(box, listingId);
+}
 async function deleteListing(id) {
   if (!confirm(i18n.t('detail.confirm_delete'))) return;
   try {
@@ -2207,18 +2000,14 @@ async function deleteListing(id) {
     showToast(e.message);
   }
 }
-
 // ---------- Publication ----------
-
 function termsNoticeNode(prefixKey) {
   return el('span', {}, [
     i18n.t(prefixKey) + ' ',
     el('button', { type: 'button', onclick: () => navigate('terms') }, i18n.t('footer.terms_link')),
   ]);
 }
-
 let uploadedImageUrl = null;
-
 function resetImageUpload() {
   uploadedImageUrl = null;
   document.getElementById('imagePreview').hidden = true;
@@ -2226,7 +2015,6 @@ function resetImageUpload() {
   document.getElementById('publishImageFile').value = '';
   document.getElementById('uploadProgress').hidden = true;
 }
-
 document.getElementById('publishImageFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -2264,12 +2052,10 @@ document.getElementById('publishImageFile').addEventListener('change', async (e)
     e.target.value = '';
   }
 });
-
 document.getElementById('imagePreviewRemove').addEventListener('click', () => {
   resetImageUpload();
   document.getElementById('publishImageUrl').disabled = false;
 });
-
 document.getElementById('aiDraftGenerateBtn').addEventListener('click', async () => {
   const notes = document.getElementById('aiDraftNotes').value.trim();
   const errEl = document.getElementById('aiDraftError');
@@ -2300,7 +2086,6 @@ document.getElementById('aiDraftGenerateBtn').addEventListener('click', async ()
     btn.disabled = false;
   }
 });
-
 function preparePublishForm() {
   document.getElementById('publishError').hidden = true;
   document.getElementById('publishForm').reset();
@@ -2319,11 +2104,9 @@ function preparePublishForm() {
   fillSubcategorySelect(document.getElementById('publishSubcategory'), cat, false);
   updatePublishTypeAndPriceUI(cat);
 }
-
 document.getElementById('openToTradeCheckbox').addEventListener('change', (e) => {
   document.getElementById('tradeDescriptionRow').hidden = !e.target.checked;
 });
-
 document.getElementById('publishForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -2359,11 +2142,8 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     errEl.hidden = false;
   }
 });
-
 // ---------- Mes annonces ----------
-
 let pendingEventCountry = null;
-
 function openEventModal(country) {
   if (!state.user) { openAuthModal('login'); return; }
   pendingEventCountry = country;
@@ -2371,7 +2151,6 @@ function openEventModal(country) {
   document.getElementById('eventFormError').hidden = true;
   document.getElementById('eventModal').hidden = false;
 }
-
 document.getElementById('eventForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -2398,14 +2177,11 @@ document.getElementById('eventForm').addEventListener('submit', async (e) => {
     errEl.hidden = false;
   }
 });
-
 let pendingBoostListingId = null;
-
 function openBoostModal(listing) {
   pendingBoostListingId = listing.id;
   document.getElementById('boostModal').hidden = false;
 }
-
 document.getElementById('confirmBoostBtn').addEventListener('click', async () => {
   try {
     await api(`/listings/${pendingBoostListingId}/boost`, { method: 'POST' });
@@ -2416,14 +2192,12 @@ document.getElementById('confirmBoostBtn').addEventListener('click', async () =>
     showToast(friendlyErrorMessage(e));
   }
 });
-
 async function loadMyListings() {
   const listings = await api('/me/listings');
   state.lists.mine = listings;
   renderMyListings(listings);
   loadSellerStats();
 }
-
 async function loadSellerStats() {
   const box = document.getElementById('sellerStats');
   try {
@@ -2437,7 +2211,6 @@ async function loadSellerStats() {
       stat(i18n.t('stats.avg_rating'), s.avg_rating ? `★ ${s.avg_rating}` : '—'),
     );
   } catch { box.innerHTML = ''; }
-
   const reminder = document.getElementById('referralReminder');
   reminder.innerHTML = '';
   reminder.hidden = false;
@@ -2448,13 +2221,11 @@ async function loadSellerStats() {
     )
   );
 }
-
 function listingExpiryInfo(l) {
   const expiresAt = new Date(l.expires_at + 'Z');
   const daysLeft = Math.ceil((expiresAt - Date.now()) / 86400000);
   return { expired: daysLeft <= 0, soon: daysLeft > 0 && daysLeft <= 7, daysLeft };
 }
-
 function renderMyListings(listings) {
   const grid = document.getElementById('myListingGrid');
   grid.innerHTML = '';
@@ -2494,9 +2265,7 @@ function renderMyListings(listings) {
     );
   }
 }
-
 // ---------- Auth forms ----------
-
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -2510,12 +2279,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     errEl.hidden = false;
   }
 });
-
 document.getElementById('registerIsProfessional').addEventListener('change', (e) => {
   document.getElementById('registerProFields').hidden = !e.target.checked;
   document.querySelector('#registerProFields input[name="company_name"]').required = e.target.checked;
 });
-
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -2537,7 +2304,6 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     errEl.hidden = false;
   }
 });
-
 function onAuthSuccess(data) {
   state.token = data.token;
   state.user = data.user;
@@ -2550,21 +2316,16 @@ function onAuthSuccess(data) {
   document.getElementById('authModal').hidden = true;
   showToast(i18n.t('toast.welcome', { name: data.user.name }));
 }
-
 // ---------- Carte du monde (D3 + world-atlas) ----------
-
 let mapSelection = null;
 let countryPathsByIso = {};
-
 async function initMap() {
   const container = document.getElementById('mapContainer');
   const width = container.clientWidth || 960;
   const height = width * (8.4 / 16);
-
   const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`);
   const projection = d3.geoNaturalEarth1().fitSize([width - 12, height - 12], { type: 'Sphere' });
   const path = d3.geoPath(projection);
-
   let world;
   try {
     world = await d3.json(WORLD_ATLAS_URL);
@@ -2573,14 +2334,11 @@ async function initMap() {
     return;
   }
   const countries = topojson.feature(world, world.objects.countries);
-
   const listedIso = new Set(state.countries.filter((c) => c.listing_count > 0).map((c) => c.iso_numeric));
   const isoToCountry = {};
   state.countries.forEach((c) => (isoToCountry[String(Number(c.iso_numeric))] = c));
-
   const g = svg.append('g');
   const zoomLayer = g.append('g').attr('transform', 'translate(6,6)');
-
   zoomLayer
     .selectAll('path')
     .data(countries.features)
@@ -2602,10 +2360,6 @@ async function initMap() {
     })
     .append('title')
     .text((d) => d.properties.name);
-
-  // Ligne jour/nuit — calcul astronomique simplifié (déclinaison solaire
-  // approximative), recalculé à chaque chargement de la carte. Purement
-  // décoratif : ne vise pas une précision à la minute près.
   try {
     const now = new Date();
     const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
@@ -2616,10 +2370,8 @@ async function initMap() {
     const nightCircle = d3.geoCircle().center(nightCenter).radius(90).precision(2)();
     zoomLayer.append('path').datum(nightCircle).attr('d', path).attr('class', 'night-overlay');
   } catch { /* décoratif uniquement : on ignore si d3.geoCircle n'est pas disponible */ }
-
   mapSelection = zoomLayer;
 }
-
 function highlightCountryOnMap(isoNumeric) {
   if (!mapSelection) return;
   mapSelection.selectAll('path').classed('country-shape--selected', false);
@@ -2627,13 +2379,9 @@ function highlightCountryOnMap(isoNumeric) {
     mapSelection.selectAll(`path[data-iso="${String(Number(isoNumeric))}"]`).classed('country-shape--selected', true);
   }
 }
-
 // ---------- Messagerie ----------
-
 let currentConversationId = null;
-
 let lastKnownUnreadCount = 0;
-
 async function refreshUnreadCount() {
   if (!state.user) return;
   try {
@@ -2647,25 +2395,15 @@ async function refreshUnreadCount() {
     lastKnownUnreadCount = count;
   } catch { /* silencieux */ }
 }
-
 function startUnreadPolling() {
   setInterval(() => { if (state.user) { refreshUnreadCount(); refreshAlertsBadge(); } }, 25000);
 }
-
-/** Un modal ouvert ou un champ en cours de saisie = on ne dérange pas la personne. */
 function isUserBusy() {
   const modalOpen = document.querySelector('.modal-overlay:not([hidden])');
   const active = document.activeElement;
   const typing = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName);
   return !!modalOpen || !!typing;
 }
-
-/**
- * Rafraîchit silencieusement les annonces actuellement affichées (annonces
- * d'une ville, résultats par catégorie, annonces à la une) sans recharger
- * la page ni perdre la position de défilement — et sans jamais interrompre
- * une saisie ou une fenêtre ouverte.
- */
 async function silentDataRefresh() {
   if (isUserBusy()) return;
   try {
@@ -2682,11 +2420,9 @@ async function silentDataRefresh() {
     /* silencieux — nouvel essai au prochain cycle */
   }
 }
-
 function startSilentRefresh() {
   setInterval(silentDataRefresh, 60000);
 }
-
 async function loadConversations() {
   try {
     const conversations = await api('/conversations');
@@ -2697,7 +2433,6 @@ async function loadConversations() {
     showToast(e.message);
   }
 }
-
 function renderConversationsList(conversations) {
   const list = document.getElementById('conversationsList');
   list.innerHTML = '';
@@ -2722,7 +2457,6 @@ function renderConversationsList(conversations) {
     );
   }
 }
-
 async function openConversation(id) {
   currentConversationId = id;
   renderConversationsList(state.lists.conversations || []);
@@ -2735,7 +2469,6 @@ async function openConversation(id) {
     showToast(e.message);
   }
 }
-
 function renderConversationThread(data) {
   const thread = document.getElementById('conversationThread');
   thread.innerHTML = '';
@@ -2751,20 +2484,30 @@ function renderConversationThread(data) {
   if (data.other_user_is_seller) {
     thread.append(el('button', { class: 'rate-seller-link', onclick: () => openReviewModal(data.listing.id) }, i18n.t('review.rate_seller')));
   }
-
+  const conversationReportBox = el('div', { class: 'report-box', hidden: 'true' });
+  thread.append(
+    el('button', {
+      class: 'report-link',
+      onclick: () => {
+        conversationReportBox.hidden = !conversationReportBox.hidden;
+        if (!conversationReportBox.hidden) renderReportBoxContent(conversationReportBox, data.listing.id);
+      },
+    }, i18n.t('report.link')),
+    conversationReportBox
+  );
   const timeline = [
     ...data.messages.map((m) => ({ kind: 'message', ...m })),
     ...(data.offers || []).map((o) => ({ kind: 'offer', ...o })),
   ].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
   const messagesEl = el('div', { class: 'thread-messages' },
     timeline.map((item) => {
       const mine = (item.kind === 'message' ? item.sender_id : item.buyer_id) === state.user.id;
       if (item.kind === 'message') {
         return el('div', { class: `thread-message ${mine ? 'thread-message--mine' : ''}` }, [
-          el('p', {}, item.body),
+          item.image_url ? el('img', { class: 'thread-message-image', src: item.image_url, alt: '', onclick: () => window.open(item.image_url, '_blank') }) : null,
+          item.body ? el('p', {}, item.body) : null,
           el('span', { class: 'thread-message-time' }, new Date(item.created_at).toLocaleString()),
-        ]);
+        ].filter(Boolean));
       }
       const statusLabel = { pending: i18n.t('offer.status_pending'), accepted: i18n.t('offer.status_accepted'), rejected: i18n.t('offer.status_rejected') }[item.status];
       const bubble = el('div', { class: `offer-bubble ${mine ? '' : ''}` }, [
@@ -2783,14 +2526,39 @@ function renderConversationThread(data) {
     })
   );
   thread.append(messagesEl);
-
   const textarea = el('textarea', { rows: '2', 'data-i18n-placeholder': 'messages.write_placeholder', placeholder: i18n.t('messages.write_placeholder') });
+  let pendingMessageImageUrl = null;
+  const imagePreviewEl = el('div', { class: 'message-image-preview', hidden: 'true' });
+  function updateMessageImagePreview() {
+    imagePreviewEl.innerHTML = '';
+    if (!pendingMessageImageUrl) { imagePreviewEl.hidden = true; return; }
+    imagePreviewEl.hidden = false;
+    imagePreviewEl.append(
+      el('img', { src: pendingMessageImageUrl, alt: '' }),
+      el('button', { type: 'button', onclick: () => { pendingMessageImageUrl = null; updateMessageImagePreview(); } }, '×')
+    );
+  }
+  const photoInput = el('input', {
+    type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', style: 'display:none;',
+    onchange: async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        pendingMessageImageUrl = await uploadImageFile(file);
+        updateMessageImagePreview();
+      } catch (err) {
+        showToast(friendlyErrorMessage(err));
+      }
+      e.target.value = '';
+    },
+  });
   const send = async () => {
     const body = textarea.value.trim();
-    if (!body) return;
+    if (!body && !pendingMessageImageUrl) return;
     try {
-      await api(`/conversations/${data.id}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
+      await api(`/conversations/${data.id}/messages`, { method: 'POST', body: JSON.stringify({ body, image_url: pendingMessageImageUrl }) });
       textarea.value = '';
+      pendingMessageImageUrl = null;
       openConversation(data.id);
     } catch (e) {
       showToast(friendlyErrorMessage(e));
@@ -2801,7 +2569,10 @@ function renderConversationThread(data) {
     el('div', { class: 'thread-compose-wrap' }, [
       el('p', { class: 'form-notice' }, termsNoticeNode('terms.message_reminder_prefix')),
       offerForm,
+      imagePreviewEl,
       el('div', { class: 'thread-compose' }, [
+        photoInput,
+        el('button', { type: 'button', class: 'attach-photo-link', title: i18n.t('messages.attach_photo'), onclick: () => photoInput.click() }, '📷'),
         textarea,
         !data.is_seller ? el('button', { class: 'make-offer-link', onclick: () => { offerForm.hidden = !offerForm.hidden; renderOfferForm(offerForm, data.id); } }, `💰 ${i18n.t('offer.make_offer')}`) : null,
         el('button', { class: 'btn btn--primary', onclick: send }, i18n.t('messages.send')),
@@ -2813,7 +2584,6 @@ function renderConversationThread(data) {
   });
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
-
 function renderOfferForm(container, conversationId) {
   if (container.childNodes.length) return; // déjà rendu
   const kindSelect = el('select', {}, [
@@ -2860,7 +2630,6 @@ function renderOfferForm(container, conversationId) {
     errorEl
   );
 }
-
 async function loadAdminReports() {
   try {
     state.lists.adminReports = await api('/admin/reports');
@@ -2869,7 +2638,6 @@ async function loadAdminReports() {
     showToast(e.message);
   }
 }
-
 function renderAdminReports(reports) {
   const body = document.getElementById('adminReportsBody');
   body.innerHTML = '';
@@ -2893,7 +2661,6 @@ function renderAdminReports(reports) {
     );
   }
 }
-
 async function setReportStatus(id, status) {
   try {
     await api(`/admin/reports/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
@@ -2903,7 +2670,6 @@ async function setReportStatus(id, status) {
     showToast(e.message);
   }
 }
-
 async function loadAdminEmails() {
   try {
     state.lists.adminEmails = await api('/admin/emails');
@@ -2912,7 +2678,6 @@ async function loadAdminEmails() {
     showToast(e.message);
   }
 }
-
 function renderAdminEmails(emails) {
   const body = document.getElementById('adminEmailsBody');
   body.innerHTML = '';
@@ -2932,11 +2697,8 @@ function renderAdminEmails(emails) {
     );
   }
 }
-
 // ---------- Paramètres IA (clé API personnelle) ----------
-
 state.aiSettings = { provider: null, has_key: false };
-
 async function loadAiSettings() {
   if (!state.user) { state.aiSettings = { provider: null, has_key: false }; return; }
   try {
@@ -2945,7 +2707,6 @@ async function loadAiSettings() {
     state.aiSettings = { provider: null, has_key: false };
   }
 }
-
 function openAiSettingsModal() {
   const statusEl = document.getElementById('aiSettingsStatus');
   document.getElementById('aiSettingsError').hidden = true;
@@ -2958,7 +2719,6 @@ function openAiSettingsModal() {
   }
   document.getElementById('aiSettingsModal').hidden = false;
 }
-
 document.getElementById('aiSettingsForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -2975,7 +2735,6 @@ document.getElementById('aiSettingsForm').addEventListener('submit', async (e) =
     errEl.hidden = false;
   }
 });
-
 document.getElementById('aiRemoveKeyBtn').addEventListener('click', async () => {
   try {
     state.aiSettings = await api('/me/ai-settings', { method: 'PUT', body: JSON.stringify({ api_key: '' }) });
@@ -2985,7 +2744,6 @@ document.getElementById('aiRemoveKeyBtn').addEventListener('click', async () => 
     showToast(err.message);
   }
 });
-
 async function translateListingInline(listing, containerEl) {
   containerEl.innerHTML = '';
   containerEl.append(el('p', { class: 'ai-translating' }, i18n.t('ai.translating')));
@@ -3007,11 +2765,8 @@ async function translateListingInline(listing, containerEl) {
     containerEl.append(el('p', { class: 'form-error' }, friendlyErrorMessage(err)));
   }
 }
-
 // ---------- Notation des vendeurs ----------
-
 let reviewListingId = null;
-
 function openReviewModal(listingId) {
   reviewListingId = listingId;
   document.getElementById('reviewRatingInput').value = '0';
@@ -3020,7 +2775,6 @@ function openReviewModal(listingId) {
   document.querySelectorAll('#starPicker button').forEach((b) => b.classList.remove('active'));
   document.getElementById('reviewModal').hidden = false;
 }
-
 document.querySelectorAll('#starPicker button').forEach((btn) => {
   btn.addEventListener('click', () => {
     const value = Number(btn.dataset.value);
@@ -3028,7 +2782,6 @@ document.querySelectorAll('#starPicker button').forEach((btn) => {
     document.querySelectorAll('#starPicker button').forEach((b) => b.classList.toggle('active', Number(b.dataset.value) <= value));
   });
 });
-
 document.getElementById('reviewForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -3045,9 +2798,7 @@ document.getElementById('reviewForm').addEventListener('submit', async (e) => {
     errEl.hidden = false;
   }
 });
-
 // ---------- Administration ----------
-
 document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
   btn.addEventListener('click', () => {
     document.querySelectorAll('[data-admin-tab]').forEach((b) => b.classList.toggle('active', b === btn));
@@ -3058,7 +2809,6 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminEmailsPanel').hidden = btn.dataset.adminTab !== 'emails';
   })
 );
-
 async function loadAdminStats() {
   try {
     state.lists.adminStats = await api('/admin/stats');
@@ -3067,7 +2817,6 @@ async function loadAdminStats() {
     showToast(e.message);
   }
 }
-
 function renderAdminDashboard(stats) {
   const cards = document.getElementById('dashboardCards');
   cards.innerHTML = '';
@@ -3090,14 +2839,12 @@ function renderAdminDashboard(stats) {
       ])
     );
   }
-
   renderHorizontalBarChart('dashboardCategoryChart', stats.byCategory.map((c) => ({ label: `${c.icon} ${categoryLabel(c)}`, value: c.count })));
   renderHorizontalBarChart('dashboardTypeChart', stats.byType.map((t) => ({ label: listingTypeLabel(t.listing_type), value: t.count })));
   renderHorizontalBarChart('dashboardCountryChart', stats.byCountry.map((c) => ({ label: c.name, value: c.count })));
   renderVerticalBarChart('dashboardActivityChart', stats.daily);
   if (stats.dailyVisits) renderVerticalBarChart('dashboardVisitsChart', stats.dailyVisits);
 }
-
 function renderHorizontalBarChart(containerId, items) {
   const container = document.getElementById(containerId);
   container.innerHTML = '';
@@ -3116,7 +2863,6 @@ function renderHorizontalBarChart(containerId, items) {
     );
   }
 }
-
 function renderVerticalBarChart(containerId, daily) {
   const container = document.getElementById(containerId);
   container.innerHTML = '';
@@ -3127,7 +2873,6 @@ function renderVerticalBarChart(containerId, daily) {
     container.append(bar);
   }
 }
-
 async function loadAdminUsers() {
   try {
     state.lists.adminUsers = await api('/admin/users');
@@ -3136,7 +2881,6 @@ async function loadAdminUsers() {
     showToast(e.message);
   }
 }
-
 function renderAdminUsers(users) {
   const body = document.getElementById('adminUsersBody');
   body.innerHTML = '';
@@ -3164,7 +2908,6 @@ function renderAdminUsers(users) {
     );
   }
 }
-
 async function setUserRole(id, role) {
   try {
     await api(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) });
@@ -3174,7 +2917,6 @@ async function setUserRole(id, role) {
     showToast(e.message);
   }
 }
-
 async function deleteUser(id) {
   if (!confirm(i18n.t('admin.confirm_delete_user'))) return;
   try {
@@ -3185,7 +2927,6 @@ async function deleteUser(id) {
     showToast(e.message);
   }
 }
-
 async function loadAdminListings() {
   try {
     state.lists.adminListings = await api('/admin/listings');
@@ -3194,7 +2935,6 @@ async function loadAdminListings() {
     showToast(e.message);
   }
 }
-
 function renderAdminListings(listings) {
   const body = document.getElementById('adminListingsBody');
   body.innerHTML = '';
@@ -3241,7 +2981,6 @@ function renderAdminListings(listings) {
     );
   }
 }
-
 async function setListingStatus(id, status) {
   try {
     await api(`/listings/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
@@ -3252,7 +2991,6 @@ async function setListingStatus(id, status) {
     showToast(e.message);
   }
 }
-
 async function removeListingAsAdmin(id) {
   if (!confirm(i18n.t('admin.confirm_remove_listing'))) return;
   try {
@@ -3263,13 +3001,7 @@ async function removeListingAsAdmin(id) {
     showToast(e.message);
   }
 }
-
 // ---------- Langue ----------
-
-/** Régénère tous les libellés de PAYS affichés dans l'UI (menu déroulant de
- * publication, champ de recherche, titre au-dessus des villes, indication
- * de coordonnées, fiche pays si ouverte, passeport) après un changement de
- * langue — même logique que refreshCategoryTexts() pour les catégories. */
 function refreshCountryTexts() {
   const pubCountry = document.getElementById('publishCountry');
   if (pubCountry) {
@@ -3278,14 +3010,11 @@ function refreshCountryTexts() {
       if (c) opt.textContent = countryLabel(c);
     }
   }
-
   if (state.selectedCountry) {
     const searchInput = document.getElementById('countrySearchInput');
     if (searchInput) searchInput.value = countryLabel(state.selectedCountry);
-
     const activeCountryHeading = document.getElementById('activeCountryHeading');
     if (activeCountryHeading && !activeCountryHeading.hidden) activeCountryHeading.textContent = countryLabel(state.selectedCountry);
-
     const eyebrow = document.getElementById('coordEyebrow');
     if (eyebrow) {
       if (state.selectedCity) {
@@ -3297,18 +3026,15 @@ function refreshCountryTexts() {
         eyebrow.textContent = `${countryLabel(state.selectedCountry).toUpperCase()} — ${i18n.t(suffixKey)}`;
       }
     }
-
     const countryModal = document.getElementById('countryModal');
     if (countryModal && !countryModal.hidden) {
       const h2 = countryModal.querySelector('.country-sheet-title h2');
       if (h2) h2.textContent = countryLabel(state.selectedCountry);
     }
   }
-
   const passportView = document.getElementById('view-passport');
   if (state.user && passportView && !passportView.hidden) loadPassport();
 }
-
 function onLanguageApplied() {
   renderAuthZone();
   renderStatsBar();
@@ -3329,14 +3055,12 @@ function onLanguageApplied() {
   refreshCountryTexts();
   rerenderAllPrices();
 }
-
 function initLanguagePicker() {
   const select = document.getElementById('langSelect');
   i18n.populateSelector(select);
   select.addEventListener('change', () => i18n.setLanguage(select.value));
   i18n.apply();
 }
-
 document.getElementById('resendVerificationBtn').addEventListener('click', async () => {
   try {
     await api('/auth/resend-verification', { method: 'POST' });
@@ -3345,7 +3069,6 @@ document.getElementById('resendVerificationBtn').addEventListener('click', async
     showToast(e.message);
   }
 });
-
 async function handleAuthLinksFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const listingId = params.get('listing');
@@ -3355,7 +3078,6 @@ async function handleAuthLinksFromUrl() {
   }
   const verifyToken = params.get('verify');
   const resetToken = params.get('reset');
-
   if (verifyToken) {
     try {
       await api('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token: verifyToken }) });
@@ -3373,18 +3095,14 @@ async function handleAuthLinksFromUrl() {
     }
     window.history.replaceState({}, '', window.location.pathname);
   }
-
   if (resetToken) {
     pendingResetToken = resetToken;
     openAuthModal('reset');
     window.history.replaceState({}, '', window.location.pathname);
   }
 }
-
 // ---------- Boot ----------
-
 // ---------- Connexion Google (optionnelle, si configurée) ----------
-
 async function initGoogleSignIn() {
   try {
     const config = await api('/config');
@@ -3400,7 +3118,6 @@ async function initGoogleSignIn() {
     document.head.appendChild(script);
   } catch { /* config indisponible : le bouton Google reste masqué */ }
 }
-
 async function handleGoogleCredential(response) {
   if (!document.getElementById('googleTermsCheckbox').checked) {
     showToast(i18n.t('auth.terms_required_google'));
@@ -3413,7 +3130,6 @@ async function handleGoogleCredential(response) {
     showToast(friendlyErrorMessage(e));
   }
 }
-
 function handleInitialUrlRoute() {
   const path = window.location.pathname;
   let m;
@@ -3446,17 +3162,11 @@ function handleInitialUrlRoute() {
     return;
   }
 }
-
-/** Signale une visite au serveur une seule fois par session (onglet ouvert),
- * pas à chaque clic interne — sessionStorage évite les doublons si la
- * personne navigue entre les vues sans recharger la page. Échec silencieux
- * si l'appel réseau ne passe pas : ça ne doit jamais gêner la navigation. */
 function trackSiteVisit() {
   if (sessionStorage.getItem('atlas_visit_tracked')) return;
   sessionStorage.setItem('atlas_visit_tracked', '1');
   api('/track-visit', { method: 'POST' }).catch(() => { /* silencieux */ });
 }
-
 async function boot() {
   initLanguagePicker();
   trackSiteVisit();
@@ -3493,9 +3203,7 @@ async function boot() {
   startSilentRefresh();
   setTimeout(maybeShowGuideOnFirstVisit, 1200);
 }
-
 boot();
-
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => { /* installation impossible, site reste utilisable normalement */ });
