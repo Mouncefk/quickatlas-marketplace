@@ -4,16 +4,12 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-
 export const db = new DatabaseSync(path.join(DATA_DIR, 'atlas.db'));
-
 db.exec(`
   PRAGMA journal_mode = WAL;
-
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -30,11 +26,6 @@ db.exec(`
     referred_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     free_boost_credits INTEGER NOT NULL DEFAULT 0,
     google_sub TEXT UNIQUE,
-    -- Compte professionnel (annonceur) : logo mis en avant sur ses
-    -- annonces, palier de visibilité qui progresse avec le nombre
-    -- d'annonces publiées. Le site web est optionnel — s'il correspond
-    -- au domaine de l'email, un badge "Domaine vérifié" s'affiche
-    -- (signal de confiance honnête, jamais un blocage à l'inscription).
     is_professional INTEGER NOT NULL DEFAULT 0,
     company_name TEXT,
     company_logo_url TEXT,
@@ -42,7 +33,6 @@ db.exec(`
     pro_tier TEXT NOT NULL DEFAULT 'nouveau' CHECK (pro_tier IN ('nouveau','actif','confirme','expert')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-
   CREATE TABLE IF NOT EXISTS countries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -55,14 +45,12 @@ db.exec(`
     languages TEXT,
     continent TEXT
   );
-
   CREATE TABLE IF NOT EXISTS states (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     country_id INTEGER NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     code TEXT NOT NULL
   );
-
   CREATE TABLE IF NOT EXISTS cities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     country_id INTEGER NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
@@ -70,14 +58,12 @@ db.exec(`
     name TEXT NOT NULL,
     timezone TEXT NOT NULL DEFAULT 'UTC'
   );
-
   CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     slug TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     icon TEXT NOT NULL
   );
-
   CREATE TABLE IF NOT EXISTS subcategories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
@@ -85,7 +71,6 @@ db.exec(`
     name TEXT NOT NULL,
     UNIQUE(category_id, slug)
   );
-
   CREATE TABLE IF NOT EXISTS listings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -98,9 +83,6 @@ db.exec(`
     price REAL,
     currency TEXT NOT NULL DEFAULT 'EUR',
     images_json TEXT NOT NULL DEFAULT '[]',
-    -- Langue dans laquelle l'annonce a été rédigée (déduite de la langue
-    -- d'interface active au moment de la publication) — sert de base à
-    -- la traduction automatique pour les visiteurs d'une autre langue.
     language TEXT NOT NULL DEFAULT 'fr',
     status TEXT NOT NULL DEFAULT 'active',
     view_count INTEGER NOT NULL DEFAULT 0,
@@ -115,7 +97,6 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-
   CREATE TABLE IF NOT EXISTS offers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -129,9 +110,7 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     responded_at TEXT
   );
-
   CREATE INDEX IF NOT EXISTS idx_offers_conversation ON offers(conversation_id);
-
   CREATE TABLE IF NOT EXISTS favorites (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -139,7 +118,6 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id, listing_id)
   );
-
   CREATE TABLE IF NOT EXISTS reviews (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -150,7 +128,6 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(reviewer_id, listing_id)
   );
-
   CREATE TABLE IF NOT EXISTS saved_searches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -164,7 +141,6 @@ db.exec(`
     email_alerts INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-
   CREATE TABLE IF NOT EXISTS saved_search_matches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     saved_search_id INTEGER NOT NULL REFERENCES saved_searches(id) ON DELETE CASCADE,
@@ -173,7 +149,6 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(saved_search_id, listing_id)
   );
-
   CREATE INDEX IF NOT EXISTS idx_reviews_seller ON reviews(seller_id);
   CREATE INDEX IF NOT EXISTS idx_saved_searches_user ON saved_searches(user_id);
   CREATE INDEX IF NOT EXISTS idx_saved_search_matches_search ON saved_search_matches(saved_search_id);
@@ -193,11 +168,6 @@ db.exec(`
     used_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-
-  -- Cache des traductions automatiques d'annonces (financées par la
-  -- plateforme, pas par une clé personnelle) — chaque paire
-  -- (annonce, langue) n'est traduite qu'une seule fois, jamais rappelée
-  -- à l'IA ensuite.
   CREATE TABLE IF NOT EXISTS listing_translations (
     listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
     lang_code TEXT NOT NULL,
@@ -206,7 +176,6 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (listing_id, lang_code)
   );
-
   CREATE TABLE IF NOT EXISTS reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
@@ -216,10 +185,6 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved','dismissed')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-
-  -- Événements professionnels (salons, conférences, forums d'affaires...)
-  -- rattachés à un pays (et optionnellement une ville) — nouveau type de
-  -- contenu, distinct des annonces classiques (pas d'achat/vente).
   CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -234,13 +199,7 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-
   CREATE INDEX IF NOT EXISTS idx_events_country ON events(country_id, event_date);
-
-  -- Cache des indicateurs économiques réels (API gratuite de la Banque
-  -- mondiale, aucune clé requise). Mis en cache car les données ne
-  -- changent qu'une fois par an, et pour rester utilisable même si
-  -- l'API est temporairement indisponible.
   CREATE TABLE IF NOT EXISTS country_economic_stats (
     country_id INTEGER PRIMARY KEY REFERENCES countries(id) ON DELETE CASCADE,
     gdp_usd REAL,
@@ -256,7 +215,6 @@ db.exec(`
     fetch_status TEXT NOT NULL DEFAULT 'pending' CHECK (fetch_status IN ('pending','ok','error')),
     fetched_at TEXT
   );
-
   CREATE TABLE IF NOT EXISTS email_outbox (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     to_email TEXT NOT NULL,
@@ -268,7 +226,6 @@ db.exec(`
     send_error TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-
   CREATE TABLE IF NOT EXISTS country_profiles (
     country_id INTEGER PRIMARY KEY REFERENCES countries(id) ON DELETE CASCADE,
     business_climate TEXT,
@@ -277,7 +234,6 @@ db.exec(`
     practical_tips TEXT,
     holidays TEXT
   );
-
   CREATE TABLE IF NOT EXISTS conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
@@ -286,7 +242,6 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(listing_id, buyer_id)
   );
-
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -295,7 +250,6 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     read_at TEXT
   );
-
   CREATE INDEX IF NOT EXISTS idx_states_country ON states(country_id);
   CREATE INDEX IF NOT EXISTS idx_conversations_buyer ON conversations(buyer_id);
   CREATE INDEX IF NOT EXISTS idx_conversations_seller ON conversations(seller_id);
@@ -303,11 +257,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id);
   CREATE INDEX IF NOT EXISTS idx_reports_listing ON reports(listing_id);
 `);
-
-// Compteur de visites du site — un enregistrement par visite de session
-// (une fois par onglet ouvert, pas à chaque clic interne). Sert uniquement
-// à afficher un total et une tendance sur 30 jours dans le tableau de bord
-// admin — aucune donnée personnelle, aucun cookie, aucun service tiers.
 db.exec(`
   CREATE TABLE IF NOT EXISTS site_visits (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -315,5 +264,16 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_site_visits_created ON site_visits(created_at);
 `);
-
+// Migration : ajout de la colonne image_url à la table messages, pour
+// permettre de joindre une photo à un message (façon Vinted/Avito).
+// ALTER TABLE ne peut pas être conditionné par IF NOT EXISTS en SQLite —
+// on vérifie donc d'abord via PRAGMA table_info si la colonne existe déjà,
+// pour que cette migration reste sans danger à chaque redémarrage du
+// serveur, y compris sur la base déjà en production.
+{
+  const messageColumns = db.prepare("PRAGMA table_info(messages)").all();
+  if (!messageColumns.some((c) => c.name === 'image_url')) {
+    db.exec('ALTER TABLE messages ADD COLUMN image_url TEXT');
+  }
+}
 export default db;
