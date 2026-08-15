@@ -484,6 +484,7 @@ async function runCategoryBrowseSearch() {
   const params = new URLSearchParams({ category: category.slug, sort });
   if (subcategory) params.set('subcategory', subcategory);
   if (type) params.set('type', type);
+  if (document.getElementById('categoryBrowseSecondhandCheckbox').checked) params.set('secondhand', '1');
   const grid = document.getElementById('searchResultsGrid');
   try {
     const results = await api(`/listings/search?${params.toString()}`);
@@ -508,6 +509,7 @@ document.getElementById('categoryBrowseSort').addEventListener('change', (e) => 
   state.categoryBrowse.sort = e.target.value;
   runCategoryBrowseSearch();
 });
+document.getElementById('categoryBrowseSecondhandCheckbox').addEventListener('change', runCategoryBrowseSearch);
 document.getElementById('reopenMapBtn').addEventListener('click', reopenMap);
 document.getElementById('showCountrySheetBtn').addEventListener('click', () => {
   if (state.selectedCountry) openCountrySheet(state.selectedCountry);
@@ -1305,11 +1307,13 @@ async function refreshListings() {
   const type = document.getElementById('typeFilter').value;
   const sort = document.getElementById('sortFilter').value;
   const q = document.getElementById('searchInput').value.trim();
+  const secondhandOnly = document.getElementById('secondhandFilterCheckbox').checked;
   if (category) params.set('category', category);
   if (subcategory) params.set('subcategory', subcategory);
   if (type) params.set('type', type);
   if (sort) params.set('sort', sort);
   if (q) params.set('q', q);
+  if (secondhandOnly) params.set('secondhand', '1');
   const listings = await api(`/cities/${state.selectedCity.id}/listings?${params.toString()}`);
   state.currentListings = listings;
   state.lists.city = listings;
@@ -1371,6 +1375,7 @@ function renderCityMiniMap(listings) {
 }
 document.getElementById('typeFilter').addEventListener('change', refreshListings);
 document.getElementById('sortFilter').addEventListener('change', refreshListings);
+document.getElementById('secondhandFilterCheckbox').addEventListener('change', refreshListings);
 document.getElementById('searchInput').addEventListener('input', debounce(refreshListings, 300));
 function debounce(fn, ms) {
   let t;
@@ -1402,6 +1407,7 @@ function renderListingCard(l) {
   }, isFav ? '♥' : '♡');
   return el('article', { class: 'card', onclick: () => openListingDetail(l.id) }, [
     img ? el('img', { class: 'card-img', src: img, alt: l.title, loading: 'lazy' }) : el('div', { class: 'card-img' }),
+    l.is_secondhand ? el('span', { class: 'secondhand-badge' }, `♻️ ${i18n.t('badge.secondhand')}`) : null,
     favBtn,
     el('div', { class: 'card-body' }, [
       el('span', { class: `card-tag ${(l.listing_type === 'location' || l.listing_type === 'demande_emploi') ? 'card-tag--location' : ''} ${l.listing_type === 'achat' ? 'card-tag--achat' : ''}` }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
@@ -2123,6 +2129,7 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     images: uploadedImageUrl ? [uploadedImageUrl] : (fd.get('image') ? [fd.get('image')] : []),
     open_to_trade: fd.get('open_to_trade') === 'on',
     trade_description: fd.get('trade_description'),
+    is_secondhand: fd.get('is_secondhand') === 'on',
     language: i18n.effectiveLang(),
   };
   const errEl = document.getElementById('publishError');
