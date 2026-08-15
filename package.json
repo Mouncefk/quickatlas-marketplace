@@ -12,6 +12,8 @@
     "make-admin": "node --env-file-if-exists=.env server/make-admin.js",
     "go-live": "node --env-file-if-exists=.env server/go-live.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "sharp": "^0.33.5"
+  },
   "license": "UNLICENSED"
 }
