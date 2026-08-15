@@ -266,7 +266,48 @@ function sortClause(sort) {
     default: return `${boostFirst}, l.created_at DESC`;
   }
 }
-function computeFraudRisk({ price, currency, description, images, subcategoryId, userId }) {
+// Mots-clés distinctifs par catégorie (français uniquement pour l'instant),
+// utilisés pour repérer une annonce dont le titre/la description évoque
+// clairement une autre catégorie que celle sélectionnée par l'auteur —
+// signe fréquent d'une erreur de saisie ou d'une annonce trompeuse.
+const CATEGORY_KEYWORDS_FR = {
+  immobilier: ['appartement', 'studio', 'duplex', 'villa', 'chambre à louer', 'mètres carrés', 'loyer', 'copropriété', 'terrain constructible', 'lotissement'],
+  vehicules: ['voiture', 'véhicule', 'kilométrage', 'boîte automatique', 'carte grise', 'chevaux fiscaux', 'moto', 'scooter', '4x4', 'camion', 'essence', 'diesel'],
+  mode: ['robe', 'chaussures', 'sac à main', 'maroquinerie', 'bijoux', 'montre', 'vêtement', 'pointure'],
+  'maison-jardin': ['canapé', 'réfrigérateur', 'machine à laver', 'tondeuse', 'électroménager', 'meuble', 'jardin'],
+  multimedia: ['iphone', 'smartphone', 'ordinateur portable', 'playstation', 'xbox', 'tablette', 'appareil photo', 'écran'],
+  famille: ['poussette', 'biberon', 'berceau', 'siège auto enfant', 'jouet'],
+  loisirs: ['guitare', 'piano', 'vélo', 'tente de camping', 'canne à pêche', 'instrument de musique'],
+  'materiel-pro': ['machine industrielle', 'échafaudage', 'tracteur', 'mobilier de bureau', 'matériel professionnel'],
+  services: ['prestation', 'cours particuliers', 'dépannage', 'déménagement'],
+  emploi: ['recrute', 'cdi', 'cdd', 'salaire mensuel', 'poste à pourvoir', 'expérience requise'],
+  'opportunites-affaires': ['investisseur', 'franchise', 'partenaire commercial', "appel d'offres", "cession d'entreprise"],
+};
+const CATEGORY_LABELS_FR = {
+  immobilier: 'Immobilier', vehicules: 'Véhicules', mode: 'Mode & Accessoires',
+  'maison-jardin': 'Maison & Jardin', multimedia: 'Multimédia & Électronique',
+  famille: 'Famille & Enfants', loisirs: 'Loisirs & Sport',
+  'materiel-pro': 'Matériel professionnel', services: 'Services',
+  emploi: 'Emploi', 'opportunites-affaires': "Opportunités d'affaires",
+};
+/** Renvoie le slug de la catégorie la plus probable selon les mots-clés
+ * trouvés dans le texte, seulement si ce n'est pas la catégorie choisie
+ * et qu'aucun mot-clé de la catégorie choisie n'apparaît — pour éviter
+ * les faux positifs sur les annonces à cheval sur deux catégories. */
+function detectCategoryMismatch(title, description, categorySlug) {
+  const text = `${title} ${description || ''}`.toLowerCase();
+  let bestMatch = null;
+  let bestCount = 0;
+  for (const [slug, keywords] of Object.entries(CATEGORY_KEYWORDS_FR)) {
+    if (slug === categorySlug) continue;
+    const count = keywords.filter((kw) => text.includes(kw)).length;
+    if (count > bestCount) { bestCount = count; bestMatch = slug; }
+  }
+  const ownCount = (CATEGORY_KEYWORDS_FR[categorySlug] || []).filter((kw) => text.includes(kw)).length;
+  if (bestMatch && bestCount >= 2 && ownCount === 0) return bestMatch;
+  return null;
+}
+function computeFraudRisk({ price, currency, description, images, subcategoryId, userId, title, categorySlug }) {
   let score = 0;
   const reasons = [];
   if (!description || description.length < 20) {
@@ -276,6 +317,13 @@ function computeFraudRisk({ price, currency, description, images, subcategoryId,
   if (!Array.isArray(images) || images.filter(Boolean).length === 0) {
     score += 2;
     reasons.push('Aucune photo');
+  }
+  if (title && categorySlug) {
+    const mismatch = detectCategoryMismatch(title, description, categorySlug);
+    if (mismatch) {
+      score += 2;
+      reasons.push(`Titre incohérent avec la catégorie (ressemble plutôt à « ${CATEGORY_LABELS_FR[mismatch] || mismatch} »)`);
+    }
   }
   if (price !== null && price !== undefined && subcategoryId) {
     const comparable = db
@@ -1040,7 +1088,7 @@ const server = http.createServer(async (req, res) => {
       const finalPrice = (price === null || price === undefined || price === '') ? null : Number(price);
       const city = db.prepare('SELECT id FROM cities WHERE id = ?').get(city_id);
       if (!city) return sendJSON(res, 400, { error: 'Ville invalide.' });
-      const category = db.prepare('SELECT id FROM categories WHERE id = ?').get(category_id);
+      const category = db.prepare('SELECT id, slug FROM categories WHERE id = ?').get(category_id);
       if (!category) return sendJSON(res, 400, { error: 'Catégorie invalide.' });
       let subcategoryId = null;
       if (subcategory_id) {
@@ -1059,7 +1107,7 @@ const server = http.createServer(async (req, res) => {
         )
         .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null, listingLang, is_secondhand ? 1 : 0)
         .lastInsertRowid;
-      const risk = computeFraudRisk({ price: finalPrice, currency: currency || 'EUR', description: (description || '').trim(), images, subcategoryId, userId: user.id });
+      const risk = computeFraudRisk({ price: finalPrice, currency: currency || 'EUR', description: (description || '').trim(), images, subcategoryId, userId: user.id, title: title.trim(), categorySlug: category.slug });
       if (risk.score > 0) {
         db.prepare('UPDATE listings SET fraud_risk_score = ?, fraud_risk_reasons = ? WHERE id = ?').run(risk.score, risk.reasons.join(' · '), id);
       }
