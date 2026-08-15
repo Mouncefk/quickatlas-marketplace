@@ -2092,6 +2092,51 @@ document.getElementById('aiDraftGenerateBtn').addEventListener('click', async ()
     btn.disabled = false;
   }
 });
+// Même dictionnaire que server.js — copie volontaire côté client pour un
+// avertissement instantané, sans aller-retour réseau. Français uniquement
+// pour l'instant (voir la même limite côté serveur).
+const CATEGORY_KEYWORDS_FR = {
+  immobilier: ['appartement', 'studio', 'duplex', 'villa', 'chambre à louer', 'mètres carrés', 'loyer', 'copropriété', 'terrain constructible', 'lotissement'],
+  vehicules: ['voiture', 'véhicule', 'kilométrage', 'boîte automatique', 'carte grise', 'chevaux fiscaux', 'moto', 'scooter', '4x4', 'camion', 'essence', 'diesel'],
+  mode: ['robe', 'chaussures', 'sac à main', 'maroquinerie', 'bijoux', 'montre', 'vêtement', 'pointure'],
+  'maison-jardin': ['canapé', 'réfrigérateur', 'machine à laver', 'tondeuse', 'électroménager', 'meuble', 'jardin'],
+  multimedia: ['iphone', 'smartphone', 'ordinateur portable', 'playstation', 'xbox', 'tablette', 'appareil photo', 'écran'],
+  famille: ['poussette', 'biberon', 'berceau', 'siège auto enfant', 'jouet'],
+  loisirs: ['guitare', 'piano', 'vélo', 'tente de camping', 'canne à pêche', 'instrument de musique'],
+  'materiel-pro': ['machine industrielle', 'échafaudage', 'tracteur', 'mobilier de bureau', 'matériel professionnel'],
+  services: ['prestation', 'cours particuliers', 'dépannage', 'déménagement'],
+  emploi: ['recrute', 'cdi', 'cdd', 'salaire mensuel', 'poste à pourvoir', 'expérience requise'],
+  'opportunites-affaires': ['investisseur', 'franchise', 'partenaire commercial', "appel d'offres", "cession d'entreprise"],
+};
+function detectCategoryMismatchClient(title, description, categorySlug) {
+  const text = `${title} ${description || ''}`.toLowerCase();
+  let bestMatch = null;
+  let bestCount = 0;
+  for (const [slug, keywords] of Object.entries(CATEGORY_KEYWORDS_FR)) {
+    if (slug === categorySlug) continue;
+    const count = keywords.filter((kw) => text.includes(kw)).length;
+    if (count > bestCount) { bestCount = count; bestMatch = slug; }
+  }
+  const ownCount = (CATEGORY_KEYWORDS_FR[categorySlug] || []).filter((kw) => text.includes(kw)).length;
+  if (bestMatch && bestCount >= 2 && ownCount === 0) return bestMatch;
+  return null;
+}
+/** Relit le titre/la description/la catégorie actuellement saisis et
+ * affiche (ou masque) un avertissement discret — jamais bloquant, juste
+ * une invitation à vérifier avant de publier. */
+function updateCategoryMismatchWarning() {
+  const warningEl = document.getElementById('categoryMismatchWarning');
+  if (!warningEl) return;
+  const titleInput = document.querySelector('#publishForm input[name=title]');
+  const descInput = document.querySelector('#publishForm textarea[name=description]');
+  const cat = findCategoryById(document.getElementById('publishCategory').value);
+  if (!titleInput || !cat) { warningEl.hidden = true; return; }
+  const mismatchSlug = detectCategoryMismatchClient(titleInput.value, descInput ? descInput.value : '', cat.slug);
+  if (!mismatchSlug) { warningEl.hidden = true; return; }
+  const mismatchCategory = findCategoryBySlug(mismatchSlug);
+  warningEl.textContent = `🤔 ${i18n.t('publish.category_mismatch_warning', { category: mismatchCategory ? categoryLabel(mismatchCategory) : mismatchSlug })}`;
+  warningEl.hidden = false;
+}
 function preparePublishForm() {
   document.getElementById('publishError').hidden = true;
   document.getElementById('publishForm').reset();
@@ -2109,10 +2154,15 @@ function preparePublishForm() {
   const cat = findCategoryById(document.getElementById('publishCategory').value);
   fillSubcategorySelect(document.getElementById('publishSubcategory'), cat, false);
   updatePublishTypeAndPriceUI(cat);
+  const warningEl = document.getElementById('categoryMismatchWarning');
+  if (warningEl) warningEl.hidden = true;
 }
 document.getElementById('openToTradeCheckbox').addEventListener('change', (e) => {
   document.getElementById('tradeDescriptionRow').hidden = !e.target.checked;
 });
+document.querySelector('#publishForm input[name=title]').addEventListener('input', debounce(updateCategoryMismatchWarning, 500));
+document.querySelector('#publishForm textarea[name=description]').addEventListener('input', debounce(updateCategoryMismatchWarning, 500));
+document.getElementById('publishCategory').addEventListener('change', updateCategoryMismatchWarning);
 document.getElementById('publishForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
