@@ -276,4 +276,14 @@ db.exec(`
     db.exec('ALTER TABLE messages ADD COLUMN image_url TEXT');
   }
 }
+// Migration : ajout de la colonne is_secondhand à la table listings, pour
+// distinguer un article d'occasion / de seconde main — filtre et badge
+// affichés côté front, mais donnée stockée ici comme un simple booléen
+// (même esprit que open_to_trade, déjà en place).
+{
+  const listingColumns = db.prepare("PRAGMA table_info(listings)").all();
+  if (!listingColumns.some((c) => c.name === 'is_secondhand')) {
+    db.exec('ALTER TABLE listings ADD COLUMN is_secondhand INTEGER NOT NULL DEFAULT 0');
+  }
+}
 export default db;
