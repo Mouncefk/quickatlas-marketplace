@@ -833,7 +833,7 @@ const server = http.createServer(async (req, res) => {
         SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.created_at,
                cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency
+               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand
         FROM listings l
         JOIN categories cat ON cat.id = l.category_id
         LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
@@ -854,7 +854,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/listings/promo' && method === 'GET') {
       const row = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.view_count,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.view_count, l.is_secondhand,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM listings l
@@ -941,7 +941,7 @@ const server = http.createServer(async (req, res) => {
         SELECT l.id, l.title, l.description, l.listing_type, l.price, l.currency, l.images_json, l.created_at, l.boosted_until,
                cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency,
+               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand,
                u.is_professional, u.company_name, u.company_logo_url, u.pro_tier
         FROM listings l
         JOIN categories cat ON cat.id = l.category_id
@@ -969,6 +969,9 @@ const server = http.createServer(async (req, res) => {
         sql += ' AND sub.slug = ?';
         params.push(subcategory);
       }
+      if (url.searchParams.get('secondhand') === '1') {
+        sql += ' AND l.is_secondhand = 1';
+      }
       sql += ` ORDER BY ${sortClause(url.searchParams.get('sort'))} LIMIT 60`;
       const rows = db.prepare(sql).all(...params).map((r) => ({ ...r, images: JSON.parse(r.images_json) }));
       return sendJSON(res, 200, rows);
@@ -983,7 +986,7 @@ const server = http.createServer(async (req, res) => {
         SELECT l.id, l.title, l.description, l.listing_type, l.price, l.currency, l.images_json, l.created_at, l.boosted_until,
                cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency,
+               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand,
                u.is_professional, u.company_name, u.company_logo_url, u.pro_tier
         FROM listings l
         JOIN categories cat ON cat.id = l.category_id
@@ -1010,6 +1013,9 @@ const server = http.createServer(async (req, res) => {
         sql += ' AND (l.title LIKE ? OR l.description LIKE ?)';
         params.push(`%${q}%`, `%${q}%`);
       }
+      if (url.searchParams.get('secondhand') === '1') {
+        sql += ' AND l.is_secondhand = 1';
+      }
       sql += ` ORDER BY ${sortClause(url.searchParams.get('sort'))}`;
       const rows = db.prepare(sql).all(...params).map((r) => ({ ...r, images: JSON.parse(r.images_json) }));
       return sendJSON(res, 200, rows);
@@ -1019,7 +1025,7 @@ const server = http.createServer(async (req, res) => {
       if (!user) return;
       if (!requireVerifiedEmail(user, res)) return;
       const body = await readBody(req);
-      const { title, description, listing_type, price, currency, city_id, category_id, subcategory_id, images, open_to_trade, trade_description, language } = body;
+      const { title, description, listing_type, price, currency, city_id, category_id, subcategory_id, images, open_to_trade, trade_description, language, is_secondhand } = body;
       const VALID_TYPES = ['vente', 'location', 'achat', 'offre_emploi', 'demande_emploi'];
       if (!title || !listing_type || !VALID_TYPES.includes(listing_type)) {
         return sendJSON(res, 400, { error: "Titre et type d'annonce valide requis." });
@@ -1048,10 +1054,10 @@ const server = http.createServer(async (req, res) => {
       const listingLang = ['fr', 'en', 'ar', 'es', 'pt', 'it'].includes(language) ? language : 'fr';
       const id = db
         .prepare(
-          `INSERT INTO listings (user_id, city_id, category_id, subcategory_id, title, description, listing_type, price, currency, images_json, open_to_trade, trade_description, language)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO listings (user_id, city_id, category_id, subcategory_id, title, description, listing_type, price, currency, images_json, open_to_trade, trade_description, language, is_secondhand)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
-        .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null, listingLang)
+        .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null, listingLang, is_secondhand ? 1 : 0)
         .lastInsertRowid;
       const risk = computeFraudRisk({ price: finalPrice, currency: currency || 'EUR', description: (description || '').trim(), images, subcategoryId, userId: user.id });
       if (risk.score > 0) {
@@ -1068,7 +1074,7 @@ const server = http.createServer(async (req, res) => {
         .prepare(
           `SELECT l.*, cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-                  ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency,
+                  ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand,
                   u.name AS owner_name, u.email_verified_at AS owner_verified_at, u.phone AS owner_phone,
                   u.is_professional AS owner_is_professional, u.company_name AS owner_company_name,
                   u.company_logo_url AS owner_company_logo_url, u.company_website AS owner_company_website,
@@ -1144,7 +1150,7 @@ const server = http.createServer(async (req, res) => {
       if (!listing) return sendJSON(res, 404, { error: 'Annonce introuvable' });
       const rows = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.is_secondhand,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM listings l
@@ -1288,7 +1294,7 @@ const server = http.createServer(async (req, res) => {
       const rows = db
         .prepare(
           `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.status, l.images_json, l.created_at,
-                  l.expires_at, l.boosted_until, l.view_count,
+                  l.expires_at, l.boosted_until, l.view_count, l.is_secondhand,
                   ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name, cat.slug AS category_slug, cat.name AS category_name,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   (SELECT COUNT(*) FROM favorites f WHERE f.listing_id = l.id) AS favorite_count
@@ -1353,7 +1359,7 @@ const server = http.createServer(async (req, res) => {
       if (!admin) return;
       const rows = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.status, l.created_at,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.status, l.created_at, l.is_secondhand,
                   l.fraud_risk_score, l.fraud_risk_reasons,
                   cat.name AS category_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name,
                   u.name AS owner_name, u.email AS owner_email
@@ -1638,7 +1644,7 @@ const server = http.createServer(async (req, res) => {
       if (!countryId) return sendJSON(res, 400, { error: 'country_id requis.' });
       const listings = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.is_secondhand,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM listings l
@@ -1878,7 +1884,7 @@ const server = http.createServer(async (req, res) => {
       if (!user) return;
       const rows = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.created_at, l.view_count,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.created_at, l.view_count, l.is_secondhand,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
@@ -1994,7 +2000,7 @@ const server = http.createServer(async (req, res) => {
       if (!search) return sendJSON(res, 404, { error: 'Alerte introuvable.' });
       const rows = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.is_secondhand,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM saved_search_matches m
