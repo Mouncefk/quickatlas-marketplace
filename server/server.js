@@ -304,7 +304,7 @@ function detectCategoryMismatch(title, description, categorySlug) {
     if (count > bestCount) { bestCount = count; bestMatch = slug; }
   }
   const ownCount = (CATEGORY_KEYWORDS_FR[categorySlug] || []).filter((kw) => text.includes(kw)).length;
-  if (bestMatch && bestCount >= 2 && ownCount === 0) return bestMatch;
+  if (bestMatch && bestCount >= 1 && ownCount === 0) return bestMatch;
   return null;
 }
 function computeFraudRisk({ price, currency, description, images, subcategoryId, userId, title, categorySlug }) {
