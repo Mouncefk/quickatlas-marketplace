@@ -28,7 +28,7 @@ function getIndexHtmlTemplate() {
   if (!indexHtmlCache) indexHtmlCache = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   return indexHtmlCache;
 }
-function renderHtmlWithMeta({ title, description, canonicalPath, image }) {
+function renderHtmlWithMeta({ title, description, canonicalPath, image, jsonLd }) {
   let html = getIndexHtmlTemplate();
   const canonicalUrl = `${SITE_URL}${canonicalPath || '/'}`;
   const safeTitle = title.replace(/</g, '&lt;');
@@ -36,6 +36,13 @@ function renderHtmlWithMeta({ title, description, canonicalPath, image }) {
   const img = image || `${SITE_URL}/icons/icon-512.png`;
   html = html.replace(/<title>.*?<\/title>/, `<title>${safeTitle}</title>`);
   html = html.replace(/<meta name="description" content=".*?" \/>/, `<meta name="description" content="${safeDesc}" />`);
+  // Données structurées schema.org — aident Google à afficher des extraits
+  // enrichis (prix, fil d'Ariane) directement dans les résultats de
+  // recherche. `jsonLd` est un tableau d'objets, sérialisé un par un dans
+  // sa propre balise <script>, pour rester lisible et facile à déboguer.
+  const jsonLdTags = (jsonLd || [])
+    .map((obj) => `<script type="application/ld+json">${JSON.stringify(obj)}</script>`)
+    .join('\n');
   const extraTags = `
 <link rel="canonical" href="${canonicalUrl}" />
 <meta property="og:type" content="website" />
@@ -46,9 +53,25 @@ function renderHtmlWithMeta({ title, description, canonicalPath, image }) {
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${safeTitle}" />
 <meta name="twitter:description" content="${safeDesc}" />
+${jsonLdTags}
 `;
   html = html.replace('</head>', `${extraTags}</head>`);
   return html;
+}
+/** Construit un fil d'Ariane structuré (BreadcrumbList) à partir d'une
+ * liste ordonnée de { name, path } — réutilisé par les pages pays, ville
+ * et catégorie. Le dernier élément n'a pas de lien (c'est la page actuelle). */
+function breadcrumbJsonLd(items) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: item.name,
+      item: item.path ? `${SITE_URL}${item.path}` : undefined,
+    })),
+  };
 }
 function sendHtml(res, html) {
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' });
@@ -529,6 +552,10 @@ const server = http.createServer(async (req, res) => {
             title: `Achetez, vendez, louez au ${country.name} — QuickAtlas`,
             description: `Parcourez ${stats.listings || 0} annonce(s) au ${country.name} sur QuickAtlas : immobilier, véhicules, emploi et objets, ville par ville.`,
             canonicalPath: `/pays/${m[1]}`,
+            jsonLd: [breadcrumbJsonLd([
+              { name: 'Accueil', path: '/' },
+              { name: country.name },
+            ])],
           })
         );
       }
@@ -552,6 +579,11 @@ const server = http.createServer(async (req, res) => {
               title: `Annonces à ${city.name}, ${country.name} — QuickAtlas`,
               description: `Parcourez ${cityStats.listings || 0} annonce(s) à ${city.name}, ${country.name} sur QuickAtlas : immobilier, véhicules, emploi et objets à vendre, louer ou pourvoir.`,
               canonicalPath: `/pays/${m[1]}/${m[2]}`,
+              jsonLd: [breadcrumbJsonLd([
+                { name: 'Accueil', path: '/' },
+                { name: country.name, path: `/pays/${m[1]}` },
+                { name: city.name },
+              ])],
             })
           );
         }
@@ -566,6 +598,10 @@ const server = http.createServer(async (req, res) => {
             title: `${category.name} — Annonces dans le monde entier | QuickAtlas`,
             description: `Découvrez toutes les annonces "${category.name}" sur QuickAtlas, la place de marché mondiale — achat, vente, location, ville par ville.`,
             canonicalPath: `/categorie/${m[1]}`,
+            jsonLd: [breadcrumbJsonLd([
+              { name: 'Accueil', path: '/' },
+              { name: category.name },
+            ])],
           })
         );
       }
@@ -581,6 +617,29 @@ const server = http.createServer(async (req, res) => {
       if (listing) {
         const images = JSON.parse(listing.images_json || '[]');
         const priceText = listing.price ? `${listing.price} ${listing.currency}` : 'Prix sur demande';
+        const listingJsonLd = [
+          breadcrumbJsonLd([
+            { name: 'Accueil', path: '/' },
+            { name: listing.country_name, path: `/pays/${slugify(listing.country_name)}` },
+            { name: listing.title },
+          ]),
+        ];
+        if (listing.price) {
+          listingJsonLd.push({
+            '@context': 'https://schema.org',
+            '@type': 'Product',
+            name: listing.title,
+            description: (listing.description || listing.title).slice(0, 500),
+            image: images[0] ? [images[0]] : undefined,
+            offers: {
+              '@type': 'Offer',
+              price: listing.price,
+              priceCurrency: listing.currency,
+              availability: 'https://schema.org/InStock',
+              url: `${SITE_URL}/annonce/${m[1]}-${slugify(listing.title)}`,
+            },
+          });
+        }
         return sendHtml(
           res,
           renderHtmlWithMeta({
@@ -588,6 +647,7 @@ const server = http.createServer(async (req, res) => {
             description: (listing.description || `${listing.title} à ${listing.city_name}, ${listing.country_name}.`).slice(0, 155),
             canonicalPath: `/annonce/${m[1]}-${slugify(listing.title)}`,
             image: images[0] || null,
+            jsonLd: listingJsonLd,
           })
         );
       }
