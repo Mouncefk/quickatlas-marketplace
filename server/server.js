@@ -10,6 +10,7 @@ import { sendMail } from './mailer.js';
 import { translateListing, draftListing, analyzeFraudRisk, translateText } from './ai.js';
 import { translateListingFree } from './free-translate.js';
 import crypto from 'node:crypto';
+import sharp from 'sharp';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const PORT = process.env.PORT || 3000;
@@ -216,6 +217,9 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.gif': 'image/gif',
 };
 function serveStatic(req, res, pathname) {
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
@@ -1834,11 +1838,27 @@ const server = http.createServer(async (req, res) => {
       if (!ext || !data) return sendJSON(res, 400, { error: 'Image invalide (formats acceptés : JPEG, PNG, WEBP, GIF).' });
       const buffer = Buffer.from(data, 'base64');
       if (buffer.length > 5_000_000) return sendJSON(res, 400, { error: 'Image trop volumineuse (5 Mo maximum).' });
-      const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
       const uploadsDir = path.join(DATA_DIR, 'uploads');
       if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-      fs.writeFileSync(path.join(uploadsDir, filename), buffer);
-      return sendJSON(res, 201, { url: `/uploads/${filename}` });
+      // Compression + conversion en WebP (taille et poids réduits, sans perte
+      // visible) — avec repli honnête sur le fichier d'origine si jamais la
+      // compression échouait pour une image particulière (jamais un échec
+      // bloquant pour l'utilisateur).
+      try {
+        const compressed = await sharp(buffer)
+          .rotate()
+          .resize({ width: 1600, withoutEnlargement: true })
+          .webp({ quality: 82 })
+          .toBuffer();
+        const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.webp`;
+        fs.writeFileSync(path.join(uploadsDir, filename), compressed);
+        return sendJSON(res, 201, { url: `/uploads/${filename}` });
+      } catch (err) {
+        console.error('[upload] échec de la compression, sauvegarde du fichier original :', err.message);
+        const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+        fs.writeFileSync(path.join(uploadsDir, filename), buffer);
+        return sendJSON(res, 201, { url: `/uploads/${filename}` });
+      }
     }
     if (pathname === '/api/geo-guess' && method === 'GET') {
       const tz = url.searchParams.get('tz');
