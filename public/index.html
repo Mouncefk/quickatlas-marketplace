@@ -23,7 +23,6 @@
 <meta name="theme-color" content="#0E1B2E" />
 </head>
 <body>
-
 <header class="site-header">
   <div class="header-inner">
     <a href="#/" class="brand" data-nav="explore">
@@ -56,15 +55,12 @@
     </button>
   </div>
 </header>
-
 <p class="lang-fallback-note" id="langFallbackNote" hidden></p>
 <div class="verify-banner" id="verifyBanner" hidden>
   <span data-i18n="verify.banner_text">Merci de vérifier votre email pour publier des annonces et contacter d'autres utilisateurs.</span>
   <button id="resendVerificationBtn" data-i18n="verify.resend">Renvoyer l'email</button>
 </div>
-
 <main id="app">
-
   <!-- ===== EXPLORE ===== -->
   <section id="view-explore" class="view">
     <div class="hero-and-map" id="heroAndMap">
@@ -78,7 +74,6 @@
         <button type="submit" class="btn btn--ghost btn--small" data-i18n="search.button">Rechercher</button>
       </form>
     </div>
-
     <div class="map-wrap map-wrap--edge">
       <div id="mapContainer" class="map-container" aria-label="Carte du monde interactive"></div>
       <div class="map-legend">
@@ -87,7 +82,6 @@
       </div>
     </div>
     </div>
-
     <div class="reveal-after-select" id="revealAfterSelect">
       <div class="activity-ticker" id="activityTicker" aria-label="Activité récente sur QuickAtlas">
         <div class="activity-ticker-track" id="activityTickerTrack"></div>
@@ -110,9 +104,7 @@
         <span class="currency-note" id="currencyNote"></span>
       </div>
     </div>
-
     <div class="explore-panel" id="explorePanel">
-
       <div class="featured-section" id="recentlyViewedSection" hidden>
         <div class="panel-intro">
           <p class="eyebrow" data-i18n="recent.eyebrow">VOTRE HISTORIQUE</p>
@@ -120,7 +112,6 @@
         </div>
         <div class="listing-grid listing-grid--scroll" id="recentlyViewedGrid"></div>
       </div>
-
       <div class="featured-section" id="featuredSection" hidden>
         <div class="panel-intro">
           <p class="eyebrow" data-i18n="featured.eyebrow">FRAÎCHEMENT PUBLIÉES</p>
@@ -128,7 +119,6 @@
         </div>
         <div class="listing-grid listing-grid--scroll" id="featuredGrid"></div>
       </div>
-
       <div class="search-results" id="searchResultsSection" hidden>
         <div class="breadcrumb"><button id="clearSearchBtn" data-i18n="search.back">← Retour à l'exploration par pays</button></div>
         <div class="breadcrumb category-breadcrumb" id="categoryBreadcrumb" hidden></div>
@@ -146,12 +136,15 @@
               <option value="price_asc" data-i18n="filter.sort_price_asc">Prix croissant</option>
               <option value="price_desc" data-i18n="filter.sort_price_desc">Prix décroissant</option>
             </select>
+            <label class="secondhand-filter-toggle">
+              <input type="checkbox" id="categoryBrowseSecondhandCheckbox" />
+              <span data-i18n="filter.secondhand_only">♻️ Occasion uniquement</span>
+            </label>
             <button type="button" class="btn btn--ghost btn--small" id="saveCategorySearchBtn">🔔 <span data-i18n="alerts.save_button">Enregistrer cette recherche</span></button>
           </div>
         </div>
         <div class="listing-grid" id="searchResultsGrid"></div>
       </div>
-
       <div id="countrySection">
         <div class="panel-intro">
           <p class="eyebrow" data-i18n="explore.eyebrow">EXPLORER PAR PAYS</p>
@@ -166,14 +159,12 @@
           </div>
         </div>
       </div>
-
       <div class="breadcrumb" id="breadcrumb" hidden></div>
       <button type="button" class="btn btn--ghost btn--small reopen-map-btn" id="reopenMapBtn" hidden>🗺️ <span data-i18n="map.reopen">Voir la carte</span></button>
       <h2 class="active-country-heading" id="activeCountryHeading" hidden></h2>
       <button type="button" class="btn btn--ghost btn--small" id="showCountrySheetBtn" hidden>ℹ️ <span data-i18n="country.show_sheet">Voir la fiche du pays</span></button>
       <div class="state-grid" id="stateGrid" hidden></div>
       <div class="city-grid" id="cityGrid" hidden></div>
-
       <div class="listings-header" id="listingsHeader" hidden>
         <div>
           <h2 id="listingsTitle">Annonces</h2>
@@ -197,6 +188,10 @@
             <option value="price_asc" data-i18n="filter.sort_price_asc">Prix croissant</option>
             <option value="price_desc" data-i18n="filter.sort_price_desc">Prix décroissant</option>
           </select>
+          <label class="secondhand-filter-toggle">
+            <input type="checkbox" id="secondhandFilterCheckbox" />
+            <span data-i18n="filter.secondhand_only">♻️ Occasion uniquement</span>
+          </label>
           <button type="button" class="btn btn--ghost btn--small" id="saveSearchBtn">🔔 <span data-i18n="alerts.save_button">Enregistrer cette recherche</span></button>
         </div>
       </div>
@@ -204,7 +199,6 @@
       <div class="listing-grid" id="listingGrid" hidden></div>
     </div>
   </section>
-
   <!-- ===== PUBLISH ===== -->
   <section id="view-publish" class="view" hidden>
     <div class="form-page">
@@ -296,13 +290,16 @@
             <input type="text" name="trade_description" id="tradeDescriptionInput" placeholder="Ex. un vélo électrique, une console de jeux…" />
           </label>
         </div>
+        <label class="terms-checkbox">
+          <input type="checkbox" name="is_secondhand" id="secondhandCheckbox" />
+          <span data-i18n="publish.secondhand_label">♻️ Cet article est d'occasion / de seconde main</span>
+        </label>
         <p class="form-notice" id="publishTermsNotice"></p>
         <p class="form-error" id="publishError" hidden></p>
         <button type="submit" class="btn btn--primary" data-i18n="publish.submit">Publier l'annonce</button>
       </form>
     </div>
   </section>
-
   <!-- ===== MY LISTINGS ===== -->
   <section id="view-mine" class="view" hidden>
     <div class="form-page">
@@ -313,7 +310,6 @@
       <div class="listing-grid" id="myListingGrid"></div>
     </div>
   </section>
-
   <!-- ===== Comment ça marche ===== -->
   <section class="how-it-works">
     <div class="how-inner">
@@ -338,13 +334,11 @@
       </ol>
     </div>
   </section>
-
   <!-- ===== PASSPORT ===== -->
   <section id="view-passport" class="view" hidden>
     <div class="form-page">
       <p class="eyebrow" data-i18n="passport.eyebrow">VOTRE PARCOURS</p>
       <h1 data-i18n="passport.title">Passeport QuickAtlas</h1>
-
       <div class="referral-highlight">
         <h2>🎁 <span data-i18n="passport.referral_title">Parrainage</span></h2>
         <p class="hero-sub" data-i18n="passport.referral_intro">Invitez vos proches : dès qu'une personne s'inscrit via votre lien, vous recevez un crédit de mise en avant gratuit.</p>
@@ -359,15 +353,12 @@
         </div>
         <p class="referral-credits" id="referralCreditsText"></p>
       </div>
-
       <div class="referral-highlight" id="proProfileSection">
         <h2>💼 <span data-i18n="pro.section_title">Profil professionnel</span></h2>
         <p class="hero-sub" data-i18n="pro.section_intro">Mettez votre logo en avant sur vos annonces, et gagnez en visibilité au fil de vos publications.</p>
         <div id="proProfileContent"></div>
       </div>
-
       <div class="passport-book" id="passportBook"></div>
-
       <div class="passport-section">
         <h2 data-i18n="passport.settings_title">Mes coordonnées</h2>
         <form id="phoneForm" class="atlas-form">
@@ -383,7 +374,6 @@
       </div>
     </div>
   </section>
-
   <!-- ===== ALERTS ===== -->
   <section id="view-alerts" class="view" hidden>
     <div class="form-page">
@@ -393,7 +383,6 @@
       <div id="alertsList"></div>
     </div>
   </section>
-
   <!-- ===== FAVORITES ===== -->
   <section id="view-favorites" class="view" hidden>
     <div class="form-page">
@@ -402,7 +391,6 @@
       <div class="listing-grid" id="favoritesGrid"></div>
     </div>
   </section>
-
   <!-- ===== MESSAGES ===== -->
   <section id="view-messages" class="view" hidden>
     <div class="messages-page">
@@ -416,7 +404,6 @@
       </div>
     </div>
   </section>
-
   <!-- ===== ADMIN ===== -->
   <section id="view-admin" class="view" hidden>
     <div class="form-page form-page--wide">
@@ -429,7 +416,6 @@
         <button class="auth-tab" data-admin-tab="reports" data-i18n="admin.tab_reports">Signalements</button>
         <button class="auth-tab" data-admin-tab="emails" data-i18n="admin.tab_emails">Emails</button>
       </div>
-
       <div id="adminDashboardPanel" class="admin-panel">
         <div class="dashboard-cards" id="dashboardCards"></div>
         <div class="dashboard-charts">
@@ -455,7 +441,6 @@
           </div>
         </div>
       </div>
-
       <div id="adminUsersPanel" class="admin-panel" hidden>
         <table class="admin-table" id="adminUsersTable">
           <thead><tr>
@@ -495,13 +480,11 @@
       </div>
     </div>
   </section>
-
   <!-- ===== TERMS ===== -->
   <section id="view-terms" class="view" hidden>
     <div class="form-page">
       <p class="eyebrow" data-i18n="terms.eyebrow">RÈGLES & MENTIONS LÉGALES</p>
       <h1 data-i18n="terms.title">Charte de la communauté & conditions d'utilisation</h1>
-
       <h2 data-i18n="terms.charter_title">Charte de bonne conduite</h2>
       <p data-i18n="terms.charter_intro">QuickAtlas est un espace ouvert à toutes et tous, dans le monde entier. Pour que ça le reste, chaque personne qui publie une annonce ou envoie un message s'engage à :</p>
       <ul class="terms-list">
@@ -512,7 +495,6 @@
         <li data-i18n="terms.rule_illegal">ne publier aucun contenu illégal (biens volés, contrefaçons, substances interdites, etc.).</li>
       </ul>
       <p data-i18n="terms.charter_enforcement">Tout contenu contraire à cette charte peut être retiré sans préavis, et le compte concerné peut être suspendu ou supprimé.</p>
-
       <h2 data-i18n="terms.disclaimer_title">Décharge de responsabilité</h2>
       <p data-i18n="terms.disclaimer_intro">QuickAtlas est une plateforme de mise en relation entre particuliers. Elle n'est ni vendeuse, ni acheteuse, ni employeuse, ni partie à aucune transaction conclue entre utilisateurs.</p>
       <ul class="terms-list">
@@ -522,26 +504,19 @@
         <li data-i18n="terms.disclaimer_moderation">la modération s'exerce a posteriori : nous nous réservons le droit de retirer tout contenu contraire à cette charte ou à la loi applicable, sans obligation de vérifier chaque annonce avant sa publication.</li>
       </ul>
       <p data-i18n="terms.disclaimer_footer">En créant un compte, vous reconnaissez avoir lu et accepté cette charte et cette décharge de responsabilité.</p>
-
       <h2 data-i18n="privacy.title">Politique de confidentialité</h2>
       <p data-i18n="privacy.intro">Un résumé simple et honnête de ce que QuickAtlas fait de vos données — pas de jargon juridique inutile.</p>
-
       <h3 data-i18n="privacy.collect_title">Ce que nous collectons</h3>
       <p data-i18n="privacy.collect_text">Votre nom, votre email et votre mot de passe (jamais stocké en clair) à l'inscription ; votre numéro de téléphone si vous choisissez de le renseigner pour être contacté·e via WhatsApp ; le contenu de vos annonces, messages et avis ; vos recherches enregistrées, pour vous envoyer des alertes.</p>
-
       <h3 data-i18n="privacy.storage_title">Stockage local (localStorage) — pas de cookies traceurs</h3>
       <p data-i18n="privacy.storage_text">QuickAtlas n'utilise aucun cookie publicitaire ni traceur tiers. Votre navigateur conserve localement (sur votre appareil, jamais transmis à des tiers) votre jeton de connexion, votre langue choisie et vos annonces vues récemment — pour que le site fonctionne, rien de plus.</p>
-
       <h3 data-i18n="privacy.thirdparty_title">Services tiers utilisés</h3>
       <p data-i18n="privacy.thirdparty_text">L'envoi d'emails (vérification de compte, alertes) passe par votre fournisseur email configuré. La carte du monde utilise des données cartographiques ouvertes. Les statistiques économiques proviennent de l'API ouverte de la Banque mondiale. Si vous activez la connexion Google ou l'assistant IA, ces services tiers reçoivent uniquement ce qui est strictement nécessaire à leur fonctionnement.</p>
-
       <h3 data-i18n="privacy.rights_title">Vos droits</h3>
       <p data-i18n="privacy.rights_text">Vous pouvez modifier vos informations à tout moment depuis votre profil. Pour toute demande de suppression complète de compte, contactez un·e administrateur·rice du site.</p>
     </div>
   </section>
-
 </main>
-
 <footer class="site-footer">
   <div class="footer-inner">
     <div class="footer-brand">
@@ -556,32 +531,27 @@
         </a>
       </div>
     </div>
-
     <div class="footer-col">
       <h4 data-i18n="footer.col_about">À propos</h4>
       <button class="footer-link" id="footerHowItWorksBtn" data-i18n="footer.how_it_works">Comment ça marche</button>
       <button class="footer-link" data-nav="passport" data-i18n="footer.referral">Programme de parrainage</button>
       <button class="footer-link" data-nav="explore" data-i18n="footer.explore_countries">Explorer par pays</button>
     </div>
-
     <div class="footer-col">
       <h4 data-i18n="footer.col_help">Aide</h4>
       <button class="footer-link" id="footerAlertsHowToBtn" data-i18n="footer.alerts_how_to">Comment fonctionnent les alertes</button>
       <button class="footer-link" data-nav="terms" data-i18n="footer.trust_safety">Sécurité et confiance</button>
       <a class="footer-link" href="mailto:contact@quickatlas.net" data-i18n="footer.contact">Nous contacter</a>
     </div>
-
     <div class="footer-col">
       <h4 data-i18n="footer.col_legal">Informations légales</h4>
       <button class="footer-link" data-nav="terms" data-i18n="footer.terms_link_short">Conditions d'utilisation</button>
       <button class="footer-link" id="footerPrivacyBtn" data-i18n="footer.privacy_link">Politique de confidentialité</button>
     </div>
-
     <div class="footer-cats" id="footerCats"></div>
   </div>
   <p class="footer-legal"><button class="footer-terms-link" data-nav="terms" data-i18n="footer.terms_link">Charte de la communauté & conditions d'utilisation</button></p>
 </footer>
-
 <!-- ===== Help / Guide modal ===== -->
 <div class="modal-overlay" id="helpModal" hidden>
   <div class="modal modal--wide" role="dialog" aria-modal="true">
@@ -589,9 +559,7 @@
     <p class="eyebrow" data-i18n="help.eyebrow">GUIDE</p>
     <h2 data-i18n="help.title">Mode d'emploi de QuickAtlas</h2>
     <p class="hero-sub" data-i18n="help.intro">Un aperçu rapide de tout ce que vous pouvez faire sur le site.</p>
-
     <div class="help-accordion" id="helpAccordion">
-
       <details class="help-item" open>
         <summary data-i18n="help.section1_title">🗺️ Premiers pas : explorer</summary>
         <div class="help-item-body">
@@ -599,7 +567,6 @@
           <p data-i18n="help.section1_p2">Les pilules de catégories (Immobilier, Véhicules, Mode…) vous permettent aussi de parcourir toutes les annonces d'une catégorie, dans le monde entier, sans passer par la carte.</p>
         </div>
       </details>
-
       <details class="help-item">
         <summary data-i18n="help.section2_title">📝 Publier une annonce</summary>
         <div class="help-item-body">
@@ -607,7 +574,6 @@
           <p data-i18n="help.section2_p2">Vous pouvez aussi cocher "ouvert à l'échange" pour proposer un troc plutôt qu'une vente classique. Vos annonces expirent après 60 jours et se renouvellent en un clic depuis "Mes annonces".</p>
         </div>
       </details>
-
       <details class="help-item">
         <summary data-i18n="help.section3_title">💬 Acheter, négocier, échanger</summary>
         <div class="help-item-body">
@@ -615,7 +581,6 @@
           <p data-i18n="help.section3_p2">Une fois la transaction conclue, pensez à laisser un avis au vendeur — ça aide toute la communauté.</p>
         </div>
       </details>
-
       <details class="help-item" id="helpAlertsSection">
         <summary data-i18n="help.section4_title">🔔 Rester informé</summary>
         <div class="help-item-body">
@@ -626,30 +591,25 @@
           <p data-i18n="help.alerts_step4">4. Retrouvez et gérez toutes vos alertes à tout moment dans "Alertes" (menu du haut).</p>
         </div>
       </details>
-
       <details class="help-item">
         <summary data-i18n="help.section5_title">🛂 Votre profil et Passeport QuickAtlas</summary>
         <div class="help-item-body">
           <p data-i18n="help.section5_p1">La page "Passeport" regroupe vos tampons de pays (où vous avez vendu ou acheté), votre numéro WhatsApp et votre lien de parrainage — chaque personne inscrite via ce lien vous fait gagner un crédit de mise en avant gratuit.</p>
         </div>
       </details>
-
       <details class="help-item">
         <summary data-i18n="help.section6_title">🔒 Sécurité et confiance</summary>
         <div class="help-item-body">
           <p data-i18n="help.section6_p1">Un badge "vendeur vérifié" apparaît quand l'email d'un membre est confirmé. Les annonces sont automatiquement passées au crible (description, photo, prix) pour repérer les signaux suspects. Vous pouvez signaler toute annonce qui vous semble problématique.</p>
         </div>
       </details>
-
     </div>
-
     <label class="terms-checkbox help-dont-show">
       <input type="checkbox" id="helpDontShowAgain" />
       <span data-i18n="help.dont_show_again">Ne plus afficher automatiquement à l'ouverture du site</span>
     </label>
   </div>
 </div>
-
 <!-- ===== Event proposal modal ===== -->
 <div class="modal-overlay" id="eventModal" hidden>
   <div class="modal" role="dialog" aria-modal="true">
@@ -689,7 +649,6 @@
     </form>
   </div>
 </div>
-
 <!-- ===== Boost modal ===== -->
 <div class="modal-overlay" id="boostModal" hidden>
   <div class="modal" role="dialog" aria-modal="true">
@@ -704,7 +663,6 @@
     <button class="btn btn--primary" id="confirmBoostBtn" data-i18n="boost.confirm">Activer la mise en avant (démo)</button>
   </div>
 </div>
-
 <!-- ===== Save alert modal ===== -->
 <div class="modal-overlay" id="saveAlertModal" hidden>
   <div class="modal" role="dialog" aria-modal="true">
@@ -726,7 +684,6 @@
     </form>
   </div>
 </div>
-
 <!-- ===== Review modal ===== -->
 <div class="modal-overlay" id="reviewModal" hidden>
   <div class="modal" role="dialog" aria-modal="true">
@@ -751,14 +708,12 @@
     </form>
   </div>
 </div>
-
 <!-- ===== AI settings modal ===== -->
 <div class="modal-overlay" id="aiSettingsModal" hidden>
   <div class="modal" role="dialog" aria-modal="true">
     <button class="modal-close" data-close="aiSettingsModal" aria-label="Fermer">&times;</button>
     <h2 data-i18n="ai.settings_title">Fonctionnalités IA</h2>
     <p class="hero-sub" data-i18n="ai.settings_intro">QuickAtlas peut traduire automatiquement les annonces dans votre langue. Cette fonctionnalité est optionnelle et fonctionne avec votre propre clé API : vous gardez le contrôle total, et c'est votre fournisseur d'IA qui facture l'usage, pas QuickAtlas.</p>
-
     <div class="ai-how-it-works">
       <p class="ai-how-title" data-i18n="ai.how_title">Comment obtenir une clé API (gratuit à la création, facturé à l'usage) :</p>
       <ol>
@@ -768,7 +723,6 @@
       </ol>
       <p class="ai-how-note" data-i18n="ai.how_note">Le coût d'une traduction d'annonce est minime (quelques centimes ou moins). Votre clé n'est jamais visible par les autres utilisateurs ni par les administrateurs d'QuickAtlas — elle est chiffrée et n'est utilisée que pour vos propres traductions.</p>
     </div>
-
     <form id="aiSettingsForm" class="atlas-form">
       <div class="form-row">
         <label><span data-i18n="ai.provider_label">Fournisseur</span>
@@ -792,7 +746,6 @@
     </form>
   </div>
 </div>
-
 <!-- ===== Country info modal ===== -->
 <div class="modal-overlay" id="countryModal" hidden>
   <div class="modal modal--wide" role="dialog" aria-modal="true">
@@ -800,7 +753,6 @@
     <div id="countryModalContent"></div>
   </div>
 </div>
-
 <!-- ===== Listing detail modal ===== -->
 <div class="modal-overlay" id="listingModal" hidden>
   <div class="modal modal--wide" role="dialog" aria-modal="true">
@@ -808,7 +760,6 @@
     <div id="listingModalContent"></div>
   </div>
 </div>
-
 <!-- ===== Auth modal ===== -->
 <div class="modal-overlay" id="authModal" hidden>
   <div class="modal" role="dialog" aria-modal="true">
@@ -882,9 +833,7 @@
     </form>
   </div>
 </div>
-
 <div class="toast" id="toast" hidden></div>
-
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script src="/js/i18n.js"></script>
