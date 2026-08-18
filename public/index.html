@@ -303,6 +303,23 @@
             <input type="date" name="date_end" id="publishDateEnd" />
           </label>
         </div>
+        <div class="form-row form-row--split" id="tourismPriceExtrasRow" hidden>
+          <label><span data-i18n="publish.label_price_promo">Prix promotionnel (optionnel)</span>
+            <input type="number" name="price_promo" id="publishPricePromo" min="0" step="0.01" placeholder="0" />
+          </label>
+          <label><span data-i18n="publish.label_price_type">Type de prix</span>
+            <select name="price_type" id="publishPriceType">
+              <option value="" data-i18n="publish.price_type_default">— Non précisé —</option>
+              <option value="par_nuit" data-i18n="publish.price_type_night">Par nuit</option>
+              <option value="par_personne" data-i18n="publish.price_type_person">Par personne</option>
+              <option value="par_enfant" data-i18n="publish.price_type_child">Par enfant</option>
+              <option value="forfait_groupe" data-i18n="publish.price_type_group">Forfait groupe</option>
+              <option value="par_jour" data-i18n="publish.price_type_day">Par jour</option>
+              <option value="par_heure" data-i18n="publish.price_type_hour">Par heure</option>
+              <option value="par_trajet" data-i18n="publish.price_type_trip">Par trajet</option>
+            </select>
+          </label>
+        </div>
         <p class="form-notice" id="publishTermsNotice"></p>
         <p class="form-error" id="publishError" hidden></p>
         <button type="submit" class="btn btn--primary" data-i18n="publish.submit">Publier l'annonce</button>
