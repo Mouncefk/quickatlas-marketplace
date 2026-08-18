@@ -600,7 +600,6 @@ function navigate(view) {
     loadAdminListings();
     loadAdminReports();
     loadAdminEmails();
-    loadAdminCategories();
     initAdminCategoryCountrySelector();
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2882,44 +2881,6 @@ function renderAdminEmails(emails) {
         el('td', {}, em.link ? el('button', { class: 'btn btn--ghost btn--small', onclick: () => { navigator.clipboard.writeText(em.link); showToast(i18n.t('toast.link_copied')); } }, i18n.t('admin.copy_link')) : null),
       ])
     );
-  }
-}
-async function loadAdminCategories() {
-  try {
-    state.lists.adminCategories = await api('/admin/categories');
-    renderAdminCategories(state.lists.adminCategories);
-  } catch (e) {
-    showToast(e.message);
-  }
-}
-function renderAdminCategories(categories) {
-  const body = document.getElementById('adminCategoriesBody');
-  body.innerHTML = '';
-  if (!categories || categories.length === 0) {
-    body.append(el('tr', {}, el('td', { colspan: '4' }, i18n.t('admin.no_categories'))));
-    return;
-  }
-  for (const c of categories) {
-    body.append(
-      el('tr', {}, [
-        el('td', {}, `${c.icon} ${categoryLabel(c)}`),
-        el('td', {}, String(c.listing_count)),
-        el('td', {}, i18n.t(c.is_active ? 'admin.status_active' : 'admin.category_paused')),
-        el('td', {}, el('button', {
-          class: 'btn btn--ghost btn--small',
-          onclick: () => toggleCategoryActive(c.id),
-        }, i18n.t(c.is_active ? 'admin.pause_category' : 'admin.reactivate'))),
-      ])
-    );
-  }
-}
-async function toggleCategoryActive(id) {
-  try {
-    await api(`/admin/categories/${id}/toggle`, { method: 'PUT' });
-    showToast(i18n.t('toast.category_updated'));
-    loadAdminCategories();
-  } catch (e) {
-    showToast(e.message);
   }
 }
 function initAdminCategoryCountrySelector() {
