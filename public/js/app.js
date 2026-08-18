@@ -33,7 +33,7 @@ const state = {
   displayCurrency: '',
   rates: null,
   ratesUpdatedAt: null,
-  lists: { featured: [], city: [], search: [], mine: [], adminUsers: [], adminListings: [], adminStats: null, conversations: [], adminReports: [], adminEmails: [], favorites: [] },
+  lists: { featured: [], city: [], search: [], mine: [], adminUsers: [], adminListings: [], adminStats: null, conversations: [], adminReports: [], adminEmails: [], adminCategories: [], favorites: [] },
   favoriteIds: new Set(),
   lastStates: null,
   lastCities: null,
@@ -448,6 +448,22 @@ function updateSecondhandVisibility(categorySlug, checkboxId) {
   row.hidden = isTourism;
   if (isTourism) checkbox.checked = false;
 }
+/** Affiche les champs "Date de début / Date de fin" uniquement pour la
+ * catégorie Tourisme & Voyages (séjour, excursion, croisière…) — les vide
+ * quand on les masque, pour ne jamais envoyer une date orpheline d'une
+ * catégorie précédemment sélectionnée. */
+function updateTourismDatesVisibility(categorySlug) {
+  const row = document.getElementById('tourismDatesRow');
+  if (!row) return;
+  const isTourism = categorySlug === 'tourisme-voyages';
+  row.hidden = !isTourism;
+  if (!isTourism) {
+    const startInput = document.getElementById('publishDateStart');
+    const endInput = document.getElementById('publishDateEnd');
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+  }
+}
 async function browseCategory(category) {
   resetExplore();
   state.categoryBrowse = { category, subcategory: '', type: '', sort: 'newest' };
@@ -455,6 +471,7 @@ async function browseCategory(category) {
   document.getElementById('categoryBreadcrumb').hidden = false;
   document.getElementById('categoryBrowseFilters').hidden = false;
   updateSecondhandVisibility(category.slug, 'categoryBrowseSecondhandCheckbox');
+  updateTourismDatesVisibility(category.slug);
   fillSubcategorySelect(document.getElementById('categoryBrowseSubcategory'), category, true);
   updateCategoryBrowseTypeOptions(category.slug);
   document.getElementById('categoryBrowseSort').value = 'newest';
@@ -567,6 +584,7 @@ function navigate(view) {
     loadAdminListings();
     loadAdminReports();
     loadAdminEmails();
+    loadAdminCategories();
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -626,6 +644,7 @@ async function loadCategories() {
     fillSubcategorySelect(document.getElementById('publishSubcategory'), findCategoryById(pubCat.value), false);
     updatePublishTypeAndPriceUI(findCategoryById(pubCat.value));
     updateSecondhandVisibility(findCategoryById(pubCat.value)?.slug, 'secondhandCheckbox');
+    updateTourismDatesVisibility(findCategoryById(pubCat.value)?.slug);
   });
   catFilter.addEventListener('change', () => {
     fillSubcategorySelect(document.getElementById('subcategoryFilter'), findCategoryBySlug(catFilter.value), true);
@@ -1412,6 +1431,15 @@ function proBadge(tier) {
   if (!tier) return null;
   return el('span', { class: `pro-badge pro-badge--${tier}` }, `⭐ ${i18n.t(`pro.tier_${tier}`)}`);
 }
+/** Formate une plage de dates pour l'affichage — gère le cas d'une seule
+ * date renseignée (pas de date de fin précisée) sans planter. */
+function formatListingDateRange(l) {
+  if (!l.date_start) return '';
+  const start = new Date(l.date_start).toLocaleDateString();
+  if (!l.date_end || l.date_end === l.date_start) return start;
+  const end = new Date(l.date_end).toLocaleDateString();
+  return `${i18n.t('detail.date_range_from')} ${start} ${i18n.t('detail.date_range_to')} ${end}`;
+}
 function renderListingCard(l) {
   const img = (l.images && l.images[0]) || '';
   const natureLabel = l.subcategory_name ? `${l.category_icon} ${listingSubcategoryLabel(l)}` : `${l.category_icon} ${listingCategoryLabel(l)}`;
@@ -1424,6 +1452,7 @@ function renderListingCard(l) {
   return el('article', { class: 'card', onclick: () => openListingDetail(l.id) }, [
     img ? el('img', { class: 'card-img', src: img, alt: l.title, loading: 'lazy' }) : el('div', { class: 'card-img' }),
     l.is_secondhand ? el('span', { class: 'secondhand-badge' }, `♻️ ${i18n.t('badge.secondhand')}`) : null,
+    l.date_start ? el('span', { class: 'tourism-dates-badge' }, `📅 ${formatListingDateRange(l)}`) : null,
     favBtn,
     el('div', { class: 'card-body' }, [
       el('span', { class: `card-tag ${(l.listing_type === 'location' || l.listing_type === 'demande_emploi') ? 'card-tag--location' : ''} ${l.listing_type === 'achat' ? 'card-tag--achat' : ''}` }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
@@ -1884,6 +1913,7 @@ async function openListingDetail(id) {
       el('h2', { id: 'detailTitleText' }, [l.title, l.owner_verified ? el('span', { class: 'verified-badge' }, `✓ ${i18n.t('detail.verified_seller')}`) : null]),
       el('div', { class: 'detail-price' }, priceLabel(l) + (l.listing_type === 'location' ? ' / mois' : '')),
       l.open_to_trade ? el('p', { class: 'trade-badge' }, `🔄 ${i18n.t('trade.open_badge')}${l.trade_description ? ' — ' + l.trade_description : ''}`) : null,
+      l.date_start ? el('p', { class: 'tourism-dates-detail' }, `📅 ${formatListingDateRange(l)}`) : null,
       el('p', { id: 'detailDescriptionText' }, l.description || i18n.t('detail.no_description')),
       l.owner_is_professional ? el('div', { class: 'detail-pro-block' }, [
         l.owner_company_logo_url ? el('img', { class: 'company-logo-detail', src: l.owner_company_logo_url, alt: l.owner_company_name || '' }) : null,
@@ -2179,6 +2209,7 @@ function preparePublishForm() {
   fillSubcategorySelect(document.getElementById('publishSubcategory'), cat, false);
   updatePublishTypeAndPriceUI(cat);
   updateSecondhandVisibility(cat ? cat.slug : null, 'secondhandCheckbox');
+  updateTourismDatesVisibility(cat ? cat.slug : null);
   const warningEl = document.getElementById('categoryMismatchWarning');
   if (warningEl) warningEl.hidden = true;
 }
@@ -2205,6 +2236,8 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     open_to_trade: fd.get('open_to_trade') === 'on',
     trade_description: fd.get('trade_description'),
     is_secondhand: fd.get('is_secondhand') === 'on',
+    date_start: fd.get('date_start') || null,
+    date_end: fd.get('date_end') || null,
     language: i18n.effectiveLang(),
   };
   const errEl = document.getElementById('publishError');
@@ -2779,6 +2812,45 @@ function renderAdminEmails(emails) {
     );
   }
 }
+async function loadAdminCategories() {
+  try {
+    state.lists.adminCategories = await api('/admin/categories');
+    renderAdminCategories(state.lists.adminCategories);
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+function renderAdminCategories(categories) {
+  const body = document.getElementById('adminCategoriesBody');
+  body.innerHTML = '';
+  if (!categories || categories.length === 0) {
+    body.append(el('tr', {}, el('td', { colspan: '4' }, i18n.t('admin.no_categories'))));
+    return;
+  }
+  for (const c of categories) {
+    body.append(
+      el('tr', {}, [
+        el('td', {}, `${c.icon} ${categoryLabel(c)}`),
+        el('td', {}, String(c.listing_count)),
+        el('td', {}, i18n.t(c.is_active ? 'admin.status_active' : 'admin.category_paused')),
+        el('td', {}, el('button', {
+          class: 'btn btn--ghost btn--small',
+          onclick: () => toggleCategoryActive(c.id),
+        }, i18n.t(c.is_active ? 'admin.pause_category' : 'admin.reactivate'))),
+      ])
+    );
+  }
+}
+async function toggleCategoryActive(id) {
+  try {
+    await api(`/admin/categories/${id}/toggle`, { method: 'PUT' });
+    showToast(i18n.t('toast.category_updated'));
+    loadAdminCategories();
+    loadCategories();
+  } catch (e) {
+    showToast(e.message);
+  }
+}
 // ---------- Paramètres IA (clé API personnelle) ----------
 state.aiSettings = { provider: null, has_key: false };
 async function loadAiSettings() {
@@ -2889,6 +2961,7 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminListingsPanel').hidden = btn.dataset.adminTab !== 'listings';
     document.getElementById('adminReportsPanel').hidden = btn.dataset.adminTab !== 'reports';
     document.getElementById('adminEmailsPanel').hidden = btn.dataset.adminTab !== 'emails';
+    document.getElementById('adminCategoriesPanel').hidden = btn.dataset.adminTab !== 'categories';
   })
 );
 async function loadAdminStats() {
