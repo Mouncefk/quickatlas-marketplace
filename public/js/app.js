@@ -2846,7 +2846,6 @@ async function toggleCategoryActive(id) {
     await api(`/admin/categories/${id}/toggle`, { method: 'PUT' });
     showToast(i18n.t('toast.category_updated'));
     loadAdminCategories();
-    loadCategories();
   } catch (e) {
     showToast(e.message);
   }
