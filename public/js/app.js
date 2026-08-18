@@ -464,6 +464,21 @@ function updateTourismDatesVisibility(categorySlug) {
     if (endInput) endInput.value = '';
   }
 }
+/** Affiche les champs "Prix promotionnel / Type de prix" uniquement pour
+ * la catégorie Tourisme & Voyages — mêmes principes que pour les dates :
+ * masqué et vidé pour toute autre catégorie. */
+function updateTourismPriceExtrasVisibility(categorySlug) {
+  const row = document.getElementById('tourismPriceExtrasRow');
+  if (!row) return;
+  const isTourism = categorySlug === 'tourisme-voyages';
+  row.hidden = !isTourism;
+  if (!isTourism) {
+    const promoInput = document.getElementById('publishPricePromo');
+    const typeSelect = document.getElementById('publishPriceType');
+    if (promoInput) promoInput.value = '';
+    if (typeSelect) typeSelect.value = '';
+  }
+}
 async function browseCategory(category) {
   resetExplore();
   state.categoryBrowse = { category, subcategory: '', type: '', sort: 'newest' };
@@ -472,6 +487,7 @@ async function browseCategory(category) {
   document.getElementById('categoryBrowseFilters').hidden = false;
   updateSecondhandVisibility(category.slug, 'categoryBrowseSecondhandCheckbox');
   updateTourismDatesVisibility(category.slug);
+  updateTourismPriceExtrasVisibility(category.slug);
   fillSubcategorySelect(document.getElementById('categoryBrowseSubcategory'), category, true);
   updateCategoryBrowseTypeOptions(category.slug);
   document.getElementById('categoryBrowseSort').value = 'newest';
@@ -645,6 +661,7 @@ async function loadCategories() {
     updatePublishTypeAndPriceUI(findCategoryById(pubCat.value));
     updateSecondhandVisibility(findCategoryById(pubCat.value)?.slug, 'secondhandCheckbox');
     updateTourismDatesVisibility(findCategoryById(pubCat.value)?.slug);
+    updateTourismPriceExtrasVisibility(findCategoryById(pubCat.value)?.slug);
   });
   catFilter.addEventListener('change', () => {
     fillSubcategorySelect(document.getElementById('subcategoryFilter'), findCategoryBySlug(catFilter.value), true);
@@ -1433,6 +1450,17 @@ function proBadge(tier) {
 }
 /** Formate une plage de dates pour l'affichage — gère le cas d'une seule
  * date renseignée (pas de date de fin précisée) sans planter. */
+/** Traduit le code interne du type de prix (ex. "par_nuit") en libellé
+ * affichable ("Par nuit"), via les clés i18n existantes du formulaire. */
+function priceTypeLabel(priceType) {
+  const map = {
+    par_nuit: 'publish.price_type_night', par_personne: 'publish.price_type_person',
+    par_enfant: 'publish.price_type_child', forfait_groupe: 'publish.price_type_group',
+    par_jour: 'publish.price_type_day', par_heure: 'publish.price_type_hour',
+    par_trajet: 'publish.price_type_trip',
+  };
+  return map[priceType] ? i18n.t(map[priceType]) : '';
+}
 function formatListingDateRange(l) {
   if (!l.date_start) return '';
   const start = new Date(l.date_start).toLocaleDateString();
@@ -1453,6 +1481,7 @@ function renderListingCard(l) {
     img ? el('img', { class: 'card-img', src: img, alt: l.title, loading: 'lazy' }) : el('div', { class: 'card-img' }),
     l.is_secondhand ? el('span', { class: 'secondhand-badge' }, `♻️ ${i18n.t('badge.secondhand')}`) : null,
     l.date_start ? el('span', { class: 'tourism-dates-badge' }, `📅 ${formatListingDateRange(l)}`) : null,
+    l.price_promo ? el('span', { class: 'tourism-promo-badge' }, `🔥 ${fmtPrice(l.price_promo, l.currency)}${l.price_type ? ' / ' + priceTypeLabel(l.price_type) : ''}`) : null,
     favBtn,
     el('div', { class: 'card-body' }, [
       el('span', { class: `card-tag ${(l.listing_type === 'location' || l.listing_type === 'demande_emploi') ? 'card-tag--location' : ''} ${l.listing_type === 'achat' ? 'card-tag--achat' : ''}` }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
@@ -1914,6 +1943,12 @@ async function openListingDetail(id) {
       el('div', { class: 'detail-price' }, priceLabel(l) + (l.listing_type === 'location' ? ' / mois' : '')),
       l.open_to_trade ? el('p', { class: 'trade-badge' }, `🔄 ${i18n.t('trade.open_badge')}${l.trade_description ? ' — ' + l.trade_description : ''}`) : null,
       l.date_start ? el('p', { class: 'tourism-dates-detail' }, `📅 ${formatListingDateRange(l)}`) : null,
+      l.price_promo ? el('p', { class: 'tourism-promo-detail' }, [
+        el('span', { class: 'tourism-promo-original' }, fmtPrice(l.price, l.currency)),
+        ' ',
+        el('span', { class: 'tourism-promo-price' }, fmtPrice(l.price_promo, l.currency)),
+        l.price_type ? ` / ${priceTypeLabel(l.price_type)}` : '',
+      ]) : (l.price_type ? el('p', { class: 'tourism-price-type-detail' }, priceTypeLabel(l.price_type)) : null),
       el('p', { id: 'detailDescriptionText' }, l.description || i18n.t('detail.no_description')),
       l.owner_is_professional ? el('div', { class: 'detail-pro-block' }, [
         l.owner_company_logo_url ? el('img', { class: 'company-logo-detail', src: l.owner_company_logo_url, alt: l.owner_company_name || '' }) : null,
@@ -2210,6 +2245,7 @@ function preparePublishForm() {
   updatePublishTypeAndPriceUI(cat);
   updateSecondhandVisibility(cat ? cat.slug : null, 'secondhandCheckbox');
   updateTourismDatesVisibility(cat ? cat.slug : null);
+  updateTourismPriceExtrasVisibility(cat ? cat.slug : null);
   const warningEl = document.getElementById('categoryMismatchWarning');
   if (warningEl) warningEl.hidden = true;
 }
@@ -2238,6 +2274,8 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     is_secondhand: fd.get('is_secondhand') === 'on',
     date_start: fd.get('date_start') || null,
     date_end: fd.get('date_end') || null,
+    price_promo: fd.get('price_promo') || null,
+    price_type: fd.get('price_type') || null,
     language: i18n.effectiveLang(),
   };
   const errEl = document.getElementById('publishError');
