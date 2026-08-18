@@ -21,8 +21,6 @@
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 <meta name="theme-color" content="#0E1B2E" />
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"QuickAtlas","url":"https://quickatlas.net","logo":"https://quickatlas.net/icons/icon-512.png"}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"QuickAtlas","url":"https://quickatlas.net"}</script>
 </head>
 <body>
 <header class="site-header">
@@ -297,6 +295,14 @@
           <input type="checkbox" name="is_secondhand" id="secondhandCheckbox" />
           <span data-i18n="publish.secondhand_label">♻️ Cet article est d'occasion / de seconde main</span>
         </label>
+        <div class="form-row form-row--split" id="tourismDatesRow" hidden>
+          <label><span data-i18n="publish.label_date_start">Date de début</span>
+            <input type="date" name="date_start" id="publishDateStart" />
+          </label>
+          <label><span data-i18n="publish.label_date_end">Date de fin</span>
+            <input type="date" name="date_end" id="publishDateEnd" />
+          </label>
+        </div>
         <p class="form-notice" id="publishTermsNotice"></p>
         <p class="form-error" id="publishError" hidden></p>
         <button type="submit" class="btn btn--primary" data-i18n="publish.submit">Publier l'annonce</button>
@@ -418,6 +424,7 @@
         <button class="auth-tab" data-admin-tab="listings" data-i18n="admin.tab_listings">Annonces</button>
         <button class="auth-tab" data-admin-tab="reports" data-i18n="admin.tab_reports">Signalements</button>
         <button class="auth-tab" data-admin-tab="emails" data-i18n="admin.tab_emails">Emails</button>
+        <button class="auth-tab" data-admin-tab="categories" data-i18n="admin.tab_categories">Catégories</button>
       </div>
       <div id="adminDashboardPanel" class="admin-panel">
         <div class="dashboard-cards" id="dashboardCards"></div>
@@ -479,6 +486,16 @@
             <th data-i18n="admin.col_sent">Envoyé</th><th data-i18n="admin.col_since">Le</th><th></th>
           </tr></thead>
           <tbody id="adminEmailsBody"></tbody>
+        </table>
+      </div>
+      <div id="adminCategoriesPanel" class="admin-panel" hidden>
+        <p class="hero-sub" data-i18n="admin.categories_intro">Une catégorie mise en pause disparaît du formulaire de publication et des filtres — les annonces déjà publiées dessus restent visibles normalement.</p>
+        <table class="admin-table" id="adminCategoriesTable">
+          <thead><tr>
+            <th data-i18n="admin.col_category">Catégorie</th><th data-i18n="admin.col_listings">Annonces</th>
+            <th data-i18n="admin.col_status">Statut</th><th></th>
+          </tr></thead>
+          <tbody id="adminCategoriesBody"></tbody>
         </table>
       </div>
     </div>
