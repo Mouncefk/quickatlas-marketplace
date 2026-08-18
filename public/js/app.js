@@ -601,6 +601,7 @@ function navigate(view) {
     loadAdminReports();
     loadAdminEmails();
     loadAdminCategories();
+    initAdminCategoryCountrySelector();
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -767,10 +768,42 @@ async function guessUserCountryId() {
     return null;
   }
 }
+/** Reconstruit proprement un <select> de catégories en excluant celles
+ * données — vide entièrement l'élément avant de repeupler (contrairement à
+ * loadCategories(), jamais sûr à rappeler plusieurs fois sans ce nettoyage,
+ * comme on l'a appris avec le bug de doublon). Conserve la valeur
+ * sélectionnée si elle reste disponible après filtrage. */
+function rebuildCategorySelectExcluding(selectEl, excludedIds, { withAllOption, valueKey }) {
+  if (!selectEl) return;
+  const currentValue = selectEl.value;
+  selectEl.innerHTML = '';
+  if (withAllOption) selectEl.append(el('option', { value: '' }, i18n.t('filter.all_categories')));
+  for (const c of state.categories) {
+    if (excludedIds.has(c.id)) continue;
+    selectEl.append(el('option', { value: valueKey === 'slug' ? c.slug : c.id }, `${c.icon} ${categoryLabel(c)}`));
+  }
+  if ([...selectEl.options].some((o) => o.value === currentValue)) selectEl.value = currentValue;
+}
+/** Récupère les catégories désactivées pour un pays et reconstruit le menu
+ * donné en conséquence — utilisé à la fois pour la navigation (filtre de
+ * ville) et pour la publication (catégorie de l'annonce). Échoue en
+ * silence sur le réseau : le menu garde alors sa liste complète actuelle
+ * plutôt que de casser l'affichage. */
+async function refreshCategoryOptionsForCountry(countryId, selectEl, opts) {
+  try {
+    const excludedIds = new Set(await api(`/countries/${countryId}/category-exclusions`));
+    rebuildCategorySelectExcluding(selectEl, excludedIds, opts);
+  } catch {
+    /* silencieux */
+  }
+}
 async function handlePublishCountryChange(countryId) {
   const country = findCountryById(countryId);
   if (!country) return;
   document.getElementById('publishForm').querySelector('input[name=currency]').value = country.currency;
+  const pubCatSelect = document.getElementById('publishCategory');
+  await refreshCategoryOptionsForCountry(country.id, pubCatSelect, { withAllOption: false, valueKey: 'id' });
+  pubCatSelect.dispatchEvent(new Event('change'));
   const stateLabel = document.getElementById('publishStateLabel');
   const stateSelect = document.getElementById('publishState');
   if (country.is_federal) {
@@ -1197,6 +1230,7 @@ async function selectCountry(country, { openSheet = true } = {}) {
   const showCountrySheetBtn = document.getElementById('showCountrySheetBtn');
   if (showCountrySheetBtn) showCountrySheetBtn.hidden = false;
   highlightCountryOnMap(country.iso_numeric);
+  refreshCategoryOptionsForCountry(country.id, document.getElementById('categoryFilter'), { withAllOption: true, valueKey: 'slug' });
   loadFeatured();
   if (openSheet) openCountrySheet(country);
   const stateGrid = document.getElementById('stateGrid');
@@ -2884,6 +2918,48 @@ async function toggleCategoryActive(id) {
     await api(`/admin/categories/${id}/toggle`, { method: 'PUT' });
     showToast(i18n.t('toast.category_updated'));
     loadAdminCategories();
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+function initAdminCategoryCountrySelector() {
+  const select = document.getElementById('adminCategoryCountrySelect');
+  if (!select || select.dataset.initialized) return;
+  select.dataset.initialized = '1';
+  for (const c of state.countries) {
+    select.append(el('option', { value: c.id }, countryLabel(c)));
+  }
+  select.addEventListener('change', () => loadAdminCategoryCountryExclusions(select.value));
+  if (select.options.length) loadAdminCategoryCountryExclusions(select.value);
+}
+async function loadAdminCategoryCountryExclusions(countryId) {
+  try {
+    const categories = await api(`/admin/countries/${countryId}/category-exclusions`);
+    renderCategoryCountryChecklist(categories, Number(countryId));
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+function renderCategoryCountryChecklist(categories, countryId) {
+  const container = document.getElementById('adminCategoryCountryChecklist');
+  container.innerHTML = '';
+  for (const c of categories) {
+    const checkbox = el('input', {
+      type: 'checkbox',
+      checked: c.excluded ? null : 'checked',
+      onchange: () => toggleCategoryCountryExclusion(c.id, countryId),
+    });
+    container.append(
+      el('label', { class: 'admin-checklist-item' }, [checkbox, ` ${c.icon} ${categoryLabel(c)}`])
+    );
+  }
+}
+async function toggleCategoryCountryExclusion(categoryId, countryId) {
+  try {
+    await api('/admin/category-country-exclusions/toggle', {
+      method: 'POST',
+      body: JSON.stringify({ category_id: categoryId, country_id: countryId }),
+    });
   } catch (e) {
     showToast(e.message);
   }
