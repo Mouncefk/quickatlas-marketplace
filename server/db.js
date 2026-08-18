@@ -286,4 +286,28 @@ db.exec(`
     db.exec('ALTER TABLE listings ADD COLUMN is_secondhand INTEGER NOT NULL DEFAULT 0');
   }
 }
+// Migration : ajout de date_start / date_end à la table listings — utilisées
+// par la catégorie Tourisme & Voyages (dates d'un séjour, d'une excursion,
+// d'une croisière...), mais le champ reste générique et pourrait servir à
+// d'autres catégories à l'avenir. Stocké en texte au format ISO (AAAA-MM-JJ),
+// nullable : la grande majorité des annonces n'en a pas besoin.
+{
+  const listingColumns = db.prepare("PRAGMA table_info(listings)").all();
+  if (!listingColumns.some((c) => c.name === 'date_start')) {
+    db.exec('ALTER TABLE listings ADD COLUMN date_start TEXT');
+  }
+  if (!listingColumns.some((c) => c.name === 'date_end')) {
+    db.exec('ALTER TABLE listings ADD COLUMN date_end TEXT');
+  }
+}
+// Migration : ajout de is_active à la table categories, pour permettre à
+// l'administrateur de mettre une catégorie "en pause" (masquée du
+// formulaire de publication et des filtres) sans la supprimer ni toucher
+// aux annonces déjà publiées dessus, qui restent normalement visibles.
+{
+  const categoryColumns = db.prepare("PRAGMA table_info(categories)").all();
+  if (!categoryColumns.some((c) => c.name === 'is_active')) {
+    db.exec('ALTER TABLE categories ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
+  }
+}
 export default db;
