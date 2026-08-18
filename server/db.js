@@ -323,4 +323,15 @@ db.exec(`
     db.exec('ALTER TABLE listings ADD COLUMN price_type TEXT');
   }
 }
+// Migration : table des exceptions catégorie/pays — une ligne présente
+// signifie "cette catégorie est désactivée pour ce pays" (absence = active,
+// comportement par défaut). Ne stocke que les exceptions, pas toutes les
+// combinaisons possibles, pour rester léger même avec 196 pays.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS category_country_exclusions (
+    category_id INTEGER NOT NULL,
+    country_id INTEGER NOT NULL,
+    PRIMARY KEY (category_id, country_id)
+  )
+`);
 export default db;
