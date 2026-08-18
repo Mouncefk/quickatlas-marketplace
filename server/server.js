@@ -899,6 +899,41 @@ const server = http.createServer(async (req, res) => {
       db.prepare('UPDATE categories SET is_active = ? WHERE id = ?').run(newValue, categoryId);
       return sendJSON(res, 200, { id: categoryId, is_active: !!newValue });
     }
+    // Catégories désactivées pour un pays donné — utilisé côté client pour
+    // filtrer les menus de catégorie lors de la navigation ou de la
+    // publication dans ce pays. Léger : ne renvoie que les exceptions.
+    const countryExclusionsMatch = pathname.match(/^\/api\/countries\/(\d+)\/category-exclusions$/);
+    if (countryExclusionsMatch && method === 'GET') {
+      const rows = db.prepare('SELECT category_id FROM category_country_exclusions WHERE country_id = ?').all(Number(countryExclusionsMatch[1]));
+      return sendJSON(res, 200, rows.map((r) => r.category_id));
+    }
+    // Vue admin : pour un pays donné, la liste complète des catégories avec
+    // un indicateur booléen précisant si chacune y est désactivée.
+    const adminCountryExclusionsMatch = pathname.match(/^\/api\/admin\/countries\/(\d+)\/category-exclusions$/);
+    if (adminCountryExclusionsMatch && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const countryId = Number(adminCountryExclusionsMatch[1]);
+      const excluded = new Set(db.prepare('SELECT category_id FROM category_country_exclusions WHERE country_id = ?').all(countryId).map((r) => r.category_id));
+      const cats = db.prepare('SELECT id, slug, name, icon FROM categories ORDER BY id').all();
+      return sendJSON(res, 200, cats.map((c) => ({ ...c, excluded: excluded.has(c.id) })));
+    }
+    // Bascule une exception catégorie/pays (ajoute ou retire la ligne).
+    if (pathname === '/api/admin/category-country-exclusions/toggle' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const categoryId = Number(body.category_id);
+      const countryId = Number(body.country_id);
+      if (!categoryId || !countryId) return sendJSON(res, 400, { error: 'Paramètres invalides.' });
+      const existing = db.prepare('SELECT 1 FROM category_country_exclusions WHERE category_id = ? AND country_id = ?').get(categoryId, countryId);
+      if (existing) {
+        db.prepare('DELETE FROM category_country_exclusions WHERE category_id = ? AND country_id = ?').run(categoryId, countryId);
+        return sendJSON(res, 200, { excluded: false });
+      }
+      db.prepare('INSERT INTO category_country_exclusions (category_id, country_id) VALUES (?, ?)').run(categoryId, countryId);
+      return sendJSON(res, 200, { excluded: true });
+    }
     if (pathname === '/api/countries' && method === 'GET') {
       const rows = db
         .prepare(
@@ -1181,10 +1216,12 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, 400, { error: 'Le montant ne peut pas être négatif.' });
       }
       const finalPrice = (price === null || price === undefined || price === '') ? null : Number(price);
-      const city = db.prepare('SELECT id FROM cities WHERE id = ?').get(city_id);
+      const city = db.prepare('SELECT id, country_id FROM cities WHERE id = ?').get(city_id);
       if (!city) return sendJSON(res, 400, { error: 'Ville invalide.' });
       const category = db.prepare('SELECT id, slug FROM categories WHERE id = ?').get(category_id);
       if (!category) return sendJSON(res, 400, { error: 'Catégorie invalide.' });
+      const isExcluded = db.prepare('SELECT 1 FROM category_country_exclusions WHERE category_id = ? AND country_id = ?').get(category_id, city.country_id);
+      if (isExcluded) return sendJSON(res, 400, { error: "Cette catégorie n'est pas disponible pour le pays sélectionné." });
       let subcategoryId = null;
       if (subcategory_id) {
         const sub = db.prepare('SELECT id FROM subcategories WHERE id = ? AND category_id = ?').get(subcategory_id, category_id);
