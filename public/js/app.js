@@ -435,12 +435,26 @@ function pulseCountry(isoNumeric) {
     .on('end', function () { d3.select(this).remove(); });
 }
 state.categoryBrowse = { category: null, subcategory: '', type: '', sort: 'newest' };
+/** Masque la case "Occasion uniquement" (recherche) ou "Cet article est
+ * d'occasion" (publication) quand la catégorie active est Tourisme &
+ * Voyages — la notion de seconde main n'a pas de sens pour un voyage ou
+ * une excursion. Ne fait rien si l'élément n'existe pas sur la page. */
+function updateSecondhandVisibility(categorySlug, checkboxId) {
+  const checkbox = document.getElementById(checkboxId);
+  if (!checkbox) return;
+  const row = checkbox.closest('label');
+  if (!row) return;
+  const isTourism = categorySlug === 'tourisme-voyages';
+  row.hidden = isTourism;
+  if (isTourism) checkbox.checked = false;
+}
 async function browseCategory(category) {
   resetExplore();
   state.categoryBrowse = { category, subcategory: '', type: '', sort: 'newest' };
   showSearchMode(true);
   document.getElementById('categoryBreadcrumb').hidden = false;
   document.getElementById('categoryBrowseFilters').hidden = false;
+  updateSecondhandVisibility(category.slug, 'categoryBrowseSecondhandCheckbox');
   fillSubcategorySelect(document.getElementById('categoryBrowseSubcategory'), category, true);
   updateCategoryBrowseTypeOptions(category.slug);
   document.getElementById('categoryBrowseSort').value = 'newest';
@@ -611,10 +625,12 @@ async function loadCategories() {
   pubCat.addEventListener('change', () => {
     fillSubcategorySelect(document.getElementById('publishSubcategory'), findCategoryById(pubCat.value), false);
     updatePublishTypeAndPriceUI(findCategoryById(pubCat.value));
+    updateSecondhandVisibility(findCategoryById(pubCat.value)?.slug, 'secondhandCheckbox');
   });
   catFilter.addEventListener('change', () => {
     fillSubcategorySelect(document.getElementById('subcategoryFilter'), findCategoryBySlug(catFilter.value), true);
     updateTypeFilterOptions(catFilter.value);
+    updateSecondhandVisibility(catFilter.value, 'secondhandFilterCheckbox');
     refreshListings();
   });
   updateTypeFilterOptions(catFilter.value);
@@ -2095,29 +2111,37 @@ document.getElementById('aiDraftGenerateBtn').addEventListener('click', async ()
 // Même dictionnaire que server.js — copie volontaire côté client pour un
 // avertissement instantané, sans aller-retour réseau. Français uniquement
 // pour l'instant (voir la même limite côté serveur).
+// comparaison ignore les accents (voir normalizeForMatch), donc chaque
+// mot-clé n'a besoin d'être écrit qu'une seule fois, avec ses accents.
 const CATEGORY_KEYWORDS_FR = {
-  immobilier: ['appartement', 'studio', 'duplex', 'villa', 'chambre à louer', 'mètres carrés', 'loyer', 'copropriété', 'terrain constructible', 'lotissement'],
-  vehicules: ['voiture', 'véhicule', 'kilométrage', 'boîte automatique', 'carte grise', 'chevaux fiscaux', 'moto', 'scooter', '4x4', 'camion', 'essence', 'diesel'],
-  mode: ['robe', 'chaussures', 'sac à main', 'maroquinerie', 'bijoux', 'montre', 'vêtement', 'pointure'],
-  'maison-jardin': ['canapé', 'réfrigérateur', 'machine à laver', 'tondeuse', 'électroménager', 'meuble', 'jardin'],
-  multimedia: ['iphone', 'smartphone', 'ordinateur portable', 'playstation', 'xbox', 'tablette', 'appareil photo', 'écran'],
-  famille: ['poussette', 'biberon', 'berceau', 'siège auto enfant', 'jouet'],
-  loisirs: ['guitare', 'piano', 'vélo', 'tente de camping', 'canne à pêche', 'instrument de musique'],
-  'materiel-pro': ['machine industrielle', 'échafaudage', 'tracteur', 'mobilier de bureau', 'matériel professionnel'],
-  services: ['prestation', 'cours particuliers', 'dépannage', 'déménagement'],
-  emploi: ['recrute', 'cdi', 'cdd', 'salaire mensuel', 'poste à pourvoir', 'expérience requise'],
-  'opportunites-affaires': ['investisseur', 'franchise', 'partenaire commercial', "appel d'offres", "cession d'entreprise"],
+  immobilier: ['appartement', 'studio', 'duplex', 'villa', 'chambre à louer', 'mètres carrés', 'loyer', 'copropriété', 'terrain constructible', 'lotissement', 'maison', 'immeuble', 'local commercial', 'bureau à louer', 'riad', 'triplex', 'penthouse', 'charges comprises', 'cuisine équipée', 'terrasse', 'balcon', 'garage inclus', 'parking privé', 'résidence sécurisée', 'promoteur immobilier', 'plain-pied'],
+  vehicules: ['voiture', 'véhicule', 'kilométrage', 'boîte automatique', 'carte grise', 'chevaux fiscaux', 'moto', 'scooter', '4x4', 'camion', 'essence', 'diesel', 'berline', 'citadine', 'suv', 'break', 'pneus', 'boîte manuelle', 'première main', 'contrôle technique', 'assurance auto', 'remorque', 'quad', 'utilitaire', 'automobile', 'motocyclette'],
+  mode: ['robe', 'chaussures', 'sac à main', 'maroquinerie', 'bijoux', 'montre', 'vêtement', 'pointure', 'sneakers', 'baskets', 'costume', 'manteau', 'veste', 'jean', 'foulard', 'ceinture', 'parfum', 'accessoire mode', 'collection mode', 'tenue'],
+  'maison-jardin': ['canapé', 'réfrigérateur', 'machine à laver', 'tondeuse', 'électroménager', 'meuble', 'jardin', 'table à manger', 'lit double', 'matelas', 'four', 'micro-ondes', 'climatiseur', 'décoration intérieure', 'rideaux', 'tapis', 'vaisselle', 'plantes', 'literie'],
+  multimedia: ['iphone', 'smartphone', 'ordinateur portable', 'playstation', 'xbox', 'tablette', 'appareil photo', 'écran', 'samsung galaxy', 'macbook', 'clavier', 'souris', 'imprimante', 'disque dur', 'processeur', 'carte graphique', 'casque audio', 'enceinte bluetooth', 'ordinateur de bureau'],
+  famille: ['poussette', 'biberon', 'berceau', 'siège auto enfant', 'jouet', 'vêtement bébé', 'lit bébé', 'chaise haute', 'couches', 'peluche', 'landau', 'baby-sitting'],
+  loisirs: ['guitare', 'piano', 'vélo', 'tente de camping', 'canne à pêche', 'instrument de musique', 'ballon', 'raquette', 'skateboard', 'trottinette', 'batterie musicale', 'équipement de sport', 'randonnée'],
+  'materiel-pro': ['machine industrielle', 'échafaudage', 'tracteur', 'mobilier de bureau', 'matériel professionnel', 'groupe électrogène', 'compresseur', 'chariot élévateur', 'matériel btp', 'équipement médical'],
+  services: ['prestation', 'cours particuliers', 'dépannage', 'déménagement', 'nettoyage à domicile', 'garde d\'enfants', 'traiteur', 'photographe professionnel', 'coach sportif'],
+  emploi: ['recrute', 'cdi', 'cdd', 'salaire mensuel', 'poste à pourvoir', 'expérience requise', 'candidature', 'entretien d\'embauche', 'offre d\'emploi', 'stage rémunéré', 'télétravail'],
+  'opportunites-affaires': ['investisseur', 'franchise', 'partenaire commercial', "appel d'offres", "cession d'entreprise", 'business plan', 'levée de fonds', 'associé recherché'],
 };
+/** Retire les accents pour une comparaison insensible aux accents (é/e,
+ * è/e, â/a, etc.) — un titre tapé sans accents (fréquent sur mobile ou
+ * clavier étranger) doit être reconnu tout aussi bien qu'avec accents. */
+function normalizeForMatch(str) {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 function detectCategoryMismatchClient(title, description, categorySlug) {
-  const text = `${title} ${description || ''}`.toLowerCase();
+  const text = normalizeForMatch(`${title} ${description || ''}`);
   let bestMatch = null;
   let bestCount = 0;
   for (const [slug, keywords] of Object.entries(CATEGORY_KEYWORDS_FR)) {
     if (slug === categorySlug) continue;
-    const count = keywords.filter((kw) => text.includes(kw)).length;
+    const count = keywords.filter((kw) => text.includes(normalizeForMatch(kw))).length;
     if (count > bestCount) { bestCount = count; bestMatch = slug; }
   }
-  const ownCount = (CATEGORY_KEYWORDS_FR[categorySlug] || []).filter((kw) => text.includes(kw)).length;
+  const ownCount = (CATEGORY_KEYWORDS_FR[categorySlug] || []).filter((kw) => text.includes(normalizeForMatch(kw))).length;
   if (bestMatch && bestCount >= 1 && ownCount === 0) return bestMatch;
   return null;
 }
@@ -2154,6 +2178,7 @@ function preparePublishForm() {
   const cat = findCategoryById(document.getElementById('publishCategory').value);
   fillSubcategorySelect(document.getElementById('publishSubcategory'), cat, false);
   updatePublishTypeAndPriceUI(cat);
+  updateSecondhandVisibility(cat ? cat.slug : null, 'secondhandCheckbox');
   const warningEl = document.getElementById('categoryMismatchWarning');
   if (warningEl) warningEl.hidden = true;
 }
