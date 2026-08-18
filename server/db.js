@@ -310,4 +310,17 @@ db.exec(`
     db.exec('ALTER TABLE categories ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
   }
 }
+// Migration : ajout de price_promo / price_type à la table listings — champs
+// communs à toutes les sous-catégories Tourisme & Voyages (prix barré et
+// unité de tarification : par nuit, par personne, par jour...). Nullable :
+// n'importe quelle autre catégorie continue de fonctionner sans y toucher.
+{
+  const listingColumns = db.prepare("PRAGMA table_info(listings)").all();
+  if (!listingColumns.some((c) => c.name === 'price_promo')) {
+    db.exec('ALTER TABLE listings ADD COLUMN price_promo REAL');
+  }
+  if (!listingColumns.some((c) => c.name === 'price_type')) {
+    db.exec('ALTER TABLE listings ADD COLUMN price_type TEXT');
+  }
+}
 export default db;
