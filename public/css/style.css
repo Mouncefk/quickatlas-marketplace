@@ -2052,3 +2052,202 @@ textarea { resize: vertical; }
   cursor: pointer;
 }
 .admin-checklist-item input { margin: 0; flex-shrink: 0; width: auto; }
+/* ---------- Badge "Fraîchement découvert" ---------- */
+.fresh-badge {
+  display: inline-block;
+  background: rgba(76, 140, 130, 0.16);
+  border: 1px solid var(--teal-500);
+  color: var(--teal-500);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+/* ---------- "Sur le chemin" — présentation façon itinéraire ---------- */
+.on-the-path {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ink-line);
+}
+.on-the-path h3 { font-size: 0.95rem; margin: 0 0 4px; }
+.on-the-path-sub {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: rgba(241,233,216,0.5);
+  margin: 0 0 16px;
+}
+.on-the-path-route {
+  position: relative;
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding: 4px 4px 12px;
+}
+.on-the-path-route::before {
+  content: '';
+  position: absolute;
+  top: 11px;
+  left: 12px;
+  right: 12px;
+  height: 0;
+  border-top: 2px dashed var(--brass-500);
+  opacity: 0.4;
+  z-index: 0;
+}
+.on-the-path-stop {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 200px;
+  cursor: pointer;
+}
+.on-the-path-waypoint {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--brass-300);
+  background: var(--ink-900);
+  padding: 2px 8px 2px 0;
+  margin-bottom: 6px;
+}
+.on-the-path-stop .card { min-width: 0; }
+/* ---------- Fiche annonce Tourisme — "carnet de voyage" ---------- */
+.passport-header {
+  background: var(--parchment-100);
+  border-radius: 8px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.passport-header .detail-img { margin-bottom: 16px; }
+.passport-header .detail-tag { color: var(--teal-500); }
+.passport-header h2#detailTitleText { color: var(--ink-900); }
+.passport-header .detail-price { color: var(--ink-900); }
+.passport-header .tourism-lodging-facts span {
+  background: rgba(14,27,46,0.06);
+  color: var(--ink-900);
+}
+.passport-stamp {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 68px;
+  height: 68px;
+  border: 2px dashed var(--rust-600);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(-8deg);
+  color: var(--rust-600);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  background: rgba(181,72,46,0.05);
+}
+/* ---------- Comparateur d'annonces ---------- */
+.compare-link {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  background: none;
+  border: 1px solid var(--ink-line);
+  color: var(--brass-300);
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.compare-link:hover { border-color: var(--brass-500); background: rgba(198,161,91,0.08); }
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+.compare-col {
+  background: var(--ink-700);
+  border: 1px solid var(--ink-line);
+  border-radius: 8px;
+  padding: 16px;
+}
+.compare-col:last-child { border-color: var(--brass-500); border-width: 2px; }
+.compare-col-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--parchment-100);
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ink-line);
+}
+.compare-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: rgba(241,233,216,0.65);
+  padding: 6px 0;
+  border-top: 1px solid var(--ink-line);
+}
+.compare-row-value { color: var(--parchment-100); font-weight: 500; text-align: right; }
+.compare-col .btn { width: 100%; margin-top: 12px; justify-content: center; }
+@media (max-width: 600px) {
+  .compare-grid { grid-template-columns: 1fr; }
+}
+/* ---------- Carrousel photo (fiche annonce) ---------- */
+.detail-gallery { position: relative; margin-bottom: 20px; }
+.detail-gallery .detail-img { margin-bottom: 0; }
+.gallery-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(14,27,46,0.7);
+  border: 1px solid var(--ink-line);
+  color: var(--parchment-100);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gallery-arrow--prev { left: 10px; }
+.gallery-arrow--next { right: 10px; }
+.gallery-arrow:hover { background: rgba(14,27,46,0.9); border-color: var(--brass-500); }
+.gallery-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+.gallery-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(241,233,216,0.4);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.gallery-dot.is-active { background: var(--brass-300); }
+/* ---------- Bandeau de mise à jour en direct ---------- */
+.detail-update-banner {
+  background: rgba(76,140,130,0.14);
+  border: 1px solid var(--teal-500);
+  color: var(--teal-500);
+  font-size: 0.84rem;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  margin: 0 0 16px;
+}
+.detail-update-banner[hidden] { display: none; }
