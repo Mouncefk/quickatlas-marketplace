@@ -320,6 +320,28 @@
             </select>
           </label>
         </div>
+        <div id="tourismLodgingRow" hidden>
+          <div class="form-row form-row--split">
+            <label><span data-i18n="publish.label_capacity">Capacité (voyageurs)</span>
+              <input type="number" name="capacity_guests" id="publishCapacityGuests" min="1" step="1" placeholder="2" />
+            </label>
+            <label><span data-i18n="publish.label_bedrooms">Chambres</span>
+              <input type="number" name="bedrooms" id="publishBedrooms" min="0" step="1" placeholder="1" />
+            </label>
+            <label><span data-i18n="publish.label_bathrooms">Salles de bain</span>
+              <input type="number" name="bathrooms" id="publishBathrooms" min="0" step="1" placeholder="1" />
+            </label>
+          </div>
+          <fieldset class="amenities-fieldset">
+            <legend data-i18n="publish.label_amenities">Équipements</legend>
+            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="wifi" /> <span data-i18n="publish.amenity_wifi">Wi-Fi</span></label>
+            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="pool" /> <span data-i18n="publish.amenity_pool">Piscine</span></label>
+            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="air_conditioning" /> <span data-i18n="publish.amenity_ac">Climatisation</span></label>
+            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="parking" /> <span data-i18n="publish.amenity_parking">Parking</span></label>
+            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="sea_view" /> <span data-i18n="publish.amenity_sea_view">Vue mer</span></label>
+            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="breakfast" /> <span data-i18n="publish.amenity_breakfast">Petit-déjeuner inclus</span></label>
+          </fieldset>
+        </div>
         <p class="form-notice" id="publishTermsNotice"></p>
         <p class="form-error" id="publishError" hidden></p>
         <button type="submit" class="btn btn--primary" data-i18n="publish.submit">Publier l'annonce</button>
