@@ -372,4 +372,13 @@ db.exec(`
     UNIQUE(user_id, city_id)
   );
 `);
+// Migration : is_demo signale une annonce fictive injectée à des fins de
+// démonstration — jamais mélangée aux vraies annonces sans un indicateur
+// visuel clair (filigrane sur la carte et la fiche).
+{
+  const listingColumns = db.prepare("PRAGMA table_info(listings)").all();
+  if (!listingColumns.some((c) => c.name === 'is_demo')) {
+    db.exec('ALTER TABLE listings ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0');
+  }
+}
 export default db;
