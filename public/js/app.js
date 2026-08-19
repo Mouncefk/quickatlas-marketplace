@@ -35,6 +35,8 @@ const state = {
   ratesUpdatedAt: null,
   lists: { featured: [], city: [], search: [], mine: [], adminUsers: [], adminListings: [], adminStats: null, conversations: [], adminReports: [], adminEmails: [], adminCategories: [], favorites: [] },
   favoriteIds: new Set(),
+  favoriteCountryIds: new Set(),
+  favoriteCityIds: new Set(),
   lastStates: null,
   lastCities: null,
   clockTimer: null,
@@ -582,6 +584,37 @@ document.getElementById('showCountrySheetBtn').addEventListener('click', () => {
   if (state.selectedCountry) openCountrySheet(state.selectedCountry);
 });
 // ---------- Navigation entre écrans ----------
+let allListingsViewInitialized = false;
+function initAllListingsView() {
+  if (allListingsViewInitialized) return;
+  allListingsViewInitialized = true;
+  const catSelect = document.getElementById('allListingsCategoryFilter');
+  catSelect.append(el('option', { value: '' }, i18n.t('filter.all_categories')));
+  for (const c of state.categories) {
+    catSelect.append(el('option', { value: c.slug }, `${c.icon} ${categoryLabel(c)}`));
+  }
+  let debounceTimer;
+  document.getElementById('allListingsSearchInput').addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(loadAllListings, 400);
+  });
+  catSelect.addEventListener('change', loadAllListings);
+  document.getElementById('allListingsSortFilter').addEventListener('change', loadAllListings);
+}
+async function loadAllListings() {
+  try {
+    const q = document.getElementById('allListingsSearchInput').value.trim();
+    const category = document.getElementById('allListingsCategoryFilter').value;
+    const sort = document.getElementById('allListingsSortFilter').value;
+    const params = new URLSearchParams({ browse_all: '1', sort });
+    if (q) params.set('q', q);
+    if (category) params.set('category', category);
+    const listings = await api(`/listings/search?${params.toString()}`);
+    renderCardsInto('allListingsGrid', listings);
+  } catch (e) {
+    showToast(e.message);
+  }
+}
 function navigate(view) {
   document.getElementById('authModal').hidden = true;
   document.getElementById('listingModal').hidden = true;
@@ -604,6 +637,10 @@ function navigate(view) {
   if (view === 'favorites') {
     if (!state.user) { navigate('explore'); openAuthModal('login'); return; }
     loadFavorites();
+  }
+  if (view === 'all-listings') {
+    initAllListingsView();
+    loadAllListings();
   }
   if (view === 'alerts') {
     if (!state.user) { navigate('explore'); openAuthModal('login'); return; }
@@ -1027,6 +1064,10 @@ function openCountrySheet(country) {
           setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 550);
         },
       }, i18n.t('country.explore_cities')),
+      el('button', {
+        class: `btn btn--ghost favorite-country-btn ${state.favoriteCountryIds && state.favoriteCountryIds.has(country.id) ? 'is-active' : ''}`,
+        onclick: (e) => toggleFavoriteCountry(country.id, e.target),
+      }, state.favoriteCountryIds && state.favoriteCountryIds.has(country.id) ? `♥ ${i18n.t('destinations.remove')}` : `♡ ${i18n.t('destinations.add')}`),
     ]),
     el('div', { class: 'country-sheet-profile', id: 'countrySheetProfile' }),
     el('div', { class: 'economic-stats', id: 'economicStats' }),
@@ -1268,6 +1309,7 @@ async function selectCountry(country, { openSheet = true } = {}) {
   state.selectedCountry = country;
   state.selectedState = null;
   state.selectedCity = null;
+  trackRecentPlace({ type: 'country', id: country.id, countryId: country.id, iso2: country.iso2, name: country.name });
   document.getElementById('countrySearchInput').value = countryLabel(country);
   const activeCountryHeading = document.getElementById('activeCountryHeading');
   if (activeCountryHeading) { activeCountryHeading.textContent = countryLabel(country); activeCountryHeading.hidden = false; }
@@ -1332,16 +1374,25 @@ function renderCityTiles(cities) {
   cityGrid.innerHTML = '';
   cityGrid.hidden = false;
   for (const city of cities) {
+    const isFav = state.favoriteCityIds && state.favoriteCityIds.has(city.id);
     cityGrid.append(
-      el('button', { class: 'tile', onclick: () => selectCity(city) }, [
-        el('span', { class: 'tile-name' }, city.name),
-        el('span', { class: 'tile-meta' }, i18n.t('tile.meta_city', { listings: city.listing_count })),
+      el('div', { class: 'tile', style: 'position:relative;' }, [
+        el('button', { style: 'all:unset;cursor:pointer;display:block;width:100%;', onclick: () => selectCity(city) }, [
+          el('span', { class: 'tile-name' }, city.name),
+          el('span', { class: 'tile-meta' }, i18n.t('tile.meta_city', { listings: city.listing_count })),
+        ]),
+        el('button', {
+          class: `favorite-city-btn ${isFav ? 'is-active' : ''}`,
+          'aria-label': isFav ? i18n.t('destinations.remove') : i18n.t('destinations.add'),
+          onclick: (e) => { e.stopPropagation(); toggleFavoriteCity(city.id, e.target); },
+        }, isFav ? '♥' : '♡'),
       ])
     );
   }
 }
 async function selectCity(city) {
   state.selectedCity = city;
+  trackRecentPlace({ type: 'city', id: city.id, countryId: state.selectedCountry ? state.selectedCountry.id : null, name: city.name, countryName: state.selectedCountry ? countryLabel(state.selectedCountry) : '' });
   setExploreStageVisibility('city');
   document.getElementById('coordEyebrow').textContent = `${city.name.toUpperCase()}, ${countryLabel(state.selectedCountry).toUpperCase()}`;
   renderBreadcrumb();
@@ -1623,6 +1674,86 @@ async function loadFavoriteIds() {
     state.favoriteIds = new Set(ids);
   } catch {
     state.favoriteIds = new Set();
+  }
+}
+/** Charge les pays/villes favoris de l'utilisateur et remplit la section
+ * "Mes destinations" de l'accueil — un accès direct en un clic, en plus
+ * (jamais à la place) du parcours pays -> ville habituel. */
+async function loadFavoriteDestinations() {
+  const section = document.getElementById('favoriteDestinationsSection');
+  if (!state.user) {
+    state.favoriteCountryIds = new Set();
+    state.favoriteCityIds = new Set();
+    section.hidden = true;
+    return;
+  }
+  try {
+    const { countries, cities } = await api('/me/favorite-destinations');
+    state.favoriteCountryIds = new Set(countries.map((c) => c.id));
+    state.favoriteCityIds = new Set(cities.map((c) => c.id));
+    const grid = document.getElementById('favoriteDestinationsGrid');
+    grid.innerHTML = '';
+    if (countries.length === 0 && cities.length === 0) { section.hidden = true; return; }
+    section.hidden = false;
+    for (const c of countries) {
+      grid.append(el('button', { class: 'tile', onclick: () => { const full = state.countries.find((x) => x.id === c.id); if (full) selectCountry(full); } }, [
+        el('span', { class: 'tile-name' }, `♥ ${countryLabel(c)}`),
+      ]));
+    }
+    for (const c of cities) {
+      grid.append(el('button', { class: 'tile', onclick: async () => {
+        const full = state.countries.find((x) => x.id === c.country_id);
+        if (!full) return;
+        await selectCountry(full, { openSheet: false });
+        const cityFull = (state.lastCities || []).find((x) => x.id === c.id);
+        if (cityFull) selectCity(cityFull);
+      } }, [
+        el('span', { class: 'tile-name' }, `♥ ${c.name}`),
+        el('span', { class: 'tile-meta' }, countryLabel(c)),
+      ]));
+    }
+  } catch {
+    section.hidden = true;
+  }
+}
+async function toggleFavoriteCountry(countryId, btnEl) {
+  if (!state.user) { openAuthModal('login'); return; }
+  const isFav = state.favoriteCountryIds.has(countryId);
+  try {
+    if (isFav) {
+      await api(`/favorite-countries/${countryId}`, { method: 'DELETE' });
+      state.favoriteCountryIds.delete(countryId);
+    } else {
+      await api('/favorite-countries', { method: 'POST', body: JSON.stringify({ country_id: countryId }) });
+      state.favoriteCountryIds.add(countryId);
+    }
+    if (btnEl) {
+      btnEl.classList.toggle('is-active', !isFav);
+      btnEl.textContent = !isFav ? `♥ ${i18n.t('destinations.remove')}` : `♡ ${i18n.t('destinations.add')}`;
+    }
+    loadFavoriteDestinations();
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+async function toggleFavoriteCity(cityId, btnEl) {
+  if (!state.user) { openAuthModal('login'); return; }
+  const isFav = state.favoriteCityIds.has(cityId);
+  try {
+    if (isFav) {
+      await api(`/favorite-cities/${cityId}`, { method: 'DELETE' });
+      state.favoriteCityIds.delete(cityId);
+    } else {
+      await api('/favorite-cities', { method: 'POST', body: JSON.stringify({ city_id: cityId }) });
+      state.favoriteCityIds.add(cityId);
+    }
+    if (btnEl) {
+      btnEl.classList.toggle('is-active', !isFav);
+      btnEl.textContent = !isFav ? '♥' : '♡';
+    }
+    loadFavoriteDestinations();
+  } catch (e) {
+    showToast(e.message);
   }
 }
 async function loadFavorites() {
@@ -1953,6 +2084,41 @@ async function loadAlerts() {
 // ---------- Vus récemment (localStorage, sans backend) ----------
 const RECENTLY_VIEWED_KEY = 'atlas_recently_viewed';
 const RECENTLY_VIEWED_MAX = 8;
+const RECENT_PLACES_KEY = 'atlas_recent_places';
+const RECENT_PLACES_MAX = 6;
+/** Mémorise automatiquement les derniers pays/villes visités (sans action
+ * de l'utilisateur, contrairement aux favoris) — permet de reprendre
+ * l'exploration là où elle s'était arrêtée. */
+function trackRecentPlace(place) {
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem(RECENT_PLACES_KEY) || '[]'); } catch { items = []; }
+  items = items.filter((i) => !(i.type === place.type && i.id === place.id));
+  items.unshift(place);
+  items = items.slice(0, RECENT_PLACES_MAX);
+  localStorage.setItem(RECENT_PLACES_KEY, JSON.stringify(items));
+}
+function renderRecentPlaces() {
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem(RECENT_PLACES_KEY) || '[]'); } catch { items = []; }
+  const section = document.getElementById('recentPlacesSection');
+  if (items.length === 0) { section.hidden = true; return; }
+  section.hidden = false;
+  const grid = document.getElementById('recentPlacesGrid');
+  grid.innerHTML = '';
+  for (const p of items) {
+    grid.append(el('button', { class: 'tile', onclick: async () => {
+      const full = state.countries.find((x) => x.id === p.countryId);
+      if (!full) return;
+      if (p.type === 'country') { selectCountry(full); return; }
+      await selectCountry(full, { openSheet: false });
+      const cityFull = (state.lastCities || []).find((x) => x.id === p.id);
+      if (cityFull) selectCity(cityFull);
+    } }, [
+      el('span', { class: 'tile-name' }, p.type === 'country' ? countryLabel({ iso2: p.iso2, name: p.name }) : p.name),
+      p.type === 'city' ? el('span', { class: 'tile-meta' }, p.countryName) : null,
+    ]));
+  }
+}
 function trackRecentlyViewed(listing) {
   let items = [];
   try { items = JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]'); } catch { items = []; }
@@ -2680,6 +2846,7 @@ function onAuthSuccess(data) {
   renderAuthZone();
   loadAiSettings();
   loadFavoriteIds();
+  loadFavoriteDestinations();
   refreshAlertsBadge();
   document.getElementById('authModal').hidden = true;
   showToast(i18n.t('toast.welcome', { name: data.user.name }));
@@ -3642,8 +3809,10 @@ async function boot() {
   }
   loadAiSettings();
   loadFavoriteIds();
+  loadFavoriteDestinations();
   refreshAlertsBadge();
   renderRecentlyViewed();
+  renderRecentPlaces();
   try {
     await Promise.all([loadCategories(), loadCountries()]);
     loadFeatured();
