@@ -2996,10 +2996,11 @@ function renderCategoryCountryChecklist(categories, countryId) {
 }
 async function toggleCategoryCountryExclusion(categoryId, countryId) {
   try {
-    await api('/admin/category-country-exclusions/toggle', {
+    const result = await api('/admin/category-country-exclusions/toggle', {
       method: 'POST',
       body: JSON.stringify({ category_id: categoryId, country_id: countryId }),
     });
+    showToast(i18n.t(result.excluded ? 'toast.category_excluded_for_country' : 'toast.category_included_for_country'));
   } catch (e) {
     showToast(e.message);
   }
