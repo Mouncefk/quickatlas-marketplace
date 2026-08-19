@@ -36,6 +36,7 @@
     <nav class="main-nav">
       <button class="nav-link" data-nav="explore" data-i18n="nav.explore">Explorer</button>
       <button class="nav-link" data-nav="all-listings" data-i18n="nav.all_listings">Toutes les annonces</button>
+      <button class="nav-link" id="randomExploreBtn" data-i18n="nav.random_explore">🎲 Explorer au hasard</button>
       <button class="nav-link" data-nav="publish" data-i18n="nav.publish">Publier une annonce</button>
       <button class="nav-link" data-nav="mine" data-i18n="nav.mine">Mes annonces</button>
       <button class="nav-link" data-nav="messages" id="messagesNavLink" hidden><span data-i18n="nav.messages">Messages</span><span class="nav-badge" id="messagesBadge" hidden>0</span></button>
@@ -742,6 +743,18 @@
 </div>
 <!-- ===== Boost modal ===== -->
 <!-- ===== Comparison modal ===== -->
+<!-- ===== Random explore modal ===== -->
+<div class="modal-overlay" id="randomExploreModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close="randomExploreModal" aria-label="Fermer">&times;</button>
+    <p class="eyebrow" data-i18n="explore_random.eyebrow">ROULETTE DU GLOBE</p>
+    <div id="randomExploreBody" class="random-explore-body"></div>
+    <div class="random-explore-actions">
+      <button class="btn btn--ghost" id="randomExploreSpinAgainBtn" data-i18n="explore_random.spin_again">🎲 Relancer</button>
+      <button class="btn btn--primary" id="randomExploreViewBtn" data-i18n="explore_random.view">Voir l'annonce</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="compareModal" hidden>
   <div class="modal modal--wide" role="dialog" aria-modal="true">
     <button class="modal-close" data-close="compareModal" aria-label="Fermer">&times;</button>
