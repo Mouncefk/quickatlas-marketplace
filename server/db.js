@@ -334,4 +334,23 @@ db.exec(`
     PRIMARY KEY (category_id, country_id)
   )
 `);
+// Migration : champs Hébergement (Tourisme & Voyages, Phase C1) — capacité
+// voyageurs, chambres, salles de bain, équipements. Concernent uniquement
+// les sous-catégories locations-vacances et hotellerie-insolite ; nullable
+// pour toutes les autres annonces, qui n'y touchent jamais.
+{
+  const listingColumns = db.prepare("PRAGMA table_info(listings)").all();
+  if (!listingColumns.some((c) => c.name === 'capacity_guests')) {
+    db.exec('ALTER TABLE listings ADD COLUMN capacity_guests INTEGER');
+  }
+  if (!listingColumns.some((c) => c.name === 'bedrooms')) {
+    db.exec('ALTER TABLE listings ADD COLUMN bedrooms INTEGER');
+  }
+  if (!listingColumns.some((c) => c.name === 'bathrooms')) {
+    db.exec('ALTER TABLE listings ADD COLUMN bathrooms INTEGER');
+  }
+  if (!listingColumns.some((c) => c.name === 'amenities_json')) {
+    db.exec('ALTER TABLE listings ADD COLUMN amenities_json TEXT');
+  }
+}
 export default db;
