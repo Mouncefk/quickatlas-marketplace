@@ -35,6 +35,7 @@
     </a>
     <nav class="main-nav">
       <button class="nav-link" data-nav="explore" data-i18n="nav.explore">Explorer</button>
+      <button class="nav-link" data-nav="all-listings" data-i18n="nav.all_listings">Toutes les annonces</button>
       <button class="nav-link" data-nav="publish" data-i18n="nav.publish">Publier une annonce</button>
       <button class="nav-link" data-nav="mine" data-i18n="nav.mine">Mes annonces</button>
       <button class="nav-link" data-nav="messages" id="messagesNavLink" hidden><span data-i18n="nav.messages">Messages</span><span class="nav-badge" id="messagesBadge" hidden>0</span></button>
@@ -105,6 +106,20 @@
       </div>
     </div>
     <div class="explore-panel" id="explorePanel">
+      <div class="featured-section" id="favoriteDestinationsSection" hidden>
+        <div class="panel-intro">
+          <p class="eyebrow" data-i18n="destinations.eyebrow">VOS COUPS DE CŒUR</p>
+          <h2 data-i18n="destinations.title">Mes destinations</h2>
+        </div>
+        <div class="country-grid" id="favoriteDestinationsGrid"></div>
+      </div>
+      <div class="featured-section" id="recentPlacesSection" hidden>
+        <div class="panel-intro">
+          <p class="eyebrow" data-i18n="recent_places.eyebrow">REPRENDRE LÀ OÙ VOUS EN ÉTIEZ</p>
+          <h2 data-i18n="recent_places.title">Destinations récentes</h2>
+        </div>
+        <div class="country-grid" id="recentPlacesGrid"></div>
+      </div>
       <div class="featured-section" id="recentlyViewedSection" hidden>
         <div class="panel-intro">
           <p class="eyebrow" data-i18n="recent.eyebrow">VOTRE HISTORIQUE</p>
@@ -432,6 +447,23 @@
     </div>
   </section>
   <!-- ===== FAVORITES ===== -->
+  <section id="view-all-listings" class="view" hidden>
+    <div class="explore-panel">
+      <p class="eyebrow" data-i18n="all_listings.eyebrow">SANS PASSER PAR LA CARTE</p>
+      <h1 data-i18n="all_listings.title">Toutes les annonces</h1>
+      <p class="hero-sub" data-i18n="all_listings.sub">Parcourez toutes les annonces du monde entier, filtrez par catégorie ou mot-clé — le parcours par pays et ville reste disponible comme avant.</p>
+      <div class="filters" style="margin-top:18px;">
+        <input type="text" id="allListingsSearchInput" data-i18n-placeholder="filter.search_placeholder" placeholder="Titre ou mot-clé…" />
+        <select id="allListingsCategoryFilter"></select>
+        <select id="allListingsSortFilter">
+          <option value="newest" data-i18n="filter.sort_newest">Plus récentes</option>
+          <option value="price_asc" data-i18n="filter.sort_price_asc">Prix croissant</option>
+          <option value="price_desc" data-i18n="filter.sort_price_desc">Prix décroissant</option>
+        </select>
+      </div>
+      <div class="listing-grid" id="allListingsGrid" style="margin-top:24px;"></div>
+    </div>
+  </section>
   <section id="view-favorites" class="view" hidden>
     <div class="form-page">
       <p class="eyebrow" data-i18n="favorites.eyebrow">VOS COUPS DE CŒUR</p>
