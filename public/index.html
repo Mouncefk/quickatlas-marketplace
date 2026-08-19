@@ -528,6 +528,10 @@
         </table>
       </div>
       <div id="adminCategoriesPanel" class="admin-panel" hidden>
+        <h3 class="admin-subsection-title" data-i18n="admin.categories_status_title">État global des catégories</h3>
+        <p class="hero-sub" data-i18n="admin.categories_status_intro">Un point rouge signale une catégorie désactivée partout sur le site (généralement par erreur) — le bouton la réactive immédiatement.</p>
+        <div id="adminCategoryStatusList" class="admin-status-list"></div>
+        <button type="button" id="reactivateAllCategoriesBtn" class="btn btn--ghost btn--small" data-i18n="admin.reactivate_all">Réactiver toutes les catégories</button>
         <h3 class="admin-subsection-title" data-i18n="admin.categories_by_country_title">Catégories par pays</h3>
         <p class="hero-sub" data-i18n="admin.categories_by_country_intro">Choisissez un pays, puis décochez les catégories à désactiver spécifiquement pour ce pays (publication et navigation).</p>
         <select id="adminCategoryCountrySelect" class="admin-country-select"></select>
