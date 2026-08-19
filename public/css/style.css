@@ -2032,3 +2032,23 @@ textarea { resize: vertical; }
 .category-status-chip.is-active::before { background: #6cae75; }
 .category-status-chip.is-inactive::before { background: var(--rust-600); }
 .category-status-chip.is-inactive { border-color: var(--rust-600); color: var(--rust-text); }
+/* ---------- Liste à cocher "Catégories par pays" (admin) ---------- */
+.admin-country-select {
+  margin: 4px 0 14px;
+  max-width: 360px;
+}
+.admin-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px 16px;
+}
+.admin-checklist-item {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--parchment-100);
+  cursor: pointer;
+}
+.admin-checklist-item input { margin: 0; flex-shrink: 0; width: auto; }
