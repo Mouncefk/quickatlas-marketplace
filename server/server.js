@@ -1028,7 +1028,7 @@ const server = http.createServer(async (req, res) => {
         JOIN cities ci ON ci.id = l.city_id
         JOIN countries co ON co.id = ci.country_id
         WHERE l.status = 'active' AND l.expires_at > datetime('now') ${withCountry ? 'AND co.id = ?' : ''}
-        ORDER BY (l.boosted_until IS NOT NULL AND l.boosted_until > datetime('now')) DESC, l.created_at DESC
+        ORDER BY (l.boosted_until IS NOT NULL AND l.boosted_until > datetime('now')) DESC, RANDOM()
         LIMIT ?`;
       let rows = [];
       if (countryId) {
@@ -1124,7 +1124,8 @@ const server = http.createServer(async (req, res) => {
       const q = (url.searchParams.get('q') || '').trim();
       const category = url.searchParams.get('category');
       const type = url.searchParams.get('type');
-      if (!q && !category && !type) return sendJSON(res, 200, []);
+      const browseAll = url.searchParams.get('browse_all') === '1';
+      if (!q && !category && !type && !browseAll) return sendJSON(res, 200, []);
       let sql = `
         SELECT l.id, l.title, l.description, l.listing_type, l.price, l.currency, l.images_json, l.created_at, l.boosted_until,
                cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
@@ -1353,6 +1354,39 @@ const server = http.createServer(async (req, res) => {
            LIMIT 4`
         )
         .all(listing.category_id, listingId, listing.city_id, listing.subcategory_id)
+        .map((r) => ({ ...r, images: JSON.parse(r.images_json) }));
+      return sendJSON(res, 200, rows);
+    }
+    // "Sur le chemin" — annonces de même catégorie dans d'autres villes du
+    // même pays. Faute de coordonnées GPS par ville, la proximité
+    // géographique réelle n'est pas calculée : on utilise le pays comme
+    // proxy raisonnable (même pays = plausiblement "sur la route").
+    if ((m = pathname.match(/^\/api\/listings\/(\d+)\/on-the-path$/)) && method === 'GET') {
+      const listingId = Number(m[1]);
+      const listing = db
+        .prepare(
+          `SELECT l.category_id, l.city_id, ci.country_id
+           FROM listings l JOIN cities ci ON ci.id = l.city_id
+           WHERE l.id = ?`
+        )
+        .get(listingId);
+      if (!listing) return sendJSON(res, 404, { error: 'Annonce introuvable' });
+      const rows = db
+        .prepare(
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type,
+                  cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
+                  sub.slug AS subcategory_slug, sub.name AS subcategory_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
+           FROM listings l
+           JOIN categories cat ON cat.id = l.category_id
+           LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
+           JOIN cities ci ON ci.id = l.city_id
+           JOIN countries co ON co.id = ci.country_id
+           WHERE l.category_id = ? AND l.id != ? AND ci.country_id = ? AND l.city_id != ? AND l.status = 'active' AND l.expires_at > datetime('now')
+           GROUP BY l.city_id
+           ORDER BY RANDOM()
+           LIMIT 3`
+        )
+        .all(listing.category_id, listingId, listing.country_id, listing.city_id)
         .map((r) => ({ ...r, images: JSON.parse(r.images_json) }));
       return sendJSON(res, 200, rows);
     }
@@ -2128,6 +2162,57 @@ const server = http.createServer(async (req, res) => {
       const user = requireAuth(req, res);
       if (!user) return;
       db.prepare('DELETE FROM favorites WHERE user_id = ? AND listing_id = ?').run(user.id, Number(m[1]));
+      return sendJSON(res, 200, { ok: true });
+    }
+    // Favoris pays/villes — accès direct depuis l'accueil, en plus du
+    // parcours pays -> ville déjà en place (ne le remplace pas).
+    if (pathname === '/api/me/favorite-destinations' && method === 'GET') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const countries = db
+        .prepare(
+          `SELECT co.id, co.iso2, co.name, co.iso_numeric
+           FROM favorite_countries fc JOIN countries co ON co.id = fc.country_id
+           WHERE fc.user_id = ? ORDER BY fc.created_at DESC`
+        )
+        .all(user.id);
+      const cities = db
+        .prepare(
+          `SELECT ci.id, ci.name, co.iso2 AS country_iso2, co.name AS country_name, ci.country_id
+           FROM favorite_cities fcy JOIN cities ci ON ci.id = fcy.city_id JOIN countries co ON co.id = ci.country_id
+           WHERE fcy.user_id = ? ORDER BY fcy.created_at DESC`
+        )
+        .all(user.id);
+      return sendJSON(res, 200, { countries, cities });
+    }
+    if (pathname === '/api/favorite-countries' && method === 'POST') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const { country_id } = await readBody(req);
+      try {
+        db.prepare('INSERT INTO favorite_countries (user_id, country_id) VALUES (?, ?)').run(user.id, country_id);
+      } catch { /* déjà en favoris */ }
+      return sendJSON(res, 201, { ok: true });
+    }
+    if ((m = pathname.match(/^\/api\/favorite-countries\/(\d+)$/)) && method === 'DELETE') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      db.prepare('DELETE FROM favorite_countries WHERE user_id = ? AND country_id = ?').run(user.id, Number(m[1]));
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (pathname === '/api/favorite-cities' && method === 'POST') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const { city_id } = await readBody(req);
+      try {
+        db.prepare('INSERT INTO favorite_cities (user_id, city_id) VALUES (?, ?)').run(user.id, city_id);
+      } catch { /* déjà en favoris */ }
+      return sendJSON(res, 201, { ok: true });
+    }
+    if ((m = pathname.match(/^\/api\/favorite-cities\/(\d+)$/)) && method === 'DELETE') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      db.prepare('DELETE FROM favorite_cities WHERE user_id = ? AND city_id = ?').run(user.id, Number(m[1]));
       return sendJSON(res, 200, { ok: true });
     }
     if ((m = pathname.match(/^\/api\/countries\/(\d+)\/profile$/)) && method === 'GET') {
