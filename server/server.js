@@ -885,6 +885,16 @@ const server = http.createServer(async (req, res) => {
         .all();
       return sendJSON(res, 200, cats.map((c) => ({ ...c, is_active: !!c.is_active })));
     }
+    // Filet de sécurité : réactive toutes les catégories globalement en un
+    // clic, au cas où l'une d'elles aurait été désactivée par erreur (par
+    // exemple pendant des tests) sans qu'on s'en aperçoive immédiatement —
+    // les exclusions par pays, elles, ne sont pas touchées par cette route.
+    if (pathname === '/api/admin/categories/reactivate-all' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const result = db.prepare('UPDATE categories SET is_active = 1 WHERE is_active = 0').run();
+      return sendJSON(res, 200, { reactivated: result.changes });
+    }
     // Bascule activer/désactiver une catégorie — les annonces déjà publiées
     // dessus ne sont jamais touchées, seule sa disponibilité pour de
     // nouvelles publications et son apparition dans les filtres changent.
