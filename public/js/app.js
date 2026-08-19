@@ -1622,7 +1622,8 @@ function renderListingCard(l) {
     'aria-label': i18n.t('favorites.toggle'),
     onclick: (e) => { e.stopPropagation(); toggleFavorite(l.id, favBtn); },
   }, isFav ? '♥' : '♡');
-  return el('article', { class: 'card', onclick: () => openListingDetail(l.id) }, [
+  return el('article', { class: `card ${l.is_demo ? 'card--demo' : ''}`, onclick: () => openListingDetail(l.id) }, [
+    l.is_demo ? el('div', { class: 'demo-watermark' }, i18n.t('demo.watermark')) : null,
     img ? el('img', { class: 'card-img', src: img, alt: l.title, loading: 'lazy' }) : el('div', { class: 'card-img' }),
     l.is_secondhand ? el('span', { class: 'secondhand-badge' }, `♻️ ${i18n.t('badge.secondhand')}`) : null,
     l.date_start ? el('span', { class: 'tourism-dates-badge' }, `📅 ${formatListingDateRange(l)}`) : null,
@@ -2286,6 +2287,7 @@ async function openListingDetail(id) {
   }, state.favoriteIds.has(l.id) ? i18n.t('favorites.remove') : i18n.t('favorites.add'));
   const isTourismListing = l.category_slug === 'tourisme-voyages';
   const headerNodes = [
+    l.is_demo ? el('div', { class: 'demo-watermark demo-watermark--detail' }, i18n.t('demo.watermark')) : null,
     renderDetailGallery(l.images, l.title),
     el('span', { class: 'detail-tag' }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
     el('h2', { id: 'detailTitleText' }, [l.title, l.owner_verified ? el('span', { class: 'verified-badge' }, `✓ ${i18n.t('detail.verified_seller')}`) : null]),
