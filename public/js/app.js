@@ -2690,7 +2690,7 @@ function renderConversationThread(data) {
       const mine = (item.kind === 'message' ? item.sender_id : item.buyer_id) === state.user.id;
       if (item.kind === 'message') {
         return el('div', { class: `thread-message ${mine ? 'thread-message--mine' : ''}` }, [
-          item.image_url ? el('img', { class: 'thread-message-image', src: item.image_url, alt: '', onclick: () => window.open(item.image_url, '_blank') }) : null,
+          item.image_url ? el('img', { class: 'thread-message-image', src: item.image_url, alt: i18n.t('messages.image_alt'), onclick: () => window.open(item.image_url, '_blank') }) : null,
           item.body ? el('p', {}, item.body) : null,
           el('span', { class: 'thread-message-time' }, new Date(item.created_at).toLocaleString()),
         ].filter(Boolean));
@@ -2720,8 +2720,8 @@ function renderConversationThread(data) {
     if (!pendingMessageImageUrl) { imagePreviewEl.hidden = true; return; }
     imagePreviewEl.hidden = false;
     imagePreviewEl.append(
-      el('img', { src: pendingMessageImageUrl, alt: '' }),
-      el('button', { type: 'button', onclick: () => { pendingMessageImageUrl = null; updateMessageImagePreview(); } }, '×')
+      el('img', { src: pendingMessageImageUrl, alt: i18n.t('messages.image_preview_alt') }),
+      el('button', { type: 'button', 'aria-label': i18n.t('messages.remove_image'), onclick: () => { pendingMessageImageUrl = null; updateMessageImagePreview(); } }, '×')
     );
   }
   const photoInput = el('input', {
@@ -2758,7 +2758,7 @@ function renderConversationThread(data) {
       imagePreviewEl,
       el('div', { class: 'thread-compose' }, [
         photoInput,
-        el('button', { type: 'button', class: 'attach-photo-link', title: i18n.t('messages.attach_photo'), onclick: () => photoInput.click() }, '📷'),
+        el('button', { type: 'button', class: 'attach-photo-link', title: i18n.t('messages.attach_photo'), 'aria-label': i18n.t('messages.attach_photo'), onclick: () => photoInput.click() }, '📷'),
         textarea,
         !data.is_seller ? el('button', { class: 'make-offer-link', onclick: () => { offerForm.hidden = !offerForm.hidden; renderOfferForm(offerForm, data.id); } }, `💰 ${i18n.t('offer.make_offer')}`) : null,
         el('button', { class: 'btn btn--primary', onclick: send }, i18n.t('messages.send')),
