@@ -1014,6 +1014,18 @@ const server = http.createServer(async (req, res) => {
       if (!row) return sendJSON(res, 404, { error: 'Pays non référencé' });
       return sendJSON(res, 200, row);
     }
+    // Mode exploration façon roulette du globe : une annonce active tirée
+    // au sort n'importe où sur le site, avec les infos de son pays pour
+    // l'effet "roulette" côté client (centrer la carte dessus, etc).
+    if (pathname === '/api/listings/random-explore' && method === 'GET') {
+      const row = db
+        .prepare(
+          'SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, cat.icon AS category_icon, cat.slug AS category_slug, cat.name AS category_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name, co.iso_numeric FROM listings l JOIN categories cat ON cat.id = l.category_id JOIN cities ci ON ci.id = l.city_id JOIN countries co ON co.id = ci.country_id WHERE l.status = \'active\' AND l.expires_at > datetime(\'now\') ORDER BY RANDOM() LIMIT 1'
+        )
+        .get();
+      if (!row) return sendJSON(res, 404, { error: 'Aucune annonce disponible' });
+      return sendJSON(res, 200, { ...row, images: JSON.parse(row.images_json) });
+    }
     if (pathname === '/api/listings/featured' && method === 'GET') {
       const limit = Math.min(Number(url.searchParams.get('limit')) || 8, 24);
       const countryId = url.searchParams.get('country_id');
