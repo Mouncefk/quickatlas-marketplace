@@ -107,11 +107,31 @@ async function loadExchangeRates() {
     note.textContent = i18n.t('currency.note_fail');
   }
 }
+/** Devine une devise plausible à partir de la langue/région du
+ * navigateur du visiteur (ex. navigator.language "fr-MA" -> MAD), pour
+ * présélectionner une devise pertinente sans jamais forcer l'utilisateur
+ * — il reste libre de changer à tout moment via le sélecteur. */
+function guessCurrencyFromBrowserLocale() {
+  try {
+    const region = new Intl.Locale(navigator.language).maximize().region;
+    const guess = state.countries.find((c) => c.iso2 === region);
+    return guess ? guess.currency : null;
+  } catch {
+    return null;
+  }
+}
 function populateCurrencySelect() {
   const select = document.getElementById('displayCurrency');
   const currencies = Array.from(new Set(state.countries.map((c) => c.currency))).sort();
   for (const cur of currencies) {
     select.append(el('option', { value: cur }, cur));
+  }
+  if (!state.displayCurrency) {
+    const guessed = guessCurrencyFromBrowserLocale();
+    if (guessed && currencies.includes(guessed)) {
+      state.displayCurrency = guessed;
+      select.value = guessed;
+    }
   }
   select.addEventListener('change', () => {
     state.displayCurrency = select.value;
@@ -2052,15 +2072,45 @@ async function openCompareModal(idA, idB) {
     showToast(e.message);
   }
 }
+/** Construit la galerie de la fiche annonce : une seule image si une
+ * seule photo, un carrousel navigable (flèches + puces) si plusieurs. */
+function renderDetailGallery(images, title) {
+  if (!images || images.length === 0) return el('div', { class: 'detail-img' });
+  if (images.length === 1) return el('img', { class: 'detail-img', src: images[0], alt: title });
+  let index = 0;
+  const imgEl = el('img', { class: 'detail-img', src: images[0], alt: title });
+  const dotsWrap = el('div', { class: 'gallery-dots' });
+  function renderDots() {
+    dotsWrap.innerHTML = '';
+    images.forEach((_, i) => {
+      dotsWrap.append(el('button', {
+        class: `gallery-dot ${i === index ? 'is-active' : ''}`,
+        'aria-label': `${i18n.t('detail.gallery_photo')} ${i + 1}`,
+        onclick: (e) => { e.stopPropagation(); goTo(i); },
+      }));
+    });
+  }
+  function goTo(i) {
+    index = (i + images.length) % images.length;
+    imgEl.src = images[index];
+    renderDots();
+  }
+  renderDots();
+  const prevBtn = el('button', { class: 'gallery-arrow gallery-arrow--prev', 'aria-label': i18n.t('detail.gallery_prev'), onclick: (e) => { e.stopPropagation(); goTo(index - 1); } }, '‹');
+  const nextBtn = el('button', { class: 'gallery-arrow gallery-arrow--next', 'aria-label': i18n.t('detail.gallery_next'), onclick: (e) => { e.stopPropagation(); goTo(index + 1); } }, '›');
+  return el('div', { class: 'detail-gallery' }, [imgEl, prevBtn, nextBtn, dotsWrap]);
+}
 let currentListingId = null;
 async function openListingDetail(id) {
   currentListingId = id;
   const l = await api(`/listings/${id}`);
+  openListingSnapshot = { price: l.price, status: l.status };
+  const updateBanner = document.getElementById('detailUpdateBanner');
+  if (updateBanner) updateBanner.hidden = true;
   const newPath = `/annonce/${id}-${slugify(l.title)}`;
   if (window.location.pathname !== newPath) window.history.pushState({ type: 'listing', id }, '', newPath);
   const content = document.getElementById('listingModalContent');
   content.innerHTML = '';
-  const img = (l.images && l.images[0]) || '';
   const natureLabel = l.subcategory_name ? `${l.category_icon} ${listingCategoryLabel(l)} · ${listingSubcategoryLabel(l)}` : `${l.category_icon} ${listingCategoryLabel(l)}`;
   const favBtn = el('button', {
     class: `detail-favorite-btn ${state.favoriteIds.has(l.id) ? 'is-active' : ''}`,
@@ -2070,7 +2120,7 @@ async function openListingDetail(id) {
   }, state.favoriteIds.has(l.id) ? i18n.t('favorites.remove') : i18n.t('favorites.add'));
   const isTourismListing = l.category_slug === 'tourisme-voyages';
   const headerNodes = [
-    img ? el('img', { class: 'detail-img', src: img, alt: l.title }) : el('div', { class: 'detail-img' }),
+    renderDetailGallery(l.images, l.title),
     el('span', { class: 'detail-tag' }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
     el('h2', { id: 'detailTitleText' }, [l.title, l.owner_verified ? el('span', { class: 'verified-badge' }, `✓ ${i18n.t('detail.verified_seller')}`) : null]),
     el('div', { class: 'detail-price' }, priceLabel(l) + (l.listing_type === 'location' ? ' / mois' : '')),
@@ -2099,6 +2149,10 @@ async function openListingDetail(id) {
         ])]
       : headerNodes),
     ...[
+      el('p', { id: 'detailUpdateBanner', class: 'detail-update-banner', hidden: true }, [
+        `🔄 ${i18n.t('detail.update_available')} `,
+        el('button', { class: 'link-button', style: 'display:inline;margin:0;', onclick: () => openListingDetail(l.id) }, i18n.t('detail.update_refresh')),
+      ]),
       el('p', { id: 'detailDescriptionText' }, l.description || i18n.t('detail.no_description')),
       l.owner_is_professional ? el('div', { class: 'detail-pro-block' }, [
         l.owner_company_logo_url ? el('img', { class: 'company-logo-detail', src: l.owner_company_logo_url, alt: l.owner_company_name || '' }) : null,
@@ -2730,8 +2784,27 @@ async function silentDataRefresh() {
       await loadFeatured();
     }
     await loadActivityTicker();
+    await checkOpenListingForChanges();
   } catch {
     /* silencieux — nouvel essai au prochain cycle */
+  }
+}
+/** Si une fiche annonce est actuellement ouverte, vérifie discrètement
+ * si le prix ou la disponibilité ont changé depuis l'ouverture — utile
+ * si quelqu'un laisse la fiche affichée un moment. N'écrase jamais
+ * l'affichage tout seul : affiche juste un bandeau pour prévenir. */
+let openListingSnapshot = null;
+async function checkOpenListingForChanges() {
+  if (!currentListingId || document.getElementById('listingModal').hidden) { openListingSnapshot = null; return; }
+  try {
+    const fresh = await api(`/listings/${currentListingId}`);
+    if (openListingSnapshot && (fresh.price !== openListingSnapshot.price || fresh.status !== openListingSnapshot.status)) {
+      const banner = document.getElementById('detailUpdateBanner');
+      if (banner) banner.hidden = false;
+    }
+    openListingSnapshot = { price: fresh.price, status: fresh.status };
+  } catch {
+    /* silencieux */
   }
 }
 function startSilentRefresh() {
