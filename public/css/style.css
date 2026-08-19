@@ -2251,3 +2251,52 @@ textarea { resize: vertical; }
   margin: 0 0 16px;
 }
 .detail-update-banner[hidden] { display: none; }
+/* ---------- Favoris pays/villes ---------- */
+.favorite-city-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: rgba(241,233,216,0.4);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+.favorite-city-btn:hover { color: var(--rust-600); }
+.favorite-city-btn.is-active { color: var(--rust-600); }
+.favorite-country-btn.is-active { border-color: var(--rust-600); color: var(--rust-600); }
+/* ---------- Filigrane "Annonce fictive" (données de démonstration) ---------- */
+.card--demo { position: relative; }
+.demo-watermark {
+  position: absolute;
+  top: 18px;
+  left: -32px;
+  z-index: 3;
+  width: 160px;
+  background: rgba(181,72,46,0.82);
+  color: var(--parchment-100);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 4px 0;
+  transform: rotate(-35deg);
+  pointer-events: none;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.demo-watermark--detail {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: auto;
+  transform: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  margin-bottom: 14px;
+  display: inline-block;
+  box-shadow: none;
+}
