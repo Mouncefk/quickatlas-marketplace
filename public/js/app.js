@@ -601,6 +601,7 @@ function navigate(view) {
     loadAdminReports();
     loadAdminEmails();
     initAdminCategoryCountrySelector();
+    loadCategoryStatusList();
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -2933,6 +2934,34 @@ function renderAdminEmails(emails) {
     );
   }
 }
+async function loadCategoryStatusList() {
+  try {
+    const categories = await api('/admin/categories');
+    renderCategoryStatusList(categories);
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+function renderCategoryStatusList(categories) {
+  const container = document.getElementById('adminCategoryStatusList');
+  if (!container) return;
+  container.innerHTML = '';
+  for (const c of categories) {
+    container.append(
+      el('span', { class: `category-status-chip ${c.is_active ? 'is-active' : 'is-inactive'}` }, `${c.icon} ${categoryLabel(c)}`)
+    );
+  }
+}
+async function reactivateAllCategories() {
+  try {
+    const result = await api('/admin/categories/reactivate-all', { method: 'POST' });
+    showToast(result.reactivated > 0 ? i18n.t('toast.categories_reactivated', { count: result.reactivated }) : i18n.t('toast.categories_all_active'));
+    loadCategoryStatusList();
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+document.getElementById('reactivateAllCategoriesBtn')?.addEventListener('click', reactivateAllCategories);
 function initAdminCategoryCountrySelector() {
   const select = document.getElementById('adminCategoryCountrySelect');
   if (!select || select.dataset.initialized) return;
