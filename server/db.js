@@ -353,4 +353,23 @@ db.exec(`
     db.exec('ALTER TABLE listings ADD COLUMN amenities_json TEXT');
   }
 }
+// Migration : favoris pays et villes — permet un accès direct depuis
+// l'accueil sans repasser par la carte, en plus (pas à la place) du
+// parcours pays → ville déjà en place.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS favorite_countries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    country_id INTEGER NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, country_id)
+  );
+  CREATE TABLE IF NOT EXISTS favorite_cities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    city_id INTEGER NOT NULL REFERENCES cities(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, city_id)
+  );
+`);
 export default db;
