@@ -1536,6 +1536,12 @@ function formatListingDateRange(l) {
   const end = new Date(l.date_end).toLocaleDateString();
   return `${i18n.t('detail.date_range_from')} ${start} ${i18n.t('detail.date_range_to')} ${end}`;
 }
+/** Une annonce est "fraîche" si publiée il y a moins de 24h — utilisé pour
+ * le badge et pour distinguer les nouvelles arrivées sans dépendre du tri. */
+function isFreshListing(createdAt) {
+  if (!createdAt) return false;
+  return (Date.now() - new Date(createdAt).getTime()) < 24 * 60 * 60 * 1000;
+}
 function renderListingCard(l) {
   const img = (l.images && l.images[0]) || '';
   const natureLabel = l.subcategory_name ? `${l.category_icon} ${listingSubcategoryLabel(l)}` : `${l.category_icon} ${listingCategoryLabel(l)}`;
@@ -1550,6 +1556,7 @@ function renderListingCard(l) {
     l.is_secondhand ? el('span', { class: 'secondhand-badge' }, `♻️ ${i18n.t('badge.secondhand')}`) : null,
     l.date_start ? el('span', { class: 'tourism-dates-badge' }, `📅 ${formatListingDateRange(l)}`) : null,
     l.price_promo ? el('span', { class: 'tourism-promo-badge' }, `🔥 ${fmtPrice(l.price_promo, l.currency)}${l.price_type ? ' / ' + priceTypeLabel(l.price_type) : ''}`) : null,
+    isFreshListing(l.created_at) ? el('span', { class: 'fresh-badge' }, `✨ ${i18n.t('badge.fresh')}`) : null,
     favBtn,
     el('div', { class: 'card-body' }, [
       el('span', { class: `card-tag ${(l.listing_type === 'location' || l.listing_type === 'demande_emploi') ? 'card-tag--location' : ''} ${l.listing_type === 'achat' ? 'card-tag--achat' : ''}` }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
@@ -1960,6 +1967,29 @@ async function loadSimilarListings(listingId, containerEl) {
     containerEl.innerHTML = '';
   }
 }
+/** "Sur le chemin" — annonces similaires dans d'autres villes du même
+ * pays, présentées comme des étapes d'un itinéraire (esprit carnet de
+ * voyage) plutôt qu'une simple grille de cartes. */
+async function loadOnThePath(listingId, containerEl) {
+  try {
+    const nearby = await api(`/listings/${listingId}/on-the-path`);
+    if (nearby.length === 0) { containerEl.innerHTML = ''; return; }
+    containerEl.innerHTML = '';
+    containerEl.append(
+      el('h3', {}, `🧭 ${i18n.t('detail.on_the_path_title')}`),
+      el('p', { class: 'on-the-path-sub' }, i18n.t('detail.on_the_path_sub')),
+      el('div', { class: 'on-the-path-route' },
+        nearby.map((l, i) => el('div', { class: 'on-the-path-stop' }, [
+          el('span', { class: 'on-the-path-waypoint' }, `📍 ${l.city_name}`),
+          el('div', { onclick: () => openListingDetail(l.id) }, renderListingCard(l)),
+          el('button', { class: 'compare-link', onclick: (e) => { e.stopPropagation(); openCompareModal(currentListingId, l.id); } }, `⚖️ ${i18n.t('compare.button')}`),
+        ]))
+      )
+    );
+  } catch {
+    containerEl.innerHTML = '';
+  }
+}
 // ---------- Détail d'annonce ----------
 async function autoTranslateListingIfNeeded(listing) {
   const viewerLang = i18n.effectiveLang();
@@ -1989,7 +2019,42 @@ async function autoTranslateListingIfNeeded(listing) {
     /* silencieux : l'annonce reste affichée dans sa langue d'origine */
   }
 }
+/** Ouvre la modale de comparaison entre deux annonces (récupérées
+ * intégralement, pour disposer de tous les champs même si les cartes
+ * d'origine n'en montraient qu'une partie). */
+async function openCompareModal(idA, idB) {
+  try {
+    const [a, b] = await Promise.all([api(`/listings/${idA}`), api(`/listings/${idB}`)]);
+    const body = document.getElementById('compareModalBody');
+    body.innerHTML = '';
+    const rows = [
+      { label: i18n.t('compare.row_price'), val: (x) => priceLabel(x) },
+      { label: i18n.t('compare.row_city'), val: (x) => x.city_name },
+      { label: i18n.t('compare.row_capacity'), val: (x) => x.capacity_guests ? String(x.capacity_guests) : '—' },
+      { label: i18n.t('compare.row_bedrooms'), val: (x) => x.bedrooms ? String(x.bedrooms) : '—' },
+      { label: i18n.t('compare.row_amenities'), val: (x) => x.amenities_json ? JSON.parse(x.amenities_json).length + ' ' + i18n.t('compare.amenities_count') : '—' },
+      { label: i18n.t('compare.row_dates'), val: (x) => x.date_start ? formatListingDateRange(x) : '—' },
+    ];
+    function renderColumn(x) {
+      const col = el('div', { class: 'compare-col' }, [
+        el('div', { class: 'compare-col-title' }, x.title),
+        ...rows.map((r) => el('div', { class: 'compare-row' }, [
+          el('span', {}, r.label),
+          el('span', { class: 'compare-row-value' }, r.val(x)),
+        ])),
+        el('button', { class: 'btn btn--ghost btn--small', onclick: () => { document.getElementById('compareModal').hidden = true; openListingDetail(x.id); } }, i18n.t('compare.view_listing')),
+      ]);
+      return col;
+    }
+    body.append(renderColumn(a), renderColumn(b));
+    document.getElementById('compareModal').hidden = false;
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+let currentListingId = null;
 async function openListingDetail(id) {
+  currentListingId = id;
   const l = await api(`/listings/${id}`);
   const newPath = `/annonce/${id}-${slugify(l.title)}`;
   if (window.location.pathname !== newPath) window.history.pushState({ type: 'listing', id }, '', newPath);
@@ -2003,28 +2068,37 @@ async function openListingDetail(id) {
     'data-listing-id': String(l.id),
     onclick: () => toggleFavorite(l.id, null),
   }, state.favoriteIds.has(l.id) ? i18n.t('favorites.remove') : i18n.t('favorites.add'));
+  const isTourismListing = l.category_slug === 'tourisme-voyages';
+  const headerNodes = [
+    img ? el('img', { class: 'detail-img', src: img, alt: l.title }) : el('div', { class: 'detail-img' }),
+    el('span', { class: 'detail-tag' }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
+    el('h2', { id: 'detailTitleText' }, [l.title, l.owner_verified ? el('span', { class: 'verified-badge' }, `✓ ${i18n.t('detail.verified_seller')}`) : null]),
+    el('div', { class: 'detail-price' }, priceLabel(l) + (l.listing_type === 'location' ? ' / mois' : '')),
+    l.open_to_trade ? el('p', { class: 'trade-badge' }, `🔄 ${i18n.t('trade.open_badge')}${l.trade_description ? ' — ' + l.trade_description : ''}`) : null,
+    l.date_start ? el('p', { class: 'tourism-dates-detail' }, `📅 ${formatListingDateRange(l)}`) : null,
+    l.price_promo ? el('p', { class: 'tourism-promo-detail' }, [
+      el('span', { class: 'tourism-promo-original' }, fmtPrice(l.price, l.currency)),
+      ' ',
+      el('span', { class: 'tourism-promo-price' }, fmtPrice(l.price_promo, l.currency)),
+      l.price_type ? ` / ${priceTypeLabel(l.price_type)}` : '',
+    ]) : (l.price_type ? el('p', { class: 'tourism-price-type-detail' }, priceTypeLabel(l.price_type)) : null),
+    l.capacity_guests ? el('div', { class: 'tourism-lodging-facts' }, [
+      el('span', {}, `🧑‍🤝‍🧑 ${l.capacity_guests}`),
+      l.bedrooms ? el('span', {}, `🛏️ ${l.bedrooms}`) : null,
+      l.bathrooms ? el('span', {}, `🚿 ${l.bathrooms}`) : null,
+    ].filter(Boolean)) : null,
+    l.amenities_json ? el('div', { class: 'tourism-amenities' },
+      JSON.parse(l.amenities_json).map((a) => el('span', { class: 'tourism-amenity-chip' }, amenityLabel(a)))
+    ) : null,
+  ].filter(Boolean);
   content.append(
+    ...(isTourismListing
+      ? [el('div', { class: 'passport-header' }, [
+          el('span', { class: 'passport-stamp' }, ['👁', el('br'), String(l.view_count)]),
+          ...headerNodes,
+        ])]
+      : headerNodes),
     ...[
-      img ? el('img', { class: 'detail-img', src: img, alt: l.title }) : el('div', { class: 'detail-img' }),
-      el('span', { class: 'detail-tag' }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
-      el('h2', { id: 'detailTitleText' }, [l.title, l.owner_verified ? el('span', { class: 'verified-badge' }, `✓ ${i18n.t('detail.verified_seller')}`) : null]),
-      el('div', { class: 'detail-price' }, priceLabel(l) + (l.listing_type === 'location' ? ' / mois' : '')),
-      l.open_to_trade ? el('p', { class: 'trade-badge' }, `🔄 ${i18n.t('trade.open_badge')}${l.trade_description ? ' — ' + l.trade_description : ''}`) : null,
-      l.date_start ? el('p', { class: 'tourism-dates-detail' }, `📅 ${formatListingDateRange(l)}`) : null,
-      l.price_promo ? el('p', { class: 'tourism-promo-detail' }, [
-        el('span', { class: 'tourism-promo-original' }, fmtPrice(l.price, l.currency)),
-        ' ',
-        el('span', { class: 'tourism-promo-price' }, fmtPrice(l.price_promo, l.currency)),
-        l.price_type ? ` / ${priceTypeLabel(l.price_type)}` : '',
-      ]) : (l.price_type ? el('p', { class: 'tourism-price-type-detail' }, priceTypeLabel(l.price_type)) : null),
-      l.capacity_guests ? el('div', { class: 'tourism-lodging-facts' }, [
-        el('span', {}, `🧑‍🤝‍🧑 ${l.capacity_guests}`),
-        l.bedrooms ? el('span', {}, `🛏️ ${l.bedrooms}`) : null,
-        l.bathrooms ? el('span', {}, `🚿 ${l.bathrooms}`) : null,
-      ].filter(Boolean)) : null,
-      l.amenities_json ? el('div', { class: 'tourism-amenities' },
-        JSON.parse(l.amenities_json).map((a) => el('span', { class: 'tourism-amenity-chip' }, amenityLabel(a)))
-      ) : null,
       el('p', { id: 'detailDescriptionText' }, l.description || i18n.t('detail.no_description')),
       l.owner_is_professional ? el('div', { class: 'detail-pro-block' }, [
         l.owner_company_logo_url ? el('img', { class: 'company-logo-detail', src: l.owner_company_logo_url, alt: l.owner_company_name || '' }) : null,
@@ -2058,6 +2132,9 @@ async function openListingDetail(id) {
   const similarBox = el('div', { class: 'similar-listings', id: 'similarListingsBox' });
   content.append(similarBox);
   loadSimilarListings(l.id, similarBox);
+  const onThePathBox = el('div', { class: 'on-the-path', id: 'onThePathBox' });
+  content.append(onThePathBox);
+  loadOnThePath(l.id, onThePathBox);
   if (state.user && state.aiSettings.has_key) {
     const translateBox = el('div', { class: 'ai-translate-box' });
     content.append(
