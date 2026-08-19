@@ -727,6 +727,30 @@ function findCategoryById(id) {
 function findCategoryBySlug(slug) {
   return state.categories.find((c) => c.slug === slug);
 }
+function findSubcategoryById(id) {
+  for (const c of state.categories) {
+    const s = (c.subcategories || []).find((s) => String(s.id) === String(id));
+    if (s) return s;
+  }
+  return null;
+}
+/** Affiche les champs Hébergement (capacité, chambres, sdb, équipements)
+ * uniquement pour les sous-catégories Locations de vacances et Hôtellerie
+ * & hébergements insolites — contrairement aux dates/prix promo qui sont
+ * pilotés par la catégorie, ceci dépend de la sous-catégorie choisie. */
+function updateTourismLodgingVisibility(subcategorySlug) {
+  const row = document.getElementById('tourismLodgingRow');
+  if (!row) return;
+  const isLodging = ['locations-vacances', 'hotellerie-insolite'].includes(subcategorySlug);
+  row.hidden = !isLodging;
+  if (!isLodging) {
+    ['publishCapacityGuests', 'publishBedrooms', 'publishBathrooms'].forEach((id) => {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    });
+    row.querySelectorAll('input[name="amenities"]').forEach((cb) => { cb.checked = false; });
+  }
+}
 function fillSubcategorySelect(selectEl, category, withAllOption) {
   selectEl.innerHTML = '';
   if (withAllOption) selectEl.append(el('option', { value: '' }, i18n.t('filter.all_natures')));
@@ -1485,6 +1509,16 @@ function proBadge(tier) {
  * date renseignée (pas de date de fin précisée) sans planter. */
 /** Traduit le code interne du type de prix (ex. "par_nuit") en libellé
  * affichable ("Par nuit"), via les clés i18n existantes du formulaire. */
+/** Traduit un code d'équipement (ex. "wifi") en icône + libellé affichable. */
+function amenityLabel(code) {
+  const map = {
+    wifi: ['📶', 'publish.amenity_wifi'], pool: ['🏊', 'publish.amenity_pool'],
+    air_conditioning: ['❄️', 'publish.amenity_ac'], parking: ['🅿️', 'publish.amenity_parking'],
+    sea_view: ['🌊', 'publish.amenity_sea_view'], breakfast: ['🥐', 'publish.amenity_breakfast'],
+  };
+  const entry = map[code];
+  return entry ? `${entry[0]} ${i18n.t(entry[1])}` : code;
+}
 function priceTypeLabel(priceType) {
   const map = {
     par_nuit: 'publish.price_type_night', par_personne: 'publish.price_type_person',
@@ -1982,6 +2016,14 @@ async function openListingDetail(id) {
         el('span', { class: 'tourism-promo-price' }, fmtPrice(l.price_promo, l.currency)),
         l.price_type ? ` / ${priceTypeLabel(l.price_type)}` : '',
       ]) : (l.price_type ? el('p', { class: 'tourism-price-type-detail' }, priceTypeLabel(l.price_type)) : null),
+      l.capacity_guests ? el('div', { class: 'tourism-lodging-facts' }, [
+        el('span', {}, `🧑‍🤝‍🧑 ${l.capacity_guests}`),
+        l.bedrooms ? el('span', {}, `🛏️ ${l.bedrooms}`) : null,
+        l.bathrooms ? el('span', {}, `🚿 ${l.bathrooms}`) : null,
+      ].filter(Boolean)) : null,
+      l.amenities_json ? el('div', { class: 'tourism-amenities' },
+        JSON.parse(l.amenities_json).map((a) => el('span', { class: 'tourism-amenity-chip' }, amenityLabel(a)))
+      ) : null,
       el('p', { id: 'detailDescriptionText' }, l.description || i18n.t('detail.no_description')),
       l.owner_is_professional ? el('div', { class: 'detail-pro-block' }, [
         l.owner_company_logo_url ? el('img', { class: 'company-logo-detail', src: l.owner_company_logo_url, alt: l.owner_company_name || '' }) : null,
@@ -2275,6 +2317,7 @@ function preparePublishForm() {
   if (state.countries[0]) handlePublishCountryChange(countrySelect.value || state.countries[0].id);
   const cat = findCategoryById(document.getElementById('publishCategory').value);
   fillSubcategorySelect(document.getElementById('publishSubcategory'), cat, false);
+  updateTourismLodgingVisibility(findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug);
   updatePublishTypeAndPriceUI(cat);
   updateSecondhandVisibility(cat ? cat.slug : null, 'secondhandCheckbox');
   updateTourismDatesVisibility(cat ? cat.slug : null);
@@ -2288,6 +2331,9 @@ document.getElementById('openToTradeCheckbox').addEventListener('change', (e) =>
 document.querySelector('#publishForm input[name=title]').addEventListener('input', debounce(updateCategoryMismatchWarning, 500));
 document.querySelector('#publishForm textarea[name=description]').addEventListener('input', debounce(updateCategoryMismatchWarning, 500));
 document.getElementById('publishCategory').addEventListener('change', updateCategoryMismatchWarning);
+document.getElementById('publishSubcategory').addEventListener('change', (e) => {
+  updateTourismLodgingVisibility(findSubcategoryById(e.target.value)?.slug);
+});
 document.getElementById('publishForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -2309,6 +2355,10 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     date_end: fd.get('date_end') || null,
     price_promo: fd.get('price_promo') || null,
     price_type: fd.get('price_type') || null,
+    capacity_guests: fd.get('capacity_guests') || null,
+    bedrooms: fd.get('bedrooms') || null,
+    bathrooms: fd.get('bathrooms') || null,
+    amenities: fd.getAll('amenities'),
     language: i18n.effectiveLang(),
   };
   const errEl = document.getElementById('publishError');
