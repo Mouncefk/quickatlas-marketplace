@@ -1643,6 +1643,19 @@ function renderListingCard(l) {
     ]),
   ]);
 }
+/** Anime un sceau de cire qui apparaît, tourne et s'estompe sur le
+ * bouton favori cliqué — remplace le simple changement de coeur par
+ * quelque chose qui rappelle l'identité "carnet de voyage" du site. */
+function playWaxSealAnimation(btnEl) {
+  const rect = btnEl.getBoundingClientRect();
+  const seal = document.createElement('div');
+  seal.className = 'wax-seal-fx';
+  seal.textContent = '❤';
+  seal.style.left = `${rect.left + rect.width / 2}px`;
+  seal.style.top = `${rect.top + rect.height / 2}px`;
+  document.body.append(seal);
+  seal.addEventListener('animationend', () => seal.remove());
+}
 async function toggleFavorite(listingId, btnEl) {
   if (!state.user) { openAuthModal('login'); return; }
   const isFav = state.favoriteIds.has(listingId);
@@ -1657,11 +1670,13 @@ async function toggleFavorite(listingId, btnEl) {
     if (btnEl) {
       btnEl.classList.toggle('is-active', !isFav);
       btnEl.textContent = !isFav ? '♥' : '♡';
+      if (!isFav) playWaxSealAnimation(btnEl);
     }
     const detailBtn = document.getElementById('detailFavoriteBtn');
     if (detailBtn && Number(detailBtn.dataset.listingId) === listingId) {
       detailBtn.classList.toggle('is-active', !isFav);
       detailBtn.textContent = !isFav ? i18n.t('favorites.remove') : i18n.t('favorites.add');
+      if (!isFav) playWaxSealAnimation(detailBtn);
     }
     if (!document.getElementById('view-favorites').hidden) loadFavorites();
   } catch (e) {
@@ -2267,6 +2282,53 @@ function renderDetailGallery(images, title) {
   const nextBtn = el('button', { class: 'gallery-arrow gallery-arrow--next', 'aria-label': i18n.t('detail.gallery_next'), onclick: (e) => { e.stopPropagation(); goTo(index + 1); } }, '›');
   return el('div', { class: 'detail-gallery' }, [imgEl, prevBtn, nextBtn, dotsWrap]);
 }
+/** Mode exploration façon roulette du globe : tire une annonce au hasard
+ * n'importe où sur le site, avec un effet "machine à sous" qui fait
+ * défiler plusieurs cartes fictives avant de révéler le vrai tirage. */
+let randomExploreCurrentListingId = null;
+async function spinRandomExplore() {
+  const body = document.getElementById('randomExploreBody');
+  const viewBtn = document.getElementById('randomExploreViewBtn');
+  viewBtn.disabled = true;
+  body.innerHTML = '';
+  const spinner = el('div', { class: 'random-explore-spinner' }, '🌍');
+  body.append(spinner);
+  let ticks = 0;
+  const spinInterval = setInterval(() => {
+    spinner.textContent = ['🌍', '🌎', '🌏'][ticks % 3];
+    ticks++;
+  }, 120);
+  try {
+    const [listing] = await Promise.all([
+      api('/listings/random-explore'),
+      new Promise((resolve) => setTimeout(resolve, 1100)),
+    ]);
+    clearInterval(spinInterval);
+    randomExploreCurrentListingId = listing.id;
+    const img = (listing.images && listing.images[0]) || '';
+    body.innerHTML = '';
+    body.append(
+      el('div', { class: 'random-explore-flag' }, `${listing.category_icon} ${listing.city_name}, ${listingCountryLabel(listing)}`),
+      img ? el('img', { class: 'random-explore-img', src: img, alt: listing.title }) : el('div', { class: 'random-explore-img' }),
+      el('h3', {}, listing.title),
+      el('p', { class: 'random-explore-price' }, priceLabel(listing)),
+    );
+    viewBtn.disabled = false;
+  } catch (e) {
+    clearInterval(spinInterval);
+    body.innerHTML = '';
+    body.append(el('p', {}, i18n.t('explore_random.error')));
+  }
+}
+document.getElementById('randomExploreBtn').addEventListener('click', () => {
+  document.getElementById('randomExploreModal').hidden = false;
+  spinRandomExplore();
+});
+document.getElementById('randomExploreSpinAgainBtn').addEventListener('click', spinRandomExplore);
+document.getElementById('randomExploreViewBtn').addEventListener('click', () => {
+  document.getElementById('randomExploreModal').hidden = true;
+  if (randomExploreCurrentListingId) openListingDetail(randomExploreCurrentListingId);
+});
 let currentListingId = null;
 async function openListingDetail(id) {
   currentListingId = id;
