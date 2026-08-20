@@ -2363,3 +2363,6 @@ textarea { resize: vertical; }
   justify-content: center;
   margin-top: 12px;
 }
+/* ---------- Champs dates/prix promo grisés hors Tourisme/Immobilier ---------- */
+.form-row--disabled { opacity: 0.4; pointer-events: none; }
+.form-row--disabled input, .form-row--disabled select { cursor: not-allowed; }
