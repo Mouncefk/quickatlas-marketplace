@@ -35,8 +35,8 @@
     </a>
     <nav class="main-nav">
       <button class="nav-link" data-nav="explore" data-i18n="nav.explore">Explorer</button>
+      <button class="nav-link" id="randomExploreBtn" data-i18n="nav.random_explore" data-i18n-title="nav.random_explore_title">🎲</button>
       <button class="nav-link" data-nav="all-listings" data-i18n="nav.all_listings">Toutes les annonces</button>
-      <button class="nav-link" id="randomExploreBtn" data-i18n="nav.random_explore">🎲 Explorer au hasard</button>
       <button class="nav-link" data-nav="publish" data-i18n="nav.publish">Publier une annonce</button>
       <button class="nav-link" data-nav="mine" data-i18n="nav.mine">Mes annonces</button>
       <button class="nav-link" data-nav="messages" id="messagesNavLink" hidden><span data-i18n="nav.messages">Messages</span><span class="nav-badge" id="messagesBadge" hidden>0</span></button>
@@ -243,6 +243,31 @@
             <select name="subcategory_id" id="publishSubcategory" required></select>
           </label>
         </div>
+        <div class="form-row form-row--split" id="tourismDatesRow">
+          <label><span data-i18n="publish.label_date_start">Date de début</span>
+            <input type="date" name="date_start" id="publishDateStart" />
+          </label>
+          <label><span data-i18n="publish.label_date_end">Date de fin</span>
+            <input type="date" name="date_end" id="publishDateEnd" />
+          </label>
+        </div>
+        <div class="form-row form-row--split" id="tourismPriceExtrasRow">
+          <label><span data-i18n="publish.label_price_promo">Prix promotionnel (optionnel)</span>
+            <input type="number" name="price_promo" id="publishPricePromo" min="0" step="0.01" placeholder="0" />
+          </label>
+          <label><span data-i18n="publish.label_price_type">Type de prix</span>
+            <select name="price_type" id="publishPriceType">
+              <option value="" data-i18n="publish.price_type_default">— Non précisé —</option>
+              <option value="par_nuit" data-i18n="publish.price_type_night">Par nuit</option>
+              <option value="par_personne" data-i18n="publish.price_type_person">Par personne</option>
+              <option value="par_enfant" data-i18n="publish.price_type_child">Par enfant</option>
+              <option value="forfait_groupe" data-i18n="publish.price_type_group">Forfait groupe</option>
+              <option value="par_jour" data-i18n="publish.price_type_day">Par jour</option>
+              <option value="par_heure" data-i18n="publish.price_type_hour">Par heure</option>
+              <option value="par_trajet" data-i18n="publish.price_type_trip">Par trajet</option>
+            </select>
+          </label>
+        </div>
         <p class="form-notice form-notice--warning" id="categoryMismatchWarning" hidden></p>
         <div class="ai-draft-box" id="aiDraftBox" hidden>
           <p class="ai-draft-title" data-i18n="ai.draft_title">✨ Besoin d'aide pour rédiger ?</p>
@@ -311,31 +336,6 @@
           <input type="checkbox" name="is_secondhand" id="secondhandCheckbox" />
           <span data-i18n="publish.secondhand_label">♻️ Cet article est d'occasion / de seconde main</span>
         </label>
-        <div class="form-row form-row--split" id="tourismDatesRow" hidden>
-          <label><span data-i18n="publish.label_date_start">Date de début</span>
-            <input type="date" name="date_start" id="publishDateStart" />
-          </label>
-          <label><span data-i18n="publish.label_date_end">Date de fin</span>
-            <input type="date" name="date_end" id="publishDateEnd" />
-          </label>
-        </div>
-        <div class="form-row form-row--split" id="tourismPriceExtrasRow" hidden>
-          <label><span data-i18n="publish.label_price_promo">Prix promotionnel (optionnel)</span>
-            <input type="number" name="price_promo" id="publishPricePromo" min="0" step="0.01" placeholder="0" />
-          </label>
-          <label><span data-i18n="publish.label_price_type">Type de prix</span>
-            <select name="price_type" id="publishPriceType">
-              <option value="" data-i18n="publish.price_type_default">— Non précisé —</option>
-              <option value="par_nuit" data-i18n="publish.price_type_night">Par nuit</option>
-              <option value="par_personne" data-i18n="publish.price_type_person">Par personne</option>
-              <option value="par_enfant" data-i18n="publish.price_type_child">Par enfant</option>
-              <option value="forfait_groupe" data-i18n="publish.price_type_group">Forfait groupe</option>
-              <option value="par_jour" data-i18n="publish.price_type_day">Par jour</option>
-              <option value="par_heure" data-i18n="publish.price_type_hour">Par heure</option>
-              <option value="par_trajet" data-i18n="publish.price_type_trip">Par trajet</option>
-            </select>
-          </label>
-        </div>
         <div id="tourismLodgingRow" hidden>
           <div class="form-row form-row--split">
             <label><span data-i18n="publish.label_capacity">Capacité (voyageurs)</span>
