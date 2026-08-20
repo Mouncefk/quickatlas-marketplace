@@ -395,9 +395,14 @@ function normalizeCityName(str) {
 async function checkCityRequestFulfillments() {
   const pending = db.prepare('SELECT * FROM city_requests WHERE status = ?').all('pending');
   for (const reqRow of pending) {
-    const citiesInCountry = db.prepare('SELECT name FROM cities WHERE country_id = ?').all(reqRow.country_id);
+    // Si la demande précise un État, on ne compare qu'aux villes de cet
+    // État — sinon (pays non fédéral, ou État non précisé), on compare à
+    // toutes les villes du pays comme avant.
+    const citiesToCheck = reqRow.state_id
+      ? db.prepare('SELECT name FROM cities WHERE state_id = ?').all(reqRow.state_id)
+      : db.prepare('SELECT name FROM cities WHERE country_id = ?').all(reqRow.country_id);
     const normalizedRequested = normalizeCityName(reqRow.city_name);
-    const match = citiesInCountry.some((c) => normalizeCityName(c.name) === normalizedRequested);
+    const match = citiesToCheck.some((c) => normalizeCityName(c.name) === normalizedRequested);
     if (!match) continue;
     db.prepare("UPDATE city_requests SET status = 'fulfilled', notified_at = datetime('now') WHERE id = ?").run(reqRow.id);
     try {
@@ -2241,26 +2246,34 @@ const server = http.createServer(async (req, res) => {
       if (!admin) return;
       const body = await readBody(req);
       const countryId = Number(body.country_id);
+      const stateId = body.state_id ? Number(body.state_id) : null;
       const name = (body.name || '').trim();
       const timezone = (body.timezone || '').trim();
       if (!countryId || !name || !timezone) {
         return sendJSON(res, 400, { error: 'Pays, nom de ville et fuseau horaire sont requis.' });
       }
-      const existing = db.prepare('SELECT id FROM cities WHERE country_id = ? AND name = ?').get(countryId, name);
-      if (existing) return sendJSON(res, 409, { error: 'Cette ville existe déjà pour ce pays.' });
-      const cityId = db.prepare('INSERT INTO cities (country_id, name, timezone) VALUES (?, ?, ?)').run(countryId, name, timezone).lastInsertRowid;
+      const country = db.prepare('SELECT is_federal FROM countries WHERE id = ?').get(countryId);
+      if (country && country.is_federal && !stateId) {
+        return sendJSON(res, 400, { error: 'Ce pays est fédéral : sélectionnez un État avant de continuer.' });
+      }
+      const existing = stateId
+        ? db.prepare('SELECT id FROM cities WHERE state_id = ? AND name = ?').get(stateId, name)
+        : db.prepare('SELECT id FROM cities WHERE country_id = ? AND name = ? AND state_id IS NULL').get(countryId, name);
+      if (existing) return sendJSON(res, 409, { error: 'Cette ville existe déjà.' });
+      const cityId = db.prepare('INSERT INTO cities (country_id, state_id, name, timezone) VALUES (?, ?, ?, ?)').run(countryId, stateId, name, timezone).lastInsertRowid;
       return sendJSON(res, 201, { id: cityId, name, timezone });
     }
     if (pathname === '/api/city-requests' && method === 'POST') {
       const body = await readBody(req);
       const countryId = Number(body.country_id);
+      const stateId = body.state_id ? Number(body.state_id) : null;
       const cityName = (body.city_name || '').trim();
       const email = (body.email || '').trim();
       const message = (body.message || '').trim();
       if (!countryId || !cityName || !email) {
         return sendJSON(res, 400, { error: 'Pays, nom de ville et email sont requis.' });
       }
-      db.prepare('INSERT INTO city_requests (country_id, city_name, email, message) VALUES (?, ?, ?, ?)').run(countryId, cityName, email, message || null);
+      db.prepare('INSERT INTO city_requests (country_id, state_id, city_name, email, message) VALUES (?, ?, ?, ?, ?)').run(countryId, stateId, cityName, email, message || null);
       return sendJSON(res, 201, { ok: true });
     }
     if (pathname === '/api/admin/city-requests' && method === 'GET') {
@@ -2268,8 +2281,9 @@ const server = http.createServer(async (req, res) => {
       if (!admin) return;
       const rows = db
         .prepare(
-          `SELECT cr.id, cr.city_name, cr.email, cr.message, cr.status, cr.created_at, cr.country_id, co.name AS country_name, co.iso2 AS country_iso2
+          `SELECT cr.id, cr.city_name, cr.email, cr.message, cr.status, cr.created_at, cr.country_id, cr.state_id, co.name AS country_name, co.iso2 AS country_iso2, st.name AS state_name
            FROM city_requests cr JOIN countries co ON co.id = cr.country_id
+           LEFT JOIN states st ON st.id = cr.state_id
            ORDER BY cr.status ASC, cr.created_at DESC`
         )
         .all();
