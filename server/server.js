@@ -2231,6 +2231,26 @@ const server = http.createServer(async (req, res) => {
     }
     // Signalement d'une ville manquante — accessible sans connexion (juste
     // un email), permet d'être notifié quand la ville est réellement ajoutée.
+    // Ajout direct d'une ville depuis l'administration — évite de passer
+    // par un script en base à chaque fois. La vérification/notification
+    // automatique des demandes en attente (checkCityRequestFulfillments)
+    // détectera cette nouvelle ville lors de son prochain passage horaire,
+    // sans action supplémentaire nécessaire.
+    if (pathname === '/api/admin/cities' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const countryId = Number(body.country_id);
+      const name = (body.name || '').trim();
+      const timezone = (body.timezone || '').trim();
+      if (!countryId || !name || !timezone) {
+        return sendJSON(res, 400, { error: 'Pays, nom de ville et fuseau horaire sont requis.' });
+      }
+      const existing = db.prepare('SELECT id FROM cities WHERE country_id = ? AND name = ?').get(countryId, name);
+      if (existing) return sendJSON(res, 409, { error: 'Cette ville existe déjà pour ce pays.' });
+      const cityId = db.prepare('INSERT INTO cities (country_id, name, timezone) VALUES (?, ?, ?)').run(countryId, name, timezone).lastInsertRowid;
+      return sendJSON(res, 201, { id: cityId, name, timezone });
+    }
     if (pathname === '/api/city-requests' && method === 'POST') {
       const body = await readBody(req);
       const countryId = Number(body.country_id);
@@ -2248,7 +2268,7 @@ const server = http.createServer(async (req, res) => {
       if (!admin) return;
       const rows = db
         .prepare(
-          `SELECT cr.id, cr.city_name, cr.email, cr.message, cr.status, cr.created_at, co.name AS country_name, co.iso2 AS country_iso2
+          `SELECT cr.id, cr.city_name, cr.email, cr.message, cr.status, cr.created_at, cr.country_id, co.name AS country_name, co.iso2 AS country_iso2
            FROM city_requests cr JOIN countries co ON co.id = cr.country_id
            ORDER BY cr.status ASC, cr.created_at DESC`
         )
