@@ -577,6 +577,25 @@
         <div id="adminCategoryCountryChecklist" class="admin-checklist"></div>
       </div>
       <div id="adminCityRequestsPanel" class="admin-panel" hidden>
+        <h3 class="admin-subsection-title" data-i18n="admin.add_city_title">Ajouter une ville</h3>
+        <p class="hero-sub" data-i18n="admin.add_city_intro">Le fuseau horaire se préremplit automatiquement à partir des villes déjà existantes pour ce pays — vérifiez-le avant d'envoyer.</p>
+        <div class="form-row form-row--split">
+          <label><span data-i18n="admin.add_city_country">Pays</span>
+            <select id="addCityCountrySelect"></select>
+          </label>
+          <label><span data-i18n="admin.add_city_name">Nom de la ville</span>
+            <input type="text" id="addCityNameInput" />
+          </label>
+        </div>
+        <div class="form-row form-row--split">
+          <label><span data-i18n="admin.add_city_timezone">Fuseau horaire (IANA)</span>
+            <input type="text" id="addCityTimezoneInput" placeholder="Africa/Casablanca" />
+          </label>
+          <div style="display:flex;align-items:flex-end;">
+            <button type="button" id="addCitySubmitBtn" class="btn btn--primary" data-i18n="admin.add_city_submit">Ajouter la ville</button>
+          </div>
+        </div>
+        <h3 class="admin-subsection-title" data-i18n="admin.tab_city_requests">Villes demandées</h3>
         <table class="admin-table" id="adminCityRequestsTable">
           <thead><tr>
             <th data-i18n="admin.col_city">Ville</th><th data-i18n="admin.col_country">Pays</th>
