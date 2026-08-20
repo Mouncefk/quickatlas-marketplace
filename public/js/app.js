@@ -2653,8 +2653,67 @@ const CATEGORY_KEYWORDS_EN = {
   emploi: ['hiring', 'full-time position', 'contract', 'monthly salary', 'position available', 'experience required', 'application', 'job interview', 'job offer', 'paid internship', 'remote work'],
   'opportunites-affaires': ['investor', 'franchise', 'business partner', 'tender', 'business for sale', 'business plan', 'fundraising', 'partner wanted'],
 };
+const CATEGORY_KEYWORDS_IT = {
+  immobilier: ['appartamento', 'monolocale', 'duplex', 'villa', 'camera in affitto', 'metri quadrati', 'affitto', 'condominio', 'terreno edificabile', 'lottizzazione', 'casa', 'edificio', 'locale commerciale', 'ufficio in affitto', 'attico', 'trilocale', 'spese condominiali incluse', 'cucina attrezzata', 'terrazza', 'balcone', 'garage incluso', 'parcheggio privato', 'residence sicuro', 'promotore immobiliare', 'piano terra'],
+  vehicules: ['auto', 'veicolo', 'chilometraggio', 'cambio automatico', 'libretto di circolazione', 'cavalli fiscali', 'moto', 'scooter', 'fuoristrada', 'camion', 'benzina', 'diesel', 'berlina', 'citycar', 'station wagon', 'pneumatici', 'cambio manuale', 'primo proprietario', 'revisione', 'assicurazione auto', 'rimorchio', 'quad', 'furgone', 'automobile', 'motocicletta'],
+  mode: ['abito', 'scarpe', 'borsa', 'pelletteria', 'gioielli', 'orologio', 'abbigliamento', 'numero di scarpe', 'sneakers', 'vestito', 'cappotto', 'giacca', 'jeans', 'sciarpa', 'cintura', 'profumo', 'accessorio moda', 'collezione moda', 'tenuta'],
+  'maison-jardin': ['divano', 'frigorifero', 'lavatrice', 'tosaerba', 'elettrodomestico', 'mobile', 'giardino', 'tavolo da pranzo', 'letto matrimoniale', 'materasso', 'forno', 'microonde', 'climatizzatore', "decorazione d'interni", 'tende', 'tappeto', 'stoviglie', 'piante', 'biancheria da letto'],
+  multimedia: ['iphone', 'smartphone', 'computer portatile', 'playstation', 'xbox', 'tablet', 'fotocamera', 'schermo', 'samsung galaxy', 'macbook', 'tastiera', 'mouse', 'stampante', 'disco rigido', 'processore', 'scheda grafica', 'cuffie', 'cassa bluetooth', 'computer fisso'],
+  famille: ['passeggino', 'biberon', 'culla', 'seggiolino auto', 'giocattolo', 'vestiti per bambini', 'lettino', 'seggiolone', 'pannolini', 'peluche', 'carrozzina', 'babysitting'],
+  loisirs: ['chitarra', 'pianoforte', 'bicicletta', 'tenda da campeggio', 'canna da pesca', 'strumento musicale', 'racchetta', 'skateboard', 'monopattino', 'batteria musicale', 'attrezzatura sportiva', 'escursionismo'],
+  'materiel-pro': ['macchina industriale', 'ponteggio', 'trattore', 'mobili per ufficio', 'attrezzatura professionale', 'generatore', 'compressore', 'carrello elevatore', 'attrezzatura edile', 'attrezzatura medica'],
+  services: ['servizio', 'lezioni private', 'riparazione', 'trasloco', 'pulizia domestica', 'assistenza bambini', 'catering', 'fotografo professionista', 'personal trainer'],
+  emploi: ['assumiamo', 'tempo indeterminato', 'tempo determinato', 'stipendio mensile', 'posizione disponibile', 'esperienza richiesta', 'candidatura', 'colloquio di lavoro', 'offerta di lavoro', 'stage retribuito', 'lavoro da remoto'],
+  'opportunites-affaires': ['investitore', 'franchising', 'socio commerciale', "gara d'appalto", "cessione d'azienda", 'business plan', 'raccolta fondi', 'cercasi socio'],
+};
+const CATEGORY_KEYWORDS_AR = {
+  immobilier: ['شقة', 'استوديو', 'دوبلكس', 'فيلا', 'غرفة للإيجار', 'متر مربع', 'إيجار', 'ملكية مشتركة', 'أرض قابلة للبناء', 'تجزئة سكنية', 'منزل', 'عمارة', 'محل تجاري', 'مكتب للإيجار', 'بنتهاوس', 'تريبلكس', 'شامل الخدمات', 'مطبخ مجهز', 'تراس', 'شرفة', 'كراج مشمول', 'موقف خاص', 'إقامة آمنة', 'مطور عقاري', 'طابق أرضي'],
+  vehicules: ['سيارة', 'مركبة', 'كيلومترات مقطوعة', 'ناقل حركة أوتوماتيكي', 'بطاقة رمادية', 'قوة جبائية', 'دراجة نارية', 'سكوتر', 'دفع رباعي', 'شاحنة', 'بنزين', 'ديزل', 'سيدان', 'سيتي كار', 'ستيشن واغن', 'إطارات', 'ناقل حركة يدوي', 'يد أولى', 'فحص تقني', 'تأمين سيارات', 'مقطورة', 'كوادر', 'فان', 'دراجة نارية'],
+  mode: ['فستان', 'أحذية', 'حقيبة يد', 'سلع جلدية', 'مجوهرات', 'ساعة', 'ملابس', 'مقاس الحذاء', 'أحذية رياضية', 'بدلة', 'معطف', 'سترة', 'جينز', 'وشاح', 'حزام', 'عطر', 'إكسسوار موضة', 'مجموعة أزياء', 'إطلالة'],
+  'maison-jardin': ['أريكة', 'ثلاجة', 'غسالة', 'جزازة عشب', 'أجهزة منزلية', 'أثاث', 'حديقة', 'طاولة طعام', 'سرير مزدوج', 'مرتبة', 'فرن', 'ميكروويف', 'مكيف هواء', 'ديكور داخلي', 'ستائر', 'سجادة', 'أواني', 'نباتات', 'مفروشات سرير'],
+  multimedia: ['آيفون', 'هاتف ذكي', 'حاسوب محمول', 'بلايستيشن', 'إكس بوكس', 'لوحي', 'كاميرا', 'شاشة', 'سامسونج جالاكسي', 'ماك بوك', 'لوحة مفاتيح', 'فأرة', 'طابعة', 'قرص صلب', 'معالج', 'بطاقة رسومات', 'سماعات', 'مكبر بلوتوث', 'حاسوب مكتبي'],
+  famille: ['عربة أطفال', 'رضاعة', 'سرير أطفال', 'مقعد سيارة للأطفال', 'لعبة', 'ملابس أطفال', 'سرير رضيع', 'كرسي مرتفع', 'حفاضات', 'دمية محشوة', 'رعاية أطفال'],
+  loisirs: ['غيتار', 'بيانو', 'دراجة هوائية', 'خيمة تخييم', 'صنارة صيد', 'آلة موسيقية', 'مضرب', 'سكيت بورد', 'طبول موسيقية', 'معدات رياضية', 'رحلات المشي'],
+  'materiel-pro': ['آلة صناعية', 'سقالة', 'جرار', 'أثاث مكتبي', 'معدات مهنية', 'مولد كهربائي', 'ضاغط هواء', 'رافعة شوكية', 'معدات بناء', 'معدات طبية'],
+  services: ['خدمة', 'دروس خصوصية', 'إصلاح', 'نقل أثاث', 'تنظيف منزلي', 'رعاية أطفال', 'تموين', 'مصور محترف', 'مدرب رياضي'],
+  emploi: ['توظيف', 'عقد دائم', 'عقد محدد المدة', 'راتب شهري', 'منصب شاغر', 'خبرة مطلوبة', 'طلب توظيف', 'مقابلة عمل', 'عرض عمل', 'تدريب مدفوع', 'عمل عن بعد'],
+  'opportunites-affaires': ['مستثمر', 'امتياز تجاري', 'شريك تجاري', 'طلب عروض', 'بيع شركة', 'خطة عمل', 'جمع تمويل', 'مطلوب شريك'],
+};
+const CATEGORY_KEYWORDS_ES = {
+  immobilier: ['apartamento', 'estudio', 'dúplex', 'villa', 'habitación en alquiler', 'metros cuadrados', 'alquiler', 'condominio', 'terreno edificable', 'urbanización', 'casa', 'edificio', 'local comercial', 'oficina en alquiler', 'ático', 'triplex', 'gastos incluidos', 'cocina equipada', 'terraza', 'balcón', 'garaje incluido', 'aparcamiento privado', 'residencia segura', 'promotor inmobiliario', 'planta baja'],
+  vehicules: ['coche', 'vehículo', 'kilometraje', 'cambio automático', 'permiso de circulación', 'caballos fiscales', 'moto', 'scooter', 'todoterreno', 'camión', 'gasolina', 'diésel', 'sedán', 'utilitario', 'familiar', 'neumáticos', 'cambio manual', 'primera mano', 'inspección técnica', 'seguro de coche', 'remolque', 'quad', 'furgoneta', 'automóvil', 'motocicleta'],
+  mode: ['vestido', 'zapatos', 'bolso', 'marroquinería', 'joyas', 'reloj', 'ropa', 'talla de zapato', 'zapatillas', 'traje', 'abrigo', 'chaqueta', 'vaqueros', 'bufanda', 'cinturón', 'perfume', 'accesorio de moda', 'colección de moda', 'conjunto'],
+  'maison-jardin': ['sofá', 'frigorífico', 'lavadora', 'cortacésped', 'electrodoméstico', 'mueble', 'jardín', 'mesa de comedor', 'cama doble', 'colchón', 'horno', 'microondas', 'aire acondicionado', 'decoración interior', 'cortinas', 'alfombra', 'vajilla', 'plantas', 'ropa de cama'],
+  multimedia: ['iphone', 'smartphone', 'portátil', 'playstation', 'xbox', 'tableta', 'cámara', 'pantalla', 'samsung galaxy', 'macbook', 'teclado', 'ratón', 'impresora', 'disco duro', 'procesador', 'tarjeta gráfica', 'auriculares', 'altavoz bluetooth', 'ordenador de sobremesa'],
+  famille: ['cochecito', 'biberón', 'cuna', 'silla de coche para niños', 'juguete', 'ropa de bebé', 'cama de bebé', 'trona', 'pañales', 'peluche', 'cuidado de niños'],
+  loisirs: ['guitarra', 'piano', 'bicicleta', 'tienda de campaña', 'caña de pescar', 'instrumento musical', 'raqueta', 'monopatín', 'patinete', 'batería musical', 'equipo deportivo', 'senderismo'],
+  'materiel-pro': ['máquina industrial', 'andamio', 'tractor', 'mobiliario de oficina', 'equipo profesional', 'generador', 'compresor', 'carretilla elevadora', 'equipo de construcción', 'equipo médico'],
+  services: ['servicio', 'clases particulares', 'reparación', 'mudanza', 'limpieza del hogar', 'cuidado de niños', 'catering', 'fotógrafo profesional', 'entrenador deportivo'],
+  emploi: ['contratamos', 'contrato indefinido', 'contrato temporal', 'salario mensual', 'puesto disponible', 'experiencia requerida', 'candidatura', 'entrevista de trabajo', 'oferta de empleo', 'prácticas remuneradas', 'trabajo remoto'],
+  'opportunites-affaires': ['inversor', 'franquicia', 'socio comercial', 'licitación', 'venta de empresa', 'plan de negocio', 'captación de fondos', 'se busca socio'],
+};
+const CATEGORY_KEYWORDS_PT = {
+  immobilier: ['apartamento', 'estúdio', 'duplex', 'moradia', 'quarto para alugar', 'metros quadrados', 'arrendamento', 'condomínio', 'terreno urbanizável', 'loteamento', 'casa', 'edifício', 'espaço comercial', 'escritório para alugar', 'cobertura', 'triplex', 'despesas incluídas', 'cozinha equipada', 'terraço', 'varanda', 'garagem incluída', 'estacionamento privado', 'condomínio fechado', 'promotor imobiliário', 'rés-do-chão'],
+  vehicules: ['carro', 'veículo', 'quilometragem', 'câmbio automático', 'documento do veículo', 'cavalos fiscais', 'moto', 'scooter', 'suv', 'caminhão', 'gasolina', 'diesel', 'sedã', 'citadino', 'perua', 'pneus', 'câmbio manual', 'primeiro dono', 'inspeção veicular', 'seguro automóvel', 'reboque', 'quadriciclo', 'van', 'automóvel', 'motocicleta'],
+  mode: ['vestido', 'sapatos', 'bolsa', 'marroquinaria', 'joias', 'relógio', 'roupa', 'numeração de sapato', 'tênis', 'terno', 'casaco', 'jaqueta', 'jeans', 'lenço', 'cinto', 'perfume', 'acessório de moda', 'coleção de moda', 'look'],
+  'maison-jardin': ['sofá', 'geladeira', 'máquina de lavar', 'cortador de grama', 'eletrodoméstico', 'móvel', 'jardim', 'mesa de jantar', 'cama de casal', 'colchão', 'forno', 'micro-ondas', 'ar-condicionado', 'decoração de interiores', 'cortinas', 'tapete', 'louças', 'plantas', 'roupa de cama'],
+  multimedia: ['iphone', 'smartphone', 'notebook', 'playstation', 'xbox', 'tablet', 'câmera', 'tela', 'samsung galaxy', 'macbook', 'teclado', 'mouse', 'impressora', 'disco rígido', 'processador', 'placa de vídeo', 'fones de ouvido', 'caixa de som bluetooth', 'computador de mesa'],
+  famille: ['carrinho de bebê', 'mamadeira', 'berço', 'cadeirinha para carro', 'brinquedo', 'roupa de bebê', 'cama de bebê', 'cadeira alta', 'fraldas', 'pelúcia', 'cuidado infantil'],
+  loisirs: ['violão', 'piano', 'bicicleta', 'barraca de camping', 'vara de pesca', 'instrumento musical', 'raquete', 'skate', 'patinete', 'bateria musical', 'equipamento esportivo', 'trilha'],
+  'materiel-pro': ['máquina industrial', 'andaime', 'trator', 'mobiliário de escritório', 'equipamento profissional', 'gerador', 'compressor', 'empilhadeira', 'equipamento de construção', 'equipamento médico'],
+  services: ['serviço', 'aulas particulares', 'reparo', 'mudança', 'limpeza doméstica', 'cuidado infantil', 'buffet', 'fotógrafo profissional', 'personal trainer'],
+  emploi: ['contratamos', 'contrato efetivo', 'contrato temporário', 'salário mensal', 'vaga disponível', 'experiência necessária', 'candidatura', 'entrevista de emprego', 'oferta de emprego', 'estágio remunerado', 'trabalho remoto'],
+  'opportunites-affaires': ['investidor', 'franquia', 'sócio comercial', 'licitação', 'venda de empresa', 'plano de negócios', 'captação de recursos', 'procura-se sócio'],
+};
 const CATEGORY_KEYWORDS_ALL = Object.fromEntries(
-  Object.keys(CATEGORY_KEYWORDS_FR).map((slug) => [slug, [...(CATEGORY_KEYWORDS_FR[slug] || []), ...(CATEGORY_KEYWORDS_EN[slug] || [])]])
+  Object.keys(CATEGORY_KEYWORDS_FR).map((slug) => [slug, [
+    ...(CATEGORY_KEYWORDS_FR[slug] || []),
+    ...(CATEGORY_KEYWORDS_EN[slug] || []),
+    ...(CATEGORY_KEYWORDS_IT[slug] || []),
+    ...(CATEGORY_KEYWORDS_AR[slug] || []),
+    ...(CATEGORY_KEYWORDS_ES[slug] || []),
+    ...(CATEGORY_KEYWORDS_PT[slug] || []),
+  ]])
 );
 /** Retire les accents pour une comparaison insensible aux accents (é/e,
  * è/e, â/a, etc.) — un titre tapé sans accents (fréquent sur mobile ou
