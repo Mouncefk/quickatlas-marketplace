@@ -2375,3 +2375,28 @@ textarea { resize: vertical; }
 /* ---------- Champs dates/prix promo grisés hors Tourisme/Immobilier ---------- */
 .form-row--disabled { opacity: 0.4; pointer-events: none; }
 .form-row--disabled input, .form-row--disabled select { cursor: not-allowed; }
+/* ---------- Message "ville manquante" ---------- */
+.city-missing-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--ink-800);
+  border: 1px dashed var(--ink-line);
+  border-radius: 8px;
+  font-size: 0.84rem;
+  color: rgba(241,233,216,0.75);
+}
+/* ---------- Statuts des demandes de ville (admin) ---------- */
+.city-request-status {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.city-request-status--pending { background: rgba(198,161,91,0.18); color: var(--brass-300); }
+.city-request-status--fulfilled { background: rgba(76,140,130,0.18); color: var(--teal-500); }
