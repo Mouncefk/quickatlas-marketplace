@@ -381,4 +381,19 @@ db.exec(`
     db.exec('ALTER TABLE listings ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0');
   }
 }
+// Migration : demandes de villes manquantes — un visiteur signale une ville
+// absente de la liste ; l'admin peut la marquer "activée" une fois la ville
+// réellement ajoutée, ce qui déclenche un email de notification.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS city_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    country_id INTEGER NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
+    city_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    message TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    notified_at TEXT
+  );
+`);
 export default db;
