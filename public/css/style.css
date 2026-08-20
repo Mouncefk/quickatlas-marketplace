@@ -321,14 +321,14 @@ body:not(.atlas-engaged) #recentlyViewedSection {
   display: none !important;
 }
 .country-shape {
-  fill: #223755;
+  fill: #3a5c8c;
   stroke: #0e1b2e;
   stroke-width: 0.5;
   cursor: pointer;
   transition: fill .15s ease;
 }
 .country-shape:hover { fill: var(--teal-500); }
-.country-shape--listed { fill: #2c4a6e; }
+.country-shape--listed { fill: #5580b8; }
 .country-shape--listed:hover { fill: var(--brass-500); }
 .country-shape--selected { fill: var(--rust-600) !important; }
 .map-legend {
@@ -1791,8 +1791,17 @@ textarea { resize: vertical; }
 }
 .night-overlay {
   fill: #04070d;
-  opacity: 0.38;
+  opacity: 0.45;
   pointer-events: none;
+}
+.legend-night-swatch {
+  width: 12px;
+  height: 9px;
+  border-radius: 2px;
+  background: #04070d;
+  opacity: 0.75;
+  display: inline-block;
+  border: 1px solid rgba(241,233,216,0.2);
 }
 /* ---------- Connexion Google ---------- */
 .auth-divider {
