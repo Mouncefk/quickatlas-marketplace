@@ -474,29 +474,38 @@ function updateSecondhandVisibility(categorySlug, checkboxId) {
  * catégorie Tourisme & Voyages (séjour, excursion, croisière…) — les vide
  * quand on les masque, pour ne jamais envoyer une date orpheline d'une
  * catégorie précédemment sélectionnée. */
+/** Catégories pour lesquelles les dates et le prix promotionnel ont un
+ * sens réel (séjours pour le Tourisme, disponibilité pour l'Immobilier).
+ * Pour les autres catégories, les champs restent visibles mais grisés
+ * plutôt que masqués — pour que leur existence reste prévisible dans le
+ * formulaire, sans pour autant inviter à les remplir hors contexte. */
+const DATES_PRICE_EXTRAS_CATEGORIES = ['tourisme-voyages', 'immobilier'];
 function updateTourismDatesVisibility(categorySlug) {
   const row = document.getElementById('tourismDatesRow');
   if (!row) return;
-  const isTourism = categorySlug === 'tourisme-voyages';
-  row.hidden = !isTourism;
-  if (!isTourism) {
-    const startInput = document.getElementById('publishDateStart');
-    const endInput = document.getElementById('publishDateEnd');
+  const isRelevant = DATES_PRICE_EXTRAS_CATEGORIES.includes(categorySlug);
+  row.classList.toggle('form-row--disabled', !isRelevant);
+  const startInput = document.getElementById('publishDateStart');
+  const endInput = document.getElementById('publishDateEnd');
+  if (startInput) startInput.disabled = !isRelevant;
+  if (endInput) endInput.disabled = !isRelevant;
+  if (!isRelevant) {
     if (startInput) startInput.value = '';
     if (endInput) endInput.value = '';
   }
 }
-/** Affiche les champs "Prix promotionnel / Type de prix" uniquement pour
- * la catégorie Tourisme & Voyages — mêmes principes que pour les dates :
- * masqué et vidé pour toute autre catégorie. */
+/** Même principe que updateTourismDatesVisibility, pour le bloc
+ * "Prix promotionnel / Type de prix". */
 function updateTourismPriceExtrasVisibility(categorySlug) {
   const row = document.getElementById('tourismPriceExtrasRow');
   if (!row) return;
-  const isTourism = categorySlug === 'tourisme-voyages';
-  row.hidden = !isTourism;
-  if (!isTourism) {
-    const promoInput = document.getElementById('publishPricePromo');
-    const typeSelect = document.getElementById('publishPriceType');
+  const isRelevant = DATES_PRICE_EXTRAS_CATEGORIES.includes(categorySlug);
+  row.classList.toggle('form-row--disabled', !isRelevant);
+  const promoInput = document.getElementById('publishPricePromo');
+  const typeSelect = document.getElementById('publishPriceType');
+  if (promoInput) promoInput.disabled = !isRelevant;
+  if (typeSelect) typeSelect.disabled = !isRelevant;
+  if (!isRelevant) {
     if (promoInput) promoInput.value = '';
     if (typeSelect) typeSelect.value = '';
   }
