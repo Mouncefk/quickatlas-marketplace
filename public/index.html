@@ -243,6 +243,7 @@
             <select name="subcategory_id" id="publishSubcategory" required></select>
           </label>
         </div>
+        <p class="form-notice form-notice--warning" id="categoryMismatchWarning" hidden></p>
         <div class="form-row form-row--split" id="tourismDatesRow">
           <label><span data-i18n="publish.label_date_start">Date de début</span>
             <input type="date" name="date_start" id="publishDateStart" />
@@ -268,7 +269,6 @@
             </select>
           </label>
         </div>
-        <p class="form-notice form-notice--warning" id="categoryMismatchWarning" hidden></p>
         <div class="ai-draft-box" id="aiDraftBox" hidden>
           <p class="ai-draft-title" data-i18n="ai.draft_title">✨ Besoin d'aide pour rédiger ?</p>
           <textarea id="aiDraftNotes" rows="2" data-i18n-placeholder="ai.draft_placeholder" placeholder="Notez quelques infos en vrac (état, surface, marque, prix habituel…)"></textarea>
