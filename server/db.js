@@ -396,4 +396,13 @@ db.exec(`
     notified_at TEXT
   );
 `);
+// Migration : state_id sur city_requests, pour les pays fédéraux — la table
+// existait déjà avant cet ajout, d'où l'ALTER séparé (idempotent) plutôt
+// que d'ajouter la colonne directement dans le CREATE TABLE ci-dessus.
+{
+  const cityRequestColumns = db.prepare("PRAGMA table_info(city_requests)").all();
+  if (!cityRequestColumns.some((c) => c.name === 'state_id')) {
+    db.exec('ALTER TABLE city_requests ADD COLUMN state_id INTEGER REFERENCES states(id)');
+  }
+}
 export default db;
