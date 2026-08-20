@@ -1382,6 +1382,8 @@ function renderCityTiles(cities) {
   const cityGrid = document.getElementById('cityGrid');
   cityGrid.innerHTML = '';
   cityGrid.hidden = false;
+  const missingNotice = document.getElementById('cityMissingNotice');
+  if (missingNotice) missingNotice.hidden = false;
   for (const city of cities) {
     const isFav = state.favoriteCityIds && state.favoriteCityIds.has(city.id);
     cityGrid.append(
@@ -3584,8 +3586,45 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminReportsPanel').hidden = btn.dataset.adminTab !== 'reports';
     document.getElementById('adminEmailsPanel').hidden = btn.dataset.adminTab !== 'emails';
     document.getElementById('adminCategoriesPanel').hidden = btn.dataset.adminTab !== 'categories';
+    document.getElementById('adminCityRequestsPanel').hidden = btn.dataset.adminTab !== 'city-requests';
+    if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
   })
 );
+async function loadCityRequests() {
+  try {
+    const requests = await api('/admin/city-requests');
+    const body = document.getElementById('adminCityRequestsBody');
+    body.innerHTML = '';
+    for (const r of requests) {
+      body.append(
+        el('tr', {}, [
+          el('td', {}, r.city_name),
+          el('td', {}, r.country_name),
+          el('td', {}, r.email),
+          el('td', {}, r.message || '—'),
+          el('td', {}, el('span', { class: `city-request-status city-request-status--${r.status}` }, i18n.t(`city_request.status_${r.status}`))),
+          el('td', {}, new Date(r.created_at).toLocaleDateString()),
+          el('td', {}, r.status === 'pending' ? el('button', {
+            class: 'btn btn--ghost btn--small',
+            onclick: async (e) => {
+              e.target.disabled = true;
+              try {
+                await api(`/admin/city-requests/${r.id}/fulfill`, { method: 'POST' });
+                showToast(i18n.t('city_request.fulfilled_toast'));
+                loadCityRequests();
+              } catch (err) {
+                showToast(err.message);
+                e.target.disabled = false;
+              }
+            },
+          }, i18n.t('city_request.mark_fulfilled')) : null),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
 async function loadAdminStats() {
   try {
     state.lists.adminStats = await api('/admin/stats');
@@ -3944,6 +3983,36 @@ function trackSiteVisit() {
   sessionStorage.setItem('atlas_visit_tracked', '1');
   api('/track-visit', { method: 'POST' }).catch(() => { /* silencieux */ });
 }
+/** Ouvre la modale de signalement de ville manquante, préremplit l'email
+ * si l'utilisateur est connecté. */
+function openCityRequestModal() {
+  const form = document.getElementById('cityRequestForm');
+  form.reset();
+  if (state.user && state.user.email) {
+    document.getElementById('cityRequestEmail').value = state.user.email;
+  }
+  document.getElementById('cityRequestModal').hidden = false;
+}
+document.getElementById('cityMissingContactBtn')?.addEventListener('click', openCityRequestModal);
+document.getElementById('cityRequestForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!state.selectedCountry) { showToast(i18n.t('city_request.no_country')); return; }
+  try {
+    await api('/city-requests', {
+      method: 'POST',
+      body: JSON.stringify({
+        country_id: state.selectedCountry.id,
+        city_name: document.getElementById('cityRequestCityName').value.trim(),
+        email: document.getElementById('cityRequestEmail').value.trim(),
+        message: document.getElementById('cityRequestMessage').value.trim(),
+      }),
+    });
+    document.getElementById('cityRequestModal').hidden = true;
+    showToast(i18n.t('city_request.submitted'));
+  } catch (err) {
+    showToast(err.message);
+  }
+});
 async function boot() {
   initLanguagePicker();
   trackSiteVisit();
