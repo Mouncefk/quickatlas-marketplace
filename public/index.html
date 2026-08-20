@@ -182,6 +182,10 @@
       <button type="button" class="btn btn--ghost btn--small" id="showCountrySheetBtn" hidden>ℹ️ <span data-i18n="country.show_sheet">Voir la fiche du pays</span></button>
       <div class="state-grid" id="stateGrid" hidden></div>
       <div class="city-grid" id="cityGrid" hidden></div>
+      <p class="city-missing-notice" id="cityMissingNotice" hidden>
+        <span data-i18n="city_request.notice">Vous ne trouvez pas votre ville ? Signalez-le-nous, un email vous sera envoyé dès son activation.</span>
+        <button class="btn btn--ghost btn--small" id="cityMissingContactBtn" data-i18n="city_request.contact_button">Nous contacter</button>
+      </p>
       <div class="listings-header" id="listingsHeader" hidden>
         <div>
           <h2 id="listingsTitle">Annonces</h2>
@@ -498,6 +502,7 @@
         <button class="auth-tab" data-admin-tab="reports" data-i18n="admin.tab_reports">Signalements</button>
         <button class="auth-tab" data-admin-tab="emails" data-i18n="admin.tab_emails">Emails</button>
         <button class="auth-tab" data-admin-tab="categories" data-i18n="admin.tab_categories">Catégories</button>
+        <button class="auth-tab" data-admin-tab="city-requests" data-i18n="admin.tab_city_requests">Villes demandées</button>
       </div>
       <div id="adminDashboardPanel" class="admin-panel">
         <div class="dashboard-cards" id="dashboardCards"></div>
@@ -570,6 +575,16 @@
         <p class="hero-sub" data-i18n="admin.categories_by_country_intro">Choisissez un pays, puis décochez les catégories à désactiver spécifiquement pour ce pays (publication et navigation). Distinct de l'activation globale ci-dessus : une catégorie peut rester active partout ailleurs.</p>
         <select id="adminCategoryCountrySelect" class="admin-country-select"></select>
         <div id="adminCategoryCountryChecklist" class="admin-checklist"></div>
+      </div>
+      <div id="adminCityRequestsPanel" class="admin-panel" hidden>
+        <table class="admin-table" id="adminCityRequestsTable">
+          <thead><tr>
+            <th data-i18n="admin.col_city">Ville</th><th data-i18n="admin.col_country">Pays</th>
+            <th data-i18n="admin.col_email">Email</th><th data-i18n="admin.col_message">Message</th>
+            <th data-i18n="admin.col_status">Statut</th><th data-i18n="admin.col_since">Le</th><th></th>
+          </tr></thead>
+          <tbody id="adminCityRequestsBody"></tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -754,6 +769,32 @@
       <button class="btn btn--ghost" id="randomExploreSpinAgainBtn" data-i18n="explore_random.spin_again">🎲 Relancer</button>
       <button class="btn btn--primary" id="randomExploreViewBtn" data-i18n="explore_random.view">Voir l'annonce</button>
     </div>
+  </div>
+</div>
+<!-- ===== City request modal ===== -->
+<div class="modal-overlay" id="cityRequestModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close="cityRequestModal" aria-label="Fermer">&times;</button>
+    <h2 data-i18n="city_request.modal_title">Signaler une ville manquante</h2>
+    <p class="hero-sub" data-i18n="city_request.modal_sub">Indiquez le nom de la ville et votre email — nous vous préviendrons dès qu'elle sera disponible.</p>
+    <form id="cityRequestForm" class="atlas-form">
+      <div class="form-row">
+        <label><span data-i18n="city_request.label_city">Nom de la ville</span>
+          <input type="text" name="city_name" id="cityRequestCityName" required />
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="city_request.label_email">Votre email</span>
+          <input type="email" name="email" id="cityRequestEmail" required />
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="city_request.label_message">Message (optionnel)</span>
+          <textarea name="message" id="cityRequestMessage" rows="3"></textarea>
+        </label>
+      </div>
+      <button type="submit" class="btn btn--primary" data-i18n="city_request.submit">Envoyer</button>
+    </form>
   </div>
 </div>
 <div class="modal-overlay" id="compareModal" hidden>
