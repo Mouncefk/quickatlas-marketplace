@@ -2637,6 +2637,25 @@ const CATEGORY_KEYWORDS_FR = {
   emploi: ['recrute', 'cdi', 'cdd', 'salaire mensuel', 'poste à pourvoir', 'expérience requise', 'candidature', 'entretien d\'embauche', 'offre d\'emploi', 'stage rémunéré', 'télétravail'],
   'opportunites-affaires': ['investisseur', 'franchise', 'partenaire commercial', "appel d'offres", "cession d'entreprise", 'business plan', 'levée de fonds', 'associé recherché'],
 };
+/** Même détection que CATEGORY_KEYWORDS_FR, en anglais — un titre peut
+ * être rédigé dans n'importe quelle langue quelle que soit la langue de
+ * l'interface, les deux dictionnaires sont donc toujours combinés. */
+const CATEGORY_KEYWORDS_EN = {
+  immobilier: ['apartment', 'studio', 'duplex', 'villa', 'room for rent', 'square meters', 'square feet', 'rent', 'condo', 'condominium', 'buildable land', 'subdivision', 'house', 'building', 'commercial space', 'office for rent', 'penthouse', 'triplex', 'utilities included', 'equipped kitchen', 'terrace', 'balcony', 'garage included', 'private parking', 'gated community', 'real estate developer', 'single-story'],
+  vehicules: ['car', 'vehicle', 'mileage', 'automatic transmission', 'title', 'registration', 'horsepower', 'motorcycle', 'scooter', 'suv', 'truck', 'gasoline', 'diesel', 'sedan', 'hatchback', 'station wagon', 'tires', 'manual transmission', 'first owner', 'inspection', 'car insurance', 'trailer', 'quad bike', 'van', 'automobile', 'motorbike'],
+  mode: ['dress', 'shoes', 'handbag', 'leather goods', 'jewelry', 'watch', 'clothing', 'shoe size', 'sneakers', 'suit', 'coat', 'jacket', 'jeans', 'scarf', 'belt', 'perfume', 'fashion accessory', 'fashion collection', 'outfit'],
+  'maison-jardin': ['sofa', 'refrigerator', 'washing machine', 'lawn mower', 'appliance', 'furniture', 'garden', 'dining table', 'double bed', 'mattress', 'oven', 'microwave', 'air conditioner', 'interior decoration', 'curtains', 'rug', 'dishware', 'plants', 'bedding'],
+  multimedia: ['iphone', 'smartphone', 'laptop', 'playstation', 'xbox', 'tablet', 'camera', 'screen', 'samsung galaxy', 'macbook', 'keyboard', 'mouse', 'printer', 'hard drive', 'processor', 'graphics card', 'headphones', 'bluetooth speaker', 'desktop computer'],
+  famille: ['stroller', 'baby bottle', 'crib', 'car seat', 'toy', 'baby clothes', 'baby bed', 'high chair', 'diapers', 'stuffed animal', 'pram', 'babysitting'],
+  loisirs: ['guitar', 'piano', 'bicycle', 'camping tent', 'fishing rod', 'musical instrument', 'racket', 'skateboard', 'kick scooter', 'drum kit', 'sports equipment', 'hiking'],
+  'materiel-pro': ['industrial machine', 'scaffolding', 'tractor', 'office furniture', 'professional equipment', 'generator', 'compressor', 'forklift', 'construction equipment', 'medical equipment'],
+  services: ['service', 'private lessons', 'repair', 'moving service', 'home cleaning', 'childcare', 'catering', 'professional photographer', 'sports coach'],
+  emploi: ['hiring', 'full-time position', 'contract', 'monthly salary', 'position available', 'experience required', 'application', 'job interview', 'job offer', 'paid internship', 'remote work'],
+  'opportunites-affaires': ['investor', 'franchise', 'business partner', 'tender', 'business for sale', 'business plan', 'fundraising', 'partner wanted'],
+};
+const CATEGORY_KEYWORDS_ALL = Object.fromEntries(
+  Object.keys(CATEGORY_KEYWORDS_FR).map((slug) => [slug, [...(CATEGORY_KEYWORDS_FR[slug] || []), ...(CATEGORY_KEYWORDS_EN[slug] || [])]])
+);
 /** Retire les accents pour une comparaison insensible aux accents (é/e,
  * è/e, â/a, etc.) — un titre tapé sans accents (fréquent sur mobile ou
  * clavier étranger) doit être reconnu tout aussi bien qu'avec accents. */
@@ -2647,12 +2666,12 @@ function detectCategoryMismatchClient(title, description, categorySlug) {
   const text = normalizeForMatch(`${title} ${description || ''}`);
   let bestMatch = null;
   let bestCount = 0;
-  for (const [slug, keywords] of Object.entries(CATEGORY_KEYWORDS_FR)) {
+  for (const [slug, keywords] of Object.entries(CATEGORY_KEYWORDS_ALL)) {
     if (slug === categorySlug) continue;
     const count = keywords.filter((kw) => text.includes(normalizeForMatch(kw))).length;
     if (count > bestCount) { bestCount = count; bestMatch = slug; }
   }
-  const ownCount = (CATEGORY_KEYWORDS_FR[categorySlug] || []).filter((kw) => text.includes(normalizeForMatch(kw))).length;
+  const ownCount = (CATEGORY_KEYWORDS_ALL[categorySlug] || []).filter((kw) => text.includes(normalizeForMatch(kw))).length;
   if (bestMatch && bestCount >= 1 && ownCount === 0) return bestMatch;
   return null;
 }
