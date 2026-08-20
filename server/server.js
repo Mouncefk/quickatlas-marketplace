@@ -381,6 +381,38 @@ function computeFraudRisk({ price, currency, description, images, subcategoryId,
   }
   return { score, reasons };
 }
+/** Normalise un nom de ville pour comparaison (minuscules, accents
+ * retirés) — le nom saisi par le demandeur ("Fes") et le nom réel en
+ * base ("Fès") peuvent différer légèrement sans que ce soit un problème. */
+function normalizeCityName(str) {
+  return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+/** Vérifie, pour chaque demande de ville en attente, si une ville
+ * correspondante existe désormais dans le même pays — auquel cas
+ * l'email de notification part automatiquement, sans action admin.
+ * Fonctionne quelle que soit la façon dont la ville a été ajoutée
+ * (interface admin ou script direct en base). */
+async function checkCityRequestFulfillments() {
+  const pending = db.prepare('SELECT * FROM city_requests WHERE status = ?').all('pending');
+  for (const reqRow of pending) {
+    const citiesInCountry = db.prepare('SELECT name FROM cities WHERE country_id = ?').all(reqRow.country_id);
+    const normalizedRequested = normalizeCityName(reqRow.city_name);
+    const match = citiesInCountry.some((c) => normalizeCityName(c.name) === normalizedRequested);
+    if (!match) continue;
+    db.prepare("UPDATE city_requests SET status = 'fulfilled', notified_at = datetime('now') WHERE id = ?").run(reqRow.id);
+    try {
+      await sendMail({
+        to: reqRow.email,
+        purpose: 'city_request_fulfilled',
+        subject: `${reqRow.city_name} est maintenant disponible sur QuickAtlas`,
+        text: `Bonjour,\n\nVous nous aviez signalé l'absence de ${reqRow.city_name}. Bonne nouvelle : cette ville est désormais disponible sur QuickAtlas !\n\nÀ bientôt,\nL'équipe QuickAtlas`,
+        link: SITE_URL,
+      });
+    } catch (err) {
+      console.error('[city-request] échec de l\'envoi de l\'email :', err.message);
+    }
+  }
+}
 async function checkListingExpirations() {
   const soon = db
     .prepare(
@@ -2377,5 +2409,9 @@ server.listen(PORT, () => {
   checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification initiale :', err.message));
   setInterval(() => {
     checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification périodique :', err.message));
+  }, 60 * 60 * 1000);
+  checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification initiale :', err.message));
+  setInterval(() => {
+    checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification périodique :', err.message));
   }, 60 * 60 * 1000);
 });
