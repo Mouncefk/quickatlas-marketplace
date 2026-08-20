@@ -3590,7 +3590,47 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
   })
 );
+let addCityFormInitialized = false;
+function initAddCityForm() {
+  if (addCityFormInitialized) return;
+  addCityFormInitialized = true;
+  const select = document.getElementById('addCityCountrySelect');
+  for (const c of [...state.countries].sort((a, b) => countryLabel(a).localeCompare(countryLabel(b)))) {
+    select.append(el('option', { value: c.id }, countryLabel(c)));
+  }
+  select.addEventListener('change', async () => {
+    const tzInput = document.getElementById('addCityTimezoneInput');
+    if (!select.value) return;
+    try {
+      const cities = await api(`/countries/${select.value}/cities`);
+      if (cities.length > 0) tzInput.value = cities[0].timezone;
+    } catch { /* pas grave, l'admin peut le saisir à la main */ }
+  });
+  document.getElementById('addCitySubmitBtn').addEventListener('click', async () => {
+    const countryId = document.getElementById('addCityCountrySelect').value;
+    const name = document.getElementById('addCityNameInput').value.trim();
+    const timezone = document.getElementById('addCityTimezoneInput').value.trim();
+    if (!countryId || !name || !timezone) { showToast(i18n.t('admin.add_city_missing_fields')); return; }
+    try {
+      await api('/admin/cities', { method: 'POST', body: JSON.stringify({ country_id: countryId, name, timezone }) });
+      showToast(i18n.t('admin.add_city_success', { name }));
+      document.getElementById('addCityNameInput').value = '';
+      loadCityRequests();
+    } catch (e) {
+      showToast(e.message);
+    }
+  });
+}
+/** Pré-remplit le formulaire d'ajout à partir d'une demande en attente —
+ * évite de retaper le nom de la ville et le pays. */
+function prefillAddCityForm(countryId, cityName) {
+  document.getElementById('addCityCountrySelect').value = String(countryId);
+  document.getElementById('addCityCountrySelect').dispatchEvent(new Event('change'));
+  document.getElementById('addCityNameInput').value = cityName;
+  document.getElementById('addCityNameInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 async function loadCityRequests() {
+  initAddCityForm();
   try {
     const requests = await api('/admin/city-requests');
     const body = document.getElementById('adminCityRequestsBody');
@@ -3604,20 +3644,26 @@ async function loadCityRequests() {
           el('td', {}, r.message || '—'),
           el('td', {}, el('span', { class: `city-request-status city-request-status--${r.status}` }, i18n.t(`city_request.status_${r.status}`))),
           el('td', {}, new Date(r.created_at).toLocaleDateString()),
-          el('td', {}, r.status === 'pending' ? el('button', {
-            class: 'btn btn--ghost btn--small',
-            onclick: async (e) => {
-              e.target.disabled = true;
-              try {
-                await api(`/admin/city-requests/${r.id}/fulfill`, { method: 'POST' });
-                showToast(i18n.t('city_request.fulfilled_toast'));
-                loadCityRequests();
-              } catch (err) {
-                showToast(err.message);
-                e.target.disabled = false;
-              }
-            },
-          }, i18n.t('city_request.mark_fulfilled')) : null),
+          el('td', { style: 'display:flex;gap:6px;' }, r.status === 'pending' ? [
+            el('button', {
+              class: 'btn btn--ghost btn--small',
+              onclick: () => prefillAddCityForm(r.country_id, r.city_name),
+            }, i18n.t('admin.prefill_from_request')),
+            el('button', {
+              class: 'btn btn--ghost btn--small',
+              onclick: async (e) => {
+                e.target.disabled = true;
+                try {
+                  await api(`/admin/city-requests/${r.id}/fulfill`, { method: 'POST' });
+                  showToast(i18n.t('city_request.fulfilled_toast'));
+                  loadCityRequests();
+                } catch (err) {
+                  showToast(err.message);
+                  e.target.disabled = false;
+                }
+              },
+            }, i18n.t('city_request.mark_fulfilled')),
+          ] : null),
         ])
       );
     }
