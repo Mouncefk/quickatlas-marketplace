@@ -587,6 +587,11 @@
             <input type="text" id="addCityNameInput" />
           </label>
         </div>
+        <div class="form-row form-row--split" id="addCityStateRow" hidden>
+          <label><span data-i18n="admin.add_city_state">État / région (pays fédéral)</span>
+            <select id="addCityStateSelect"></select>
+          </label>
+        </div>
         <div class="form-row form-row--split">
           <label><span data-i18n="admin.add_city_timezone">Fuseau horaire (IANA)</span>
             <input type="text" id="addCityTimezoneInput" placeholder="Africa/Casablanca" />
@@ -800,6 +805,11 @@
       <div class="form-row">
         <label><span data-i18n="city_request.label_city">Nom de la ville</span>
           <input type="text" name="city_name" id="cityRequestCityName" required />
+        </label>
+      </div>
+      <div class="form-row" id="cityRequestStateRow" hidden>
+        <label><span data-i18n="city_request.label_state">État / région</span>
+          <select name="state_id" id="cityRequestStateSelect"></select>
         </label>
       </div>
       <div class="form-row">
