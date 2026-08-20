@@ -3591,28 +3591,55 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
   })
 );
 let addCityFormInitialized = false;
+async function handleAddCityCountryChange() {
+  const select = document.getElementById('addCityCountrySelect');
+  const tzInput = document.getElementById('addCityTimezoneInput');
+  const stateRow = document.getElementById('addCityStateRow');
+  const stateSelect = document.getElementById('addCityStateSelect');
+  stateSelect.innerHTML = '';
+  if (!select.value) { stateRow.hidden = true; return; }
+  const isFederal = select.selectedOptions[0]?.dataset.isFederal === '1';
+  if (isFederal) {
+    stateRow.hidden = false;
+    tzInput.value = '';
+    try {
+      const states = await api(`/countries/${select.value}/states`);
+      for (const st of states) stateSelect.append(el('option', { value: st.id }, st.name));
+      stateSelect.dispatchEvent(new Event('change'));
+    } catch { /* pas grave, l'admin peut le saisir à la main */ }
+  } else {
+    stateRow.hidden = true;
+    try {
+      const cities = await api(`/countries/${select.value}/cities`);
+      if (cities.length > 0) tzInput.value = cities[0].timezone;
+    } catch { /* pas grave, l'admin peut le saisir à la main */ }
+  }
+}
 function initAddCityForm() {
   if (addCityFormInitialized) return;
   addCityFormInitialized = true;
   const select = document.getElementById('addCityCountrySelect');
   for (const c of [...state.countries].sort((a, b) => countryLabel(a).localeCompare(countryLabel(b)))) {
-    select.append(el('option', { value: c.id }, countryLabel(c)));
+    select.append(el('option', { value: c.id, 'data-is-federal': c.is_federal ? '1' : '' }, countryLabel(c)));
   }
-  select.addEventListener('change', async () => {
+  select.addEventListener('change', handleAddCityCountryChange);
+  document.getElementById('addCityStateSelect').addEventListener('change', async (e) => {
     const tzInput = document.getElementById('addCityTimezoneInput');
-    if (!select.value) return;
+    if (!e.target.value) return;
     try {
-      const cities = await api(`/countries/${select.value}/cities`);
+      const cities = await api(`/states/${e.target.value}/cities`);
       if (cities.length > 0) tzInput.value = cities[0].timezone;
     } catch { /* pas grave, l'admin peut le saisir à la main */ }
   });
   document.getElementById('addCitySubmitBtn').addEventListener('click', async () => {
     const countryId = document.getElementById('addCityCountrySelect').value;
+    const stateRow = document.getElementById('addCityStateRow');
+    const stateId = !stateRow.hidden ? document.getElementById('addCityStateSelect').value : null;
     const name = document.getElementById('addCityNameInput').value.trim();
     const timezone = document.getElementById('addCityTimezoneInput').value.trim();
-    if (!countryId || !name || !timezone) { showToast(i18n.t('admin.add_city_missing_fields')); return; }
+    if (!countryId || !name || !timezone || (!stateRow.hidden && !stateId)) { showToast(i18n.t('admin.add_city_missing_fields')); return; }
     try {
-      await api('/admin/cities', { method: 'POST', body: JSON.stringify({ country_id: countryId, name, timezone }) });
+      await api('/admin/cities', { method: 'POST', body: JSON.stringify({ country_id: countryId, state_id: stateId, name, timezone }) });
       showToast(i18n.t('admin.add_city_success', { name }));
       document.getElementById('addCityNameInput').value = '';
       loadCityRequests();
@@ -3623,9 +3650,10 @@ function initAddCityForm() {
 }
 /** Pré-remplit le formulaire d'ajout à partir d'une demande en attente —
  * évite de retaper le nom de la ville et le pays. */
-function prefillAddCityForm(countryId, cityName) {
+async function prefillAddCityForm(countryId, cityName, stateId) {
   document.getElementById('addCityCountrySelect').value = String(countryId);
-  document.getElementById('addCityCountrySelect').dispatchEvent(new Event('change'));
+  await handleAddCityCountryChange();
+  if (stateId) document.getElementById('addCityStateSelect').value = String(stateId);
   document.getElementById('addCityNameInput').value = cityName;
   document.getElementById('addCityNameInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -3639,7 +3667,7 @@ async function loadCityRequests() {
       body.append(
         el('tr', {}, [
           el('td', {}, r.city_name),
-          el('td', {}, r.country_name),
+          el('td', {}, r.state_name ? `${r.country_name} (${r.state_name})` : r.country_name),
           el('td', {}, r.email),
           el('td', {}, r.message || '—'),
           el('td', {}, el('span', { class: `city-request-status city-request-status--${r.status}` }, i18n.t(`city_request.status_${r.status}`))),
@@ -3647,7 +3675,7 @@ async function loadCityRequests() {
           el('td', { style: 'display:flex;gap:6px;' }, r.status === 'pending' ? [
             el('button', {
               class: 'btn btn--ghost btn--small',
-              onclick: () => prefillAddCityForm(r.country_id, r.city_name),
+              onclick: () => prefillAddCityForm(r.country_id, r.city_name, r.state_id),
             }, i18n.t('admin.prefill_from_request')),
             el('button', {
               class: 'btn btn--ghost btn--small',
@@ -4031,11 +4059,23 @@ function trackSiteVisit() {
 }
 /** Ouvre la modale de signalement de ville manquante, préremplit l'email
  * si l'utilisateur est connecté. */
-function openCityRequestModal() {
+async function openCityRequestModal() {
   const form = document.getElementById('cityRequestForm');
   form.reset();
   if (state.user && state.user.email) {
     document.getElementById('cityRequestEmail').value = state.user.email;
+  }
+  const stateRow = document.getElementById('cityRequestStateRow');
+  const stateSelect = document.getElementById('cityRequestStateSelect');
+  stateSelect.innerHTML = '';
+  if (state.selectedCountry && state.selectedCountry.is_federal) {
+    stateRow.hidden = false;
+    try {
+      const states = await api(`/countries/${state.selectedCountry.id}/states`);
+      for (const st of states) stateSelect.append(el('option', { value: st.id }, st.name));
+    } catch { /* pas grave, le champ reste vide */ }
+  } else {
+    stateRow.hidden = true;
   }
   document.getElementById('cityRequestModal').hidden = false;
 }
@@ -4043,11 +4083,13 @@ document.getElementById('cityMissingContactBtn')?.addEventListener('click', open
 document.getElementById('cityRequestForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!state.selectedCountry) { showToast(i18n.t('city_request.no_country')); return; }
+  const stateRow = document.getElementById('cityRequestStateRow');
   try {
     await api('/city-requests', {
       method: 'POST',
       body: JSON.stringify({
         country_id: state.selectedCountry.id,
+        state_id: !stateRow.hidden ? document.getElementById('cityRequestStateSelect').value : null,
         city_name: document.getElementById('cityRequestCityName').value.trim(),
         email: document.getElementById('cityRequestEmail').value.trim(),
         message: document.getElementById('cityRequestMessage').value.trim(),
