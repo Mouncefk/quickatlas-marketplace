@@ -2197,6 +2197,52 @@ const server = http.createServer(async (req, res) => {
         .all(user.id);
       return sendJSON(res, 200, { countries, cities });
     }
+    // Signalement d'une ville manquante — accessible sans connexion (juste
+    // un email), permet d'être notifié quand la ville est réellement ajoutée.
+    if (pathname === '/api/city-requests' && method === 'POST') {
+      const body = await readBody(req);
+      const countryId = Number(body.country_id);
+      const cityName = (body.city_name || '').trim();
+      const email = (body.email || '').trim();
+      const message = (body.message || '').trim();
+      if (!countryId || !cityName || !email) {
+        return sendJSON(res, 400, { error: 'Pays, nom de ville et email sont requis.' });
+      }
+      db.prepare('INSERT INTO city_requests (country_id, city_name, email, message) VALUES (?, ?, ?, ?)').run(countryId, cityName, email, message || null);
+      return sendJSON(res, 201, { ok: true });
+    }
+    if (pathname === '/api/admin/city-requests' && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const rows = db
+        .prepare(
+          `SELECT cr.id, cr.city_name, cr.email, cr.message, cr.status, cr.created_at, co.name AS country_name, co.iso2 AS country_iso2
+           FROM city_requests cr JOIN countries co ON co.id = cr.country_id
+           ORDER BY cr.status ASC, cr.created_at DESC`
+        )
+        .all();
+      return sendJSON(res, 200, rows);
+    }
+    // Marque une demande comme traitée et envoie un email de notification au
+    // demandeur — à utiliser une fois la ville effectivement ajoutée en base.
+    if ((m = pathname.match(/^\/api\/admin\/city-requests\/(\d+)\/fulfill$/)) && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const requestId = Number(m[1]);
+      const reqRow = db.prepare('SELECT * FROM city_requests WHERE id = ?').get(requestId);
+      if (!reqRow) return sendJSON(res, 404, { error: 'Demande introuvable' });
+      db.prepare("UPDATE city_requests SET status = 'fulfilled', notified_at = datetime('now') WHERE id = ?").run(requestId);
+      try {
+        await sendMail({
+          to: reqRow.email,
+          purpose: 'city_request_fulfilled',
+          subject: `${reqRow.city_name} est maintenant disponible sur QuickAtlas`,
+          text: `Bonjour,\n\nVous nous aviez signalé l'absence de ${reqRow.city_name}. Bonne nouvelle : cette ville est désormais disponible sur QuickAtlas !\n\nÀ bientôt,\nL'équipe QuickAtlas`,
+          link: SITE_URL,
+        });
+      } catch { /* la demande reste marquée traitée même si l'email échoue */ }
+      return sendJSON(res, 200, { ok: true });
+    }
     if (pathname === '/api/favorite-countries' && method === 'POST') {
       const user = requireAuth(req, res);
       if (!user) return;
