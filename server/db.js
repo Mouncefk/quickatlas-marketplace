@@ -405,4 +405,14 @@ db.exec(`
     db.exec('ALTER TABLE city_requests ADD COLUMN state_id INTEGER REFERENCES states(id)');
   }
 }
+// Migration : cachet "Vendu" / "Loué" — le propriétaire de l'annonce peut
+// marquer sa transaction comme aboutie, sans que ça affecte le statut
+// d'expiration normal de l'annonce (une annonce vendue reste visible avec
+// son cachet, jusqu'à son expiration naturelle ou sa suppression manuelle).
+{
+  const listingColumns = db.prepare("PRAGMA table_info(listings)").all();
+  if (!listingColumns.some((c) => c.name === 'transaction_completed')) {
+    db.exec('ALTER TABLE listings ADD COLUMN transaction_completed INTEGER NOT NULL DEFAULT 0');
+  }
+}
 export default db;
