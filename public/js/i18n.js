@@ -3481,7 +3481,29 @@ const i18n = {
     // (data-i18n) — tout ce qui est généré dynamiquement en JavaScript
     // (cartes d'annonces, tableaux admin, etc.) resterait dans l'ancienne
     // langue sans un rechargement complet.
-    location.reload();
+    // Reconstruit l'URL correspondant à la position actuelle (annonce,
+    // ville, pays ou catégorie consultée) avant de recharger, en
+    // s'appuyant sur les mêmes routes déjà utilisées pour les liens
+    // partagés — pour ne pas ramener l'utilisateur à l'accueil.
+    try {
+      let path = '/';
+      if (typeof currentListingId !== 'undefined' && currentListingId && !document.getElementById('listingModal').hidden) {
+        path = `/annonce/${currentListingId}`;
+      } else if (typeof state !== 'undefined' && state.selectedCountry && state.selectedCity) {
+        path = `/pays/${slugify(state.selectedCountry.name)}/${slugify(state.selectedCity.name)}`;
+      } else if (typeof state !== 'undefined' && state.selectedCountry) {
+        path = `/pays/${slugify(state.selectedCountry.name)}`;
+      } else if (typeof state !== 'undefined' && state.categoryBrowse && state.categoryBrowse.category) {
+        path = `/categorie/${state.categoryBrowse.category.slug}`;
+      }
+      if (path === window.location.pathname) {
+        location.reload();
+      } else {
+        location.href = path;
+      }
+    } catch {
+      location.reload();
+    }
   },
 
   apply() {
