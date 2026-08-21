@@ -3477,7 +3477,11 @@ const i18n = {
   setLanguage(code) {
     this.current = code;
     localStorage.setItem('atlas_lang', code);
-    this.apply();
+    // Un simple this.apply() ne traduit que les éléments statiques du HTML
+    // (data-i18n) — tout ce qui est généré dynamiquement en JavaScript
+    // (cartes d'annonces, tableaux admin, etc.) resterait dans l'ancienne
+    // langue sans un rechargement complet.
+    location.reload();
   },
 
   apply() {
