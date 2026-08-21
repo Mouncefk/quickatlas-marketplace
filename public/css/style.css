@@ -2397,3 +2397,36 @@ textarea { resize: vertical; }
 }
 .city-request-status--pending { background: rgba(198,161,91,0.18); color: var(--brass-300); }
 .city-request-status--fulfilled { background: rgba(76,140,130,0.18); color: var(--teal-500); }
+/* ---------- Cachet "Vendu" / "Loué" ---------- */
+.transaction-stamp {
+  position: absolute;
+  top: 18px;
+  right: -28px;
+  z-index: 3;
+  width: 140px;
+  background: rgba(45,157,150,0.85);
+  color: var(--parchment-100);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 4px 0;
+  transform: rotate(35deg);
+  pointer-events: none;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  border: 1px dashed rgba(241,233,216,0.6);
+}
+.transaction-stamp--detail {
+  position: relative;
+  top: auto;
+  right: auto;
+  width: auto;
+  transform: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  margin-bottom: 14px;
+  display: inline-block;
+  box-shadow: none;
+}
