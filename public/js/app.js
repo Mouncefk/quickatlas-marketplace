@@ -627,6 +627,10 @@ async function loadAllListings() {
 function navigate(view) {
   document.getElementById('authModal').hidden = true;
   document.getElementById('listingModal').hidden = true;
+  document.getElementById('countryModal').hidden = true;
+  document.getElementById('compareModal').hidden = true;
+  document.getElementById('cityRequestModal').hidden = true;
+  document.getElementById('randomExploreModal').hidden = true;
   document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
   document.getElementById(`view-${view}`).hidden = false;
   document.querySelectorAll('.nav-link').forEach((b) => b.classList.toggle('active', b.dataset.nav === view));
