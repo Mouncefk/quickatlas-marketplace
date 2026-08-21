@@ -171,31 +171,28 @@ button, input, select, textarea { font-family: inherit; }
 }
 .hero--minimal {
   text-align: center;
-  padding-top: 16px;
+  padding-top: 12px;
 }
-.hero--minimal .eyebrow { text-align: center; margin-bottom: 4px; }
+.hero--minimal .eyebrow { text-align: center; margin-bottom: 2px; }
 .hero-title-short {
   font-family: var(--font-fun);
   font-weight: 600;
   font-size: clamp(2.2rem, 4.6vw, 3.1rem);
-  margin: 0 0 2px;
-}
-.hero-instruction {
-  font-family: var(--font-fun);
-  font-size: 1.15rem;
-  color: rgba(241,233,216,0.8);
   margin: 0 0 4px;
 }
 .map-click-hint {
   text-align: center;
   font-family: var(--font-fun);
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   color: rgba(241,233,216,0.8);
-  margin: 0 0 10px;
+  margin: 0 0 8px;
+  max-width: 46ch;
+  margin-left: auto;
+  margin-right: auto;
 }
 .global-search--discreet {
   max-width: 480px;
-  margin: 0 auto 10px;
+  margin: 0 auto 8px;
 }
 .global-search--discreet input {
   padding: 11px 16px;
