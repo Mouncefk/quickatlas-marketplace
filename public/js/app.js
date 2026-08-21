@@ -276,6 +276,11 @@ document.getElementById('resetPasswordForm').addEventListener('submit', async (e
   const fd = new FormData(e.target);
   const errEl = document.getElementById('resetPasswordError');
   errEl.hidden = true;
+  if (fd.get('password') !== fd.get('password_confirm')) {
+    errEl.textContent = i18n.t('auth.password_mismatch');
+    errEl.hidden = false;
+    return;
+  }
   try {
     await api('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token: pendingResetToken, password: fd.get('password') }) });
     showToast(i18n.t('toast.password_reset_done'));
@@ -2983,6 +2988,11 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   const fd = new FormData(e.target);
   const errEl = document.getElementById('registerError');
   errEl.hidden = true;
+  if (fd.get('password') !== fd.get('password_confirm')) {
+    errEl.textContent = i18n.t('auth.password_mismatch');
+    errEl.hidden = false;
+    return;
+  }
   const isPro = fd.get('is_professional') === 'on';
   try {
     const data = await api('/auth/register', {
