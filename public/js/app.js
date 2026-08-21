@@ -1639,6 +1639,7 @@ function renderListingCard(l) {
   }, isFav ? '♥' : '♡');
   return el('article', { class: `card ${l.is_demo ? 'card--demo' : ''}`, onclick: () => openListingDetail(l.id) }, [
     l.is_demo ? el('div', { class: 'demo-watermark' }, i18n.t('demo.watermark')) : null,
+    l.transaction_completed ? el('div', { class: 'transaction-stamp' }, l.listing_type === 'location' ? i18n.t('mine.stamp_rented') : i18n.t('mine.stamp_sold')) : null,
     img ? el('img', { class: 'card-img', src: img, alt: l.title, loading: 'lazy' }) : el('div', { class: 'card-img' }),
     l.is_secondhand ? el('span', { class: 'secondhand-badge' }, `♻️ ${i18n.t('badge.secondhand')}`) : null,
     l.date_start ? el('span', { class: 'tourism-dates-badge' }, `📅 ${formatListingDateRange(l)}`) : null,
@@ -2365,6 +2366,7 @@ async function openListingDetail(id) {
   const isTourismListing = l.category_slug === 'tourisme-voyages';
   const headerNodes = [
     l.is_demo ? el('div', { class: 'demo-watermark demo-watermark--detail' }, i18n.t('demo.watermark')) : null,
+    l.transaction_completed ? el('div', { class: 'transaction-stamp transaction-stamp--detail' }, l.listing_type === 'location' ? i18n.t('mine.stamp_rented') : i18n.t('mine.stamp_sold')) : null,
     renderDetailGallery(l.images, l.title),
     el('span', { class: 'detail-tag' }, `${natureLabel} · ${listingTypeLabel(l.listing_type)}`),
     el('h2', { id: 'detailTitleText' }, [l.title, l.owner_verified ? el('span', { class: 'verified-badge' }, `✓ ${i18n.t('detail.verified_seller')}`) : null]),
@@ -2414,6 +2416,7 @@ async function openListingDetail(id) {
         l.owner_review_count > 0 ? el('span', { class: 'seller-rating' }, `★ ${l.owner_avg_rating} (${l.owner_review_count})`) : null,
       ]),
       el('p', { class: 'view-count' }, `👁 ${i18n.t('detail.view_count', { count: l.view_count })}`),
+      el('p', { class: 'view-count' }, `${i18n.t('mine.published_on', { date: new Date(l.created_at + 'Z').toLocaleDateString() })} · ${listingExpiryInfo(l).expired ? i18n.t('expiry.expired') : i18n.t('mine.days_left', { days: listingExpiryInfo(l).daysLeft })}`),
       favBtn,
       el('button', { class: 'share-postcard-btn', onclick: () => shareListingAsPostcard(l) }, `📮 ${i18n.t('share.postcard_button')}`),
       (state.user && state.user.id !== l.user_id && l.owner_phone)
@@ -2940,15 +2943,16 @@ function renderMyListings(listings) {
           el('span', { class: 'card-place' }, `${l.city_name}, ${listingCountryLabel(l)}`),
           el('span', { class: 'card-price' }, priceLabel(l)),
           el('span', { class: 'card-mini-stats' }, `👁 ${l.view_count}   ·   ♥ ${l.favorite_count}`),
-          expiry.expired
-            ? el('p', { class: 'expiry-warning' }, i18n.t('expiry.expired'))
-            : expiry.soon ? el('p', { class: 'expiry-warning' }, i18n.t('expiry.soon', { days: expiry.daysLeft })) : null,
+          el('span', { class: 'card-mini-stats' }, `${i18n.t('mine.published_on', { date: new Date(l.created_at + 'Z').toLocaleDateString() })} · ${expiry.expired ? i18n.t('expiry.expired') : i18n.t('mine.days_left', { days: expiry.daysLeft })}`),
+          expiry.soon && !expiry.expired ? el('p', { class: 'expiry-warning' }, i18n.t('expiry.soon', { days: expiry.daysLeft })) : null,
           el('div', { class: 'detail-actions' }, [
             el('button', { class: 'btn btn--ghost btn--small', onclick: (e) => { e.stopPropagation(); openListingDetail(l.id); } }, i18n.t('mine.view')),
             (expiry.expired || expiry.soon)
               ? el('button', { class: 'btn btn--ghost btn--small', onclick: async (e) => { e.stopPropagation(); await api(`/listings/${l.id}/renew`, { method: 'POST' }); showToast(i18n.t('toast.listing_renewed')); loadMyListings(); } }, i18n.t('expiry.renew'))
               : null,
             !isBoosted ? el('button', { class: 'btn btn--ghost btn--small', onclick: (e) => { e.stopPropagation(); openBoostModal(l); } }, `🚀 ${i18n.t('boost.button')}`) : null,
+            el('button', { class: 'btn btn--ghost btn--small', onclick: async (e) => { e.stopPropagation(); const r = await api(`/listings/${l.id}/mark-completed`, { method: 'POST' }); showToast(r.transaction_completed ? i18n.t('toast.marked_completed') : i18n.t('toast.unmarked_completed')); loadMyListings(); } },
+              l.transaction_completed ? i18n.t('mine.unmark_completed') : (l.listing_type === 'location' ? i18n.t('mine.mark_rented') : i18n.t('mine.mark_sold'))),
             el('button', { class: 'btn btn--danger btn--small', onclick: (e) => { e.stopPropagation(); deleteListing(l.id); } }, i18n.t('mine.delete')),
           ]),
         ]),
