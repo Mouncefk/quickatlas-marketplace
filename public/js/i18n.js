@@ -3484,10 +3484,16 @@ const i18n = {
     // Reconstruit l'URL correspondant à la position actuelle (annonce,
     // ville, pays ou catégorie consultée) avant de recharger, en
     // s'appuyant sur les mêmes routes déjà utilisées pour les liens
-    // partagés — pour ne pas ramener l'utilisateur à l'accueil.
+    // partagés — pour ne pas ramener l'utilisateur à l'accueil. Si
+    // l'admin est actif, on ne tient jamais compte d'une éventuelle
+    // sélection pays/ville antérieure (aucune route dédiée pour l'admin).
     try {
+      const adminView = document.getElementById('view-admin');
+      const isAdminActive = adminView && !adminView.hidden;
       let path = '/';
-      if (typeof currentListingId !== 'undefined' && currentListingId && !document.getElementById('listingModal').hidden) {
+      if (isAdminActive) {
+        path = '/';
+      } else if (typeof currentListingId !== 'undefined' && currentListingId && !document.getElementById('listingModal').hidden) {
         path = `/annonce/${currentListingId}`;
       } else if (typeof state !== 'undefined' && state.selectedCountry && state.selectedCity) {
         path = `/pays/${slugify(state.selectedCountry.name)}/${slugify(state.selectedCity.name)}`;
