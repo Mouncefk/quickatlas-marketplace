@@ -3667,7 +3667,7 @@ async function loadCityRequests() {
       body.append(
         el('tr', {}, [
           el('td', {}, r.city_name),
-          el('td', {}, r.state_name ? `${r.country_name} (${r.state_name})` : r.country_name),
+          el('td', {}, r.state_name ? `${listingCountryLabel(r)} (${r.state_name})` : listingCountryLabel(r)),
           el('td', {}, r.email),
           el('td', {}, r.message || '—'),
           el('td', {}, el('span', { class: `city-request-status city-request-status--${r.status}` }, i18n.t(`city_request.status_${r.status}`))),
