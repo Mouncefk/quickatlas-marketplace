@@ -977,6 +977,9 @@
         </div>
         <p class="form-hint" data-i18n="auth.password_rules">8 caractères minimum, avec au moins une lettre et un chiffre.</p>
       </div>
+      <div class="form-row">
+        <label><span data-i18n="auth.password_confirm">Confirmer le mot de passe</span> <input type="password" name="password_confirm" minlength="8" required id="registerPasswordConfirm" /></label>
+      </div>
       <label class="pro-account-toggle">
         <input type="checkbox" name="is_professional" id="registerIsProfessional" />
         <span data-i18n="auth.professional_toggle">Je m'inscris en tant que professionnel (annonceur)</span>
@@ -1009,6 +1012,9 @@
           <div class="password-strength-track"><div class="password-strength-fill" id="resetPasswordStrengthFill"></div></div>
           <span id="resetPasswordStrengthLabel"></span>
         </div>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="auth.password_confirm">Confirmer le mot de passe</span> <input type="password" name="password_confirm" minlength="8" required id="resetPasswordConfirm" /></label>
       </div>
       <p class="form-error" id="resetPasswordError" hidden></p>
       <button type="submit" class="btn btn--primary" data-i18n="auth.set_new_password">Valider le nouveau mot de passe</button>
