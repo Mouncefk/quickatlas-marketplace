@@ -213,11 +213,6 @@ button, input, select, textarea { font-family: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.global-search--discreet {
-  max-width: 380px;
-  flex-shrink: 0;
-  margin: 0;
-}
 .global-search--discreet input {
   padding: 11px 16px;
   font-size: 0.9rem;
@@ -276,6 +271,11 @@ body:not(.atlas-engaged) #recentlyViewedSection {
 }
 .global-search input::placeholder { color: rgba(241,233,216,0.45); }
 .global-search input:focus { border-color: var(--brass-500); }
+.global-search--discreet {
+  max-width: 380px;
+  flex-shrink: 0;
+  margin: 0;
+}
 .stats-bar {
   display: flex;
   gap: 28px;
