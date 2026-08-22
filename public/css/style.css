@@ -1974,6 +1974,7 @@ textarea { resize: vertical; }
   background: rgba(198,161,91,0.08); border: 1px solid rgba(198,161,91,0.25);
   border-radius: 8px; padding: 16px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 10px;
 }
+.pro-fields[hidden] { display: none; }
 .pro-badge {
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em;
@@ -2433,11 +2434,15 @@ textarea { resize: vertical; }
 /* ---------- Choix du type de compte (particulier/professionnel) ---------- */
 .account-type-toggle {
   display: flex;
+  width: 100%;
   gap: 8px;
   margin-bottom: 18px;
+  box-sizing: border-box;
 }
 .account-type-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
   background: var(--ink-700);
   border: 1px solid var(--ink-line);
   color: rgba(241,233,216,0.7);
