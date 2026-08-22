@@ -415,4 +415,14 @@ db.exec(`
     db.exec('ALTER TABLE listings ADD COLUMN transaction_completed INTEGER NOT NULL DEFAULT 0');
   }
 }
+// Migration : langue préférée de l'utilisateur, capturée à l'inscription
+// (parmi les langues pleinement actives sur le site) — utilisée pour
+// personnaliser les emails automatiques, à commencer par l'email de
+// bienvenue.
+{
+  const userColumns = db.prepare("PRAGMA table_info(users)").all();
+  if (!userColumns.some((c) => c.name === 'language')) {
+    db.exec("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'");
+  }
+}
 export default db;
