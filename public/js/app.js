@@ -2979,10 +2979,15 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     errEl.hidden = false;
   }
 });
-document.getElementById('registerIsProfessional').addEventListener('change', (e) => {
-  document.getElementById('registerProFields').hidden = !e.target.checked;
-  document.querySelector('#registerProFields input[name="company_name"]').required = e.target.checked;
-});
+function setAccountType(isPro) {
+  document.getElementById('registerIsProfessional').value = isPro ? 'on' : '';
+  document.getElementById('accountTypeParticulierBtn').classList.toggle('active', !isPro);
+  document.getElementById('accountTypeProBtn').classList.toggle('active', isPro);
+  document.getElementById('registerProFields').hidden = !isPro;
+  document.querySelector('#registerProFields input[name="company_name"]').required = isPro;
+}
+document.getElementById('accountTypeParticulierBtn').addEventListener('click', () => setAccountType(false));
+document.getElementById('accountTypeProBtn').addEventListener('click', () => setAccountType(true));
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -3001,6 +3006,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
         name: fd.get('name'), email: fd.get('email'), password: fd.get('password'), terms_accepted: fd.get('terms_accepted') === 'on',
         referral_code: new URLSearchParams(window.location.search).get('ref') || null,
         is_professional: isPro, company_name: fd.get('company_name'), company_website: fd.get('company_website'),
+        language: i18n.effectiveLang(),
       }),
     });
     onAuthSuccess(data);
