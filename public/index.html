@@ -967,6 +967,11 @@
       <button type="button" class="link-button" id="forgotPasswordLink" data-i18n="auth.forgot_password">Mot de passe oublié ?</button>
     </form>
     <form id="registerForm" class="atlas-form" hidden>
+      <div class="account-type-toggle" role="radiogroup" aria-label="Type de compte">
+        <button type="button" class="account-type-btn active" id="accountTypeParticulierBtn" data-i18n="auth.account_type_individual">👤 Particulier</button>
+        <button type="button" class="account-type-btn" id="accountTypeProBtn" data-i18n="auth.account_type_pro">💼 Professionnel</button>
+      </div>
+      <input type="hidden" name="is_professional" id="registerIsProfessional" value="" />
       <div class="form-row"><label><span data-i18n="auth.name">Nom</span> <input type="text" name="name" required /></label></div>
       <div class="form-row"><label><span data-i18n="auth.email">Email</span> <input type="email" name="email" required /></label></div>
       <div class="form-row">
@@ -980,10 +985,6 @@
       <div class="form-row">
         <label><span data-i18n="auth.password_confirm">Confirmer le mot de passe</span> <input type="password" name="password_confirm" minlength="8" required id="registerPasswordConfirm" /></label>
       </div>
-      <label class="pro-account-toggle">
-        <input type="checkbox" name="is_professional" id="registerIsProfessional" />
-        <span data-i18n="auth.professional_toggle">Je m'inscris en tant que professionnel (annonceur)</span>
-      </label>
       <div id="registerProFields" class="pro-fields" hidden>
         <div class="form-row"><label><span data-i18n="auth.company_name">Nom de l'entreprise</span> <input type="text" name="company_name" /></label></div>
         <div class="form-row"><label><span data-i18n="auth.company_website">Site web (optionnel)</span> <input type="text" name="company_website" placeholder="monentreprise.com" /></label></div>
