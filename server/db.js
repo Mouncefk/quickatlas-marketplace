@@ -425,4 +425,13 @@ db.exec(`
     db.exec("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'");
   }
 }
+// Réglages généraux du site, sous forme clé/valeur — commence avec le logo
+// personnalisé, réutilisable plus tard pour d'autres réglages globaux sans
+// nouvelle migration de schéma à chaque fois.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS site_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+`);
 export default db;
