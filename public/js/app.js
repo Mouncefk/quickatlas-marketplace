@@ -3642,11 +3642,11 @@ async function applyBrandLogo() {
     const customMark = document.getElementById('brandMarkCustom');
     if (res.url) {
       customMark.src = res.url;
-      customMark.hidden = false;
-      defaultMark.hidden = true;
+      customMark.removeAttribute('hidden');
+      defaultMark.setAttribute('hidden', '');
     } else {
-      customMark.hidden = true;
-      defaultMark.hidden = false;
+      customMark.setAttribute('hidden', '');
+      defaultMark.removeAttribute('hidden');
     }
   } catch { /* pas grave, le logo par défaut reste affiché */ }
 }
