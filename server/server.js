@@ -502,12 +502,218 @@ async function notifySavedSearchMatches(listing) {
 /** Email de bienvenue nominatif, envoyé une seule fois à l'inscription —
  * distinct de l'email de vérification, qui a un rôle purement technique.
  * Explique brièvement les fonctionnalités principales du site. */
-async function sendWelcomeEmail(name, email) {
+const WELCOME_EMAIL_TEMPLATES = {
+  fr: {
+    subject: (name) => `Bienvenue sur QuickAtlas, ${name} !`,
+    text: (name) => `Bonjour ${name},
+
+Bienvenue sur QuickAtlas ! Votre compte est créé, voici un guide complet pour bien démarrer :
+
+🗺️ EXPLORER
+Cliquez un pays sur la carte du monde, puis une ville, pour découvrir les annonces locales. La recherche globale et l'onglet "Toutes les annonces" permettent aussi de chercher dans le monde entier sans passer par la carte. Ajoutez vos destinations favorites en un clic pour y revenir directement depuis l'accueil.
+
+📝 PUBLIER
+Depuis "Publier une annonce", décrivez ce que vous vendez, louez ou recherchez (immobilier, véhicules, emploi, tourisme, et bien d'autres catégories). C'est gratuit, sans limite de publication, et visible dans 195 pays. Vos annonces restent actives 60 jours et se renouvellent en un clic.
+
+💬 ÉCHANGER
+Contactez directement un vendeur depuis sa fiche annonce (messagerie interne, ou WhatsApp s'il a renseigné son numéro). Vous pouvez faire une offre chiffrée, proposer un échange, ou comparer plusieurs annonces côte à côte avant de vous décider.
+
+🔔 ÊTRE ALERTÉ
+Enregistrez une recherche pour recevoir un email automatique dès qu'une nouvelle annonce correspondante est publiée.
+
+🛂 PASSEPORT & PARRAINAGE
+Retrouvez vos tampons de pays et votre lien de parrainage personnel dans "Passeport" — chaque personne inscrite via ce lien vous fait gagner un crédit de mise en avant gratuit.
+
+✅ TRANSACTION CONCLUE
+Marquez votre annonce comme "Vendue" ou "Louée" depuis "Mes annonces" — un cachet apparaîtra sur votre fiche pour informer les autres visiteurs.
+
+Besoin d'aide ? Le bouton "🧭 Mode d'emploi" en haut de chaque page reprend toutes ces explications à tout moment.
+
+Bonne exploration !
+L'équipe QuickAtlas`,
+  },
+  en: {
+    subject: (name) => `Welcome to QuickAtlas, ${name}!`,
+    text: (name) => `Hello ${name},
+
+Welcome to QuickAtlas! Your account is ready — here is a full guide to get you started:
+
+🗺️ EXPLORE
+Click a country on the world map, then a city, to discover local listings. The global search and the "All listings" tab also let you search the whole world without using the map. Add your favorite destinations with one click to access them directly from the home page.
+
+📝 PUBLISH
+From "Post a listing", describe what you are selling, renting or looking for (real estate, vehicles, jobs, travel, and many other categories). It's free, with no publishing limit, and visible in 195 countries. Your listings stay active for 60 days and renew in one click.
+
+💬 CONNECT
+Contact a seller directly from their listing (internal messaging, or WhatsApp if they provided a number). You can make a priced offer, propose a trade, or compare several listings side by side before deciding.
+
+🔔 GET ALERTED
+Save a search to receive an automatic email as soon as a matching listing is published.
+
+🛂 PASSPORT & REFERRAL
+Find your country stamps and your personal referral link in "Passport" — anyone who signs up through your link earns you a free boost credit.
+
+✅ DEAL COMPLETED
+Mark your listing as "Sold" or "Rented" from "My listings" — a stamp will appear on your listing to inform other visitors.
+
+Need help? The "🧭 Guide" button at the top of every page has all these explanations at any time.
+
+Happy exploring!
+The QuickAtlas team`,
+  },
+  it: {
+    subject: (name) => `Benvenuto/a su QuickAtlas, ${name}!`,
+    text: (name) => `Ciao ${name},
+
+Benvenuto/a su QuickAtlas! Il tuo account è pronto, ecco una guida completa per iniziare:
+
+🗺️ ESPLORA
+Clicca su un paese sulla mappa del mondo, poi su una città, per scoprire gli annunci locali. La ricerca globale e la scheda "Tutti gli annunci" permettono anche di cercare in tutto il mondo senza passare dalla mappa. Aggiungi le tue destinazioni preferite con un clic per ritrovarle direttamente dalla home.
+
+📝 PUBBLICA
+Da "Pubblica un annuncio", descrivi cosa vendi, affitti o cerchi (immobili, veicoli, lavoro, turismo e molte altre categorie). È gratuito, senza limiti di pubblicazione, e visibile in 195 paesi. I tuoi annunci restano attivi 60 giorni e si rinnovano con un clic.
+
+💬 COMUNICA
+Contatta direttamente un venditore dal suo annuncio (messaggistica interna, o WhatsApp se ha indicato un numero). Puoi fare un'offerta in cifre, proporre uno scambio, o confrontare più annunci fianco a fianco prima di decidere.
+
+🔔 RICEVI AVVISI
+Salva una ricerca per ricevere un'email automatica non appena viene pubblicato un annuncio corrispondente.
+
+🛂 PASSAPORTO E INVITI
+Trova i tuoi timbri dei paesi e il tuo link di invito personale in "Passaporto" — ogni persona che si iscrive tramite questo link ti fa guadagnare un credito di visibilità gratuito.
+
+✅ TRANSAZIONE CONCLUSA
+Segna il tuo annuncio come "Venduto" o "Affittato" da "I miei annunci" — un timbro apparirà sul tuo annuncio per informare gli altri visitatori.
+
+Hai bisogno di aiuto? Il pulsante "🧭 Guida" in alto in ogni pagina riprende tutte queste spiegazioni in qualsiasi momento.
+
+Buona esplorazione!
+Il team QuickAtlas`,
+  },
+  ar: {
+    subject: (name) => `مرحبًا بك في QuickAtlas يا ${name}!`,
+    text: (name) => `مرحبًا ${name}،
+
+مرحبًا بك في QuickAtlas! تم إنشاء حسابك، إليك دليل كامل للبدء:
+
+🗺️ الاستكشاف
+انقر على بلد في خريطة العالم، ثم على مدينة، لاكتشاف الإعلانات المحلية. يتيح لك البحث الشامل وتبويب "جميع الإعلانات" أيضًا البحث في العالم كله دون المرور بالخريطة. أضف وجهاتك المفضلة بنقرة واحدة للوصول إليها مباشرة من الصفحة الرئيسية.
+
+📝 النشر
+من "نشر إعلان"، صف ما تبيعه أو تؤجره أو تبحث عنه (عقارات، مركبات، وظائف، سياحة، وفئات أخرى كثيرة). الخدمة مجانية، دون حد للنشر، ومرئية في 195 دولة. تبقى إعلاناتك نشطة لمدة 60 يومًا وتتجدد بنقرة واحدة.
+
+💬 التواصل
+تواصل مباشرة مع بائع من صفحة إعلانه (المراسلة الداخلية، أو واتساب إذا قدّم رقمه). يمكنك تقديم عرض بسعر محدد، أو اقتراح مقايضة، أو مقارنة عدة إعلانات جنبًا إلى جنب قبل اتخاذ القرار.
+
+🔔 التنبيهات
+احفظ عملية بحث لتلقي بريد إلكتروني تلقائي فور نشر إعلان مطابق.
+
+🛂 جواز السفر والإحالة
+اعثر على أختام بلدانك ورابط الإحالة الخاص بك في "جواز السفر" — كل شخص يسجل عبر رابطك يمنحك رصيدًا مجانيًا للإبراز.
+
+✅ إتمام الصفقة
+ضع علامة على إعلانك كـ"مُباع" أو "مُؤجَّر" من "إعلاناتي" — سيظهر ختم على إعلانك لإعلام الزوار الآخرين.
+
+بحاجة إلى مساعدة؟ زر "🧭 دليل الاستخدام" أعلى كل صفحة يعرض كل هذه الشروحات في أي وقت.
+
+استكشافًا سعيدًا!
+فريق QuickAtlas`,
+  },
+  es: {
+    subject: (name) => `¡Bienvenido/a a QuickAtlas, ${name}!`,
+    text: (name) => `Hola ${name},
+
+¡Bienvenido/a a QuickAtlas! Su cuenta está creada, aquí tiene una guía completa para empezar:
+
+🗺️ EXPLORAR
+Haga clic en un país en el mapa del mundo, luego en una ciudad, para descubrir los anuncios locales. La búsqueda global y la pestaña "Todos los anuncios" también permiten buscar en todo el mundo sin pasar por el mapa. Añada sus destinos favoritos con un clic para volver a ellos directamente desde el inicio.
+
+📝 PUBLICAR
+Desde "Publicar anuncio", describa lo que vende, alquila o busca (inmuebles, vehículos, empleo, turismo y muchas otras categorías). Es gratis, sin límite de publicación, y visible en 195 países. Sus anuncios permanecen activos 60 días y se renuevan con un clic.
+
+💬 COMUNICARSE
+Contacte directamente con un vendedor desde su anuncio (mensajería interna, o WhatsApp si indicó un número). Puede hacer una oferta con precio, proponer un intercambio, o comparar varios anuncios lado a lado antes de decidir.
+
+🔔 RECIBIR ALERTAS
+Guarde una búsqueda para recibir un correo automático en cuanto se publique un anuncio coincidente.
+
+🛂 PASAPORTE Y REFERIDOS
+Encuentre sus sellos de países y su enlace de referido personal en "Pasaporte" — cada persona que se registre a través de su enlace le otorga un crédito de destaque gratuito.
+
+✅ TRANSACCIÓN CONCLUIDA
+Marque su anuncio como "Vendido" o "Alquilado" desde "Mis anuncios" — aparecerá un sello en su anuncio para informar a otros visitantes.
+
+¿Necesita ayuda? El botón "🧭 Guía" en la parte superior de cada página recoge todas estas explicaciones en cualquier momento.
+
+¡Feliz exploración!
+El equipo de QuickAtlas`,
+  },
+  pt: {
+    subject: (name) => `Bem-vindo(a) ao QuickAtlas, ${name}!`,
+    text: (name) => `Olá ${name},
+
+Bem-vindo(a) ao QuickAtlas! A sua conta está criada, aqui tem um guia completo para começar:
+
+🗺️ EXPLORAR
+Clique num país no mapa-múndi, depois numa cidade, para descobrir os anúncios locais. A pesquisa global e o separador "Todos os anúncios" também permitem pesquisar no mundo inteiro sem passar pelo mapa. Adicione os seus destinos favoritos com um clique para voltar a eles diretamente a partir do início.
+
+📝 PUBLICAR
+A partir de "Publicar anúncio", descreva o que vende, aluga ou procura (imóveis, veículos, emprego, turismo e muitas outras categorias). É gratuito, sem limite de publicação, e visível em 195 países. Os seus anúncios permanecem ativos 60 dias e renovam-se com um clique.
+
+💬 COMUNICAR
+Contacte diretamente um vendedor a partir do seu anúncio (mensagens internas, ou WhatsApp se tiver indicado um número). Pode fazer uma oferta com preço, propor uma troca, ou comparar vários anúncios lado a lado antes de decidir.
+
+🔔 RECEBER ALERTAS
+Guarde uma pesquisa para receber um email automático assim que for publicado um anúncio correspondente.
+
+🛂 PASSAPORTE E REFERENCIAÇÃO
+Encontre os seus carimbos de países e o seu link de referenciação pessoal em "Passaporte" — cada pessoa que se inscreva através do seu link concede-lhe um crédito de destaque gratuito.
+
+✅ TRANSAÇÃO CONCLUÍDA
+Marque o seu anúncio como "Vendido" ou "Alugado" a partir de "Meus anúncios" — um carimbo aparecerá no seu anúncio para informar outros visitantes.
+
+Precisa de ajuda? O botão "🧭 Guia" no topo de cada página reúne todas estas explicações a qualquer momento.
+
+Boas explorações!
+A equipa QuickAtlas`,
+  },
+  de: {
+    subject: (name) => `Willkommen bei QuickAtlas, ${name}!`,
+    text: (name) => `Hallo ${name},
+
+Willkommen bei QuickAtlas! Ihr Konto ist erstellt, hier ist ein vollständiger Leitfaden für den Einstieg:
+
+🗺️ ENTDECKEN
+Klicken Sie auf ein Land auf der Weltkarte, dann auf eine Stadt, um lokale Anzeigen zu entdecken. Die globale Suche und der Reiter "Alle Anzeigen" ermöglichen es auch, weltweit zu suchen, ohne die Karte zu nutzen. Fügen Sie Ihre Lieblingsziele mit einem Klick hinzu, um direkt von der Startseite aus darauf zuzugreifen.
+
+📝 VERÖFFENTLICHEN
+Beschreiben Sie unter "Anzeige aufgeben", was Sie verkaufen, vermieten oder suchen (Immobilien, Fahrzeuge, Jobs, Reisen und viele weitere Kategorien). Es ist kostenlos, ohne Veröffentlichungslimit, und in 195 Ländern sichtbar. Ihre Anzeigen bleiben 60 Tage aktiv und werden mit einem Klick verlängert.
+
+💬 KONTAKTIEREN
+Kontaktieren Sie einen Verkäufer direkt über seine Anzeige (interne Nachrichten oder WhatsApp, falls eine Nummer angegeben wurde). Sie können ein bepreistes Angebot machen, einen Tausch vorschlagen oder mehrere Anzeigen vor der Entscheidung nebeneinander vergleichen.
+
+🔔 BENACHRICHTIGT WERDEN
+Speichern Sie eine Suche, um automatisch eine E-Mail zu erhalten, sobald eine passende Anzeige veröffentlicht wird.
+
+🛂 PASS & EMPFEHLUNG
+Finden Sie Ihre Länderstempel und Ihren persönlichen Empfehlungslink unter "Reisepass" — jede Person, die sich über Ihren Link registriert, bringt Ihnen ein kostenloses Hervorhebungsguthaben ein.
+
+✅ GESCHÄFT ABGESCHLOSSEN
+Markieren Sie Ihre Anzeige unter "Meine Anzeigen" als "Verkauft" oder "Vermietet" — ein Stempel erscheint auf Ihrer Anzeige, um andere Besucher zu informieren.
+
+Brauchen Sie Hilfe? Die Schaltfläche "🧭 Anleitung" oben auf jeder Seite enthält all diese Erklärungen jederzeit.
+
+Viel Spaß beim Entdecken!
+Das QuickAtlas-Team`,
+  },
+};
+async function sendWelcomeEmail(name, email, language) {
+  const template = WELCOME_EMAIL_TEMPLATES[language] || WELCOME_EMAIL_TEMPLATES.fr;
   await sendMail({
     to: email,
     purpose: 'welcome',
-    subject: `Bienvenue sur QuickAtlas, ${name} !`,
-    text: `Bonjour ${name},\n\nBienvenue sur QuickAtlas ! Votre compte est créé, voici un rapide tour du propriétaire :\n\n🗺️ EXPLORER — Cliquez un pays sur la carte, puis une ville, pour découvrir les annonces. La recherche globale et les catégories vous permettent aussi de chercher partout dans le monde d'un coup.\n\n📝 PUBLIER — Depuis "Publier une annonce", décrivez ce que vous vendez, louez ou recherchez. C'est gratuit, sans limite, et visible dans 195 pays.\n\n💬 ÉCHANGER — Contactez directement un vendeur depuis sa fiche, faites une offre, ou proposez un échange.\n\n🔔 ÊTRE ALERTÉ — Enregistrez une recherche pour recevoir un email dès qu'une annonce correspondante est publiée.\n\n🛂 PASSEPORT — Retrouvez vos tampons de pays, votre lien de parrainage et vos coordonnées dans "Passeport".\n\nBonne exploration !\nL'équipe QuickAtlas`,
+    subject: template.subject(name),
+    text: template.text(name),
     link: SITE_URL,
   });
 }
@@ -709,7 +915,7 @@ const server = http.createServer(async (req, res) => {
   }
   try {
     if (pathname === '/api/auth/register' && method === 'POST') {
-      const { name, email, password, terms_accepted, referral_code, is_professional, company_name, company_website } = await readBody(req);
+      const { name, email, password, terms_accepted, referral_code, is_professional, company_name, company_website, language } = await readBody(req);
       if (!name || !isValidEmail(email)) {
         return sendJSON(res, 400, { error: 'Nom et email valide requis.' });
       }
@@ -723,6 +929,8 @@ const server = http.createServer(async (req, res) => {
       if (is_professional && (!company_name || !company_name.trim())) {
         return sendJSON(res, 400, { error: "Le nom de l'entreprise est requis pour un compte professionnel." });
       }
+      const SUPPORTED_EMAIL_LANGUAGES = ['fr', 'en', 'it', 'ar', 'es', 'pt', 'de'];
+      const userLanguage = SUPPORTED_EMAIL_LANGUAGES.includes(language) ? language : 'fr';
       const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
       if (existing) return sendJSON(res, 409, { error: 'Un compte existe déjà avec cet email.' });
       const { salt, hash } = hashPassword(password);
@@ -731,19 +939,19 @@ const server = http.createServer(async (req, res) => {
       if (referral_code) referrer = db.prepare('SELECT id FROM users WHERE referral_code = ?').get(referral_code.trim().toUpperCase());
       const id = db
         .prepare(
-          `INSERT INTO users (name, email, password_hash, password_salt, terms_accepted_at, referral_code, referred_by_user_id, is_professional, company_name, company_website)
-           VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?)`
+          `INSERT INTO users (name, email, password_hash, password_salt, terms_accepted_at, referral_code, referred_by_user_id, is_professional, company_name, company_website, language)
+           VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`
         )
         .run(
           name.trim(), email.toLowerCase(), hash, salt, myReferralCode, referrer ? referrer.id : null,
-          is_professional ? 1 : 0, is_professional ? company_name.trim() : null, is_professional ? (company_website || '').trim() || null : null
+          is_professional ? 1 : 0, is_professional ? company_name.trim() : null, is_professional ? (company_website || '').trim() || null : null, userLanguage
         ).lastInsertRowid;
       if (referrer) {
         db.prepare('UPDATE users SET free_boost_credits = free_boost_credits + 1 WHERE id = ?').run(referrer.id);
       }
       const token = signToken({ sub: id });
       await sendVerificationEmail(id, name.trim(), email.toLowerCase());
-      sendWelcomeEmail(name.trim(), email.toLowerCase()).catch((err) => console.error('[welcome-email] échec :', err.message));
+      sendWelcomeEmail(name.trim(), email.toLowerCase(), userLanguage).catch((err) => console.error('[welcome-email] échec :', err.message));
       return sendJSON(res, 201, { token, user: { id, name, email: email.toLowerCase(), role: 'user', email_verified: false, referral_code: myReferralCode, free_boost_credits: 0, phone: null, is_professional: !!is_professional, company_name: is_professional ? company_name.trim() : null } });
     }
     if (pathname === '/api/auth/login' && method === 'POST') {
