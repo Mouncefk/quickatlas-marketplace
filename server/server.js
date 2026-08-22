@@ -2474,6 +2474,27 @@ const server = http.createServer(async (req, res) => {
     // automatique des demandes en attente (checkCityRequestFulfillments)
     // détectera cette nouvelle ville lors de son prochain passage horaire,
     // sans action supplémentaire nécessaire.
+    // Logo personnalisé — lecture publique (affiché à tous les visiteurs),
+    // modification et réinitialisation réservées à l'administration.
+    if (pathname === '/api/settings/logo' && method === 'GET') {
+      const row = db.prepare("SELECT value FROM site_settings WHERE key = 'logo_url'").get();
+      return sendJSON(res, 200, { url: row ? row.value : null });
+    }
+    if (pathname === '/api/admin/settings/logo' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const logoUrl = (body.url || '').trim();
+      if (!logoUrl) return sendJSON(res, 400, { error: 'URL de logo requise.' });
+      db.prepare("INSERT INTO site_settings (key, value) VALUES ('logo_url', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(logoUrl);
+      return sendJSON(res, 200, { url: logoUrl });
+    }
+    if (pathname === '/api/admin/settings/logo' && method === 'DELETE') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      db.prepare("DELETE FROM site_settings WHERE key = 'logo_url'").run();
+      return sendJSON(res, 200, { ok: true });
+    }
     if (pathname === '/api/admin/cities' && method === 'POST') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
