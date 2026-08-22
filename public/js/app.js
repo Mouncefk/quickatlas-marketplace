@@ -3612,9 +3612,83 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminEmailsPanel').hidden = btn.dataset.adminTab !== 'emails';
     document.getElementById('adminCategoriesPanel').hidden = btn.dataset.adminTab !== 'categories';
     document.getElementById('adminCityRequestsPanel').hidden = btn.dataset.adminTab !== 'city-requests';
+    document.getElementById('adminAppearancePanel').hidden = btn.dataset.adminTab !== 'appearance';
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
+    if (btn.dataset.adminTab === 'appearance') loadAdminLogoPreview();
   })
 );
+/** Affiche l'aperçu du logo actuel dans le panneau admin (image
+ * personnalisée si définie, sinon le compas par défaut). */
+async function loadAdminLogoPreview() {
+  const preview = document.getElementById('adminLogoPreview');
+  try {
+    const res = await api('/settings/logo');
+    preview.innerHTML = '';
+    if (res.url) {
+      preview.append(el('img', { src: res.url, alt: '', class: 'logo-settings-preview-img' }));
+    } else {
+      preview.append(el('span', { class: 'logo-settings-preview-default' }, i18n.t('admin.logo_default_label')));
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+/** Applique le logo (personnalisé ou par défaut) dans l'en-tête, pour tous
+ * les visiteurs — appelée au démarrage du site. */
+async function applyBrandLogo() {
+  try {
+    const res = await api('/settings/logo');
+    const defaultMark = document.getElementById('brandMarkDefault');
+    const customMark = document.getElementById('brandMarkCustom');
+    if (res.url) {
+      customMark.src = res.url;
+      customMark.hidden = false;
+      defaultMark.hidden = true;
+    } else {
+      customMark.hidden = true;
+      defaultMark.hidden = false;
+    }
+  } catch { /* pas grave, le logo par défaut reste affiché */ }
+}
+document.getElementById('adminLogoFile')?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  if (!allowed.includes(file.type)) { showToast(i18n.t('upload.invalid_type')); e.target.value = ''; return; }
+  if (file.size > 5_000_000) { showToast(i18n.t('upload.too_large')); e.target.value = ''; return; }
+  const progress = document.getElementById('adminLogoUploadProgress');
+  progress.hidden = false;
+  progress.textContent = i18n.t('upload.in_progress');
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const uploadRes = await api('/uploads', { method: 'POST', body: JSON.stringify({ data: base64, mime: file.type }) });
+    await api('/admin/settings/logo', { method: 'POST', body: JSON.stringify({ url: uploadRes.url }) });
+    progress.hidden = true;
+    e.target.value = '';
+    showToast(i18n.t('admin.logo_updated'));
+    loadAdminLogoPreview();
+    applyBrandLogo();
+  } catch (err) {
+    showToast(err.message);
+    progress.hidden = true;
+    e.target.value = '';
+  }
+});
+document.getElementById('adminLogoResetBtn')?.addEventListener('click', async () => {
+  try {
+    await api('/admin/settings/logo', { method: 'DELETE' });
+    showToast(i18n.t('admin.logo_reset_toast'));
+    loadAdminLogoPreview();
+    applyBrandLogo();
+  } catch (e) {
+    showToast(e.message);
+  }
+});
 let addCityFormInitialized = false;
 async function handleAddCityCountryChange() {
   const select = document.getElementById('addCityCountrySelect');
@@ -4129,6 +4203,7 @@ document.getElementById('cityRequestForm')?.addEventListener('submit', async (e)
 async function boot() {
   initLanguagePicker();
   trackSiteVisit();
+  applyBrandLogo();
   renderAuthZone();
   if (state.token) {
     try {
