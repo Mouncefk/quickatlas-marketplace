@@ -26,11 +26,12 @@
 <header class="site-header">
   <div class="header-inner">
     <a href="#/" class="brand" data-nav="explore">
-      <svg class="brand-mark" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <svg class="brand-mark" id="brandMarkDefault" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <circle cx="24" cy="24" r="21" stroke="currentColor" stroke-width="1.5"/>
         <path d="M24 6 L27 21 L42 24 L27 27 L24 42 L21 27 L6 24 L21 21 Z" fill="currentColor"/>
         <circle cx="24" cy="24" r="2.4" fill="var(--ink-900)"/>
       </svg>
+      <img class="brand-mark brand-mark--custom" id="brandMarkCustom" alt="" hidden />
       <span class="brand-word">QUICKATLAS</span>
     </a>
     <nav class="main-nav">
@@ -504,6 +505,7 @@
         <button class="auth-tab" data-admin-tab="emails" data-i18n="admin.tab_emails">Emails</button>
         <button class="auth-tab" data-admin-tab="categories" data-i18n="admin.tab_categories">Catégories</button>
         <button class="auth-tab" data-admin-tab="city-requests" data-i18n="admin.tab_city_requests">Villes demandées</button>
+        <button class="auth-tab" data-admin-tab="appearance" data-i18n="admin.tab_appearance">Apparence</button>
       </div>
       <div id="adminDashboardPanel" class="admin-panel">
         <div class="dashboard-cards" id="dashboardCards"></div>
@@ -610,6 +612,19 @@
           </tr></thead>
           <tbody id="adminCityRequestsBody"></tbody>
         </table>
+      </div>
+      <div id="adminAppearancePanel" class="admin-panel" hidden>
+        <h3 class="admin-subsection-title" data-i18n="admin.logo_title">Logo du site</h3>
+        <p class="hero-sub" data-i18n="admin.logo_intro">Remplace l'icône par défaut (le compas) dans l'en-tête du site, pour tous les visiteurs. Format carré recommandé, fond transparent de préférence.</p>
+        <div class="logo-settings-current">
+          <span data-i18n="admin.logo_current">Aperçu actuel :</span>
+          <div id="adminLogoPreview" class="logo-settings-preview"></div>
+        </div>
+        <label><span data-i18n="admin.logo_upload_label">Choisir une nouvelle image</span>
+          <input type="file" id="adminLogoFile" accept="image/png,image/jpeg,image/webp,image/gif" />
+        </label>
+        <p class="upload-progress" id="adminLogoUploadProgress" hidden></p>
+        <button type="button" id="adminLogoResetBtn" class="btn btn--ghost btn--small" data-i18n="admin.logo_reset">Revenir au logo par défaut</button>
       </div>
     </div>
   </section>
