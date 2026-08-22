@@ -2430,3 +2430,27 @@ textarea { resize: vertical; }
   display: inline-block;
   box-shadow: none;
 }
+/* ---------- Choix du type de compte (particulier/professionnel) ---------- */
+.account-type-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.account-type-btn {
+  flex: 1;
+  background: var(--ink-700);
+  border: 1px solid var(--ink-line);
+  color: rgba(241,233,216,0.7);
+  padding: 12px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.account-type-btn:hover { border-color: var(--brass-500); }
+.account-type-btn.active {
+  background: rgba(198,161,91,0.14);
+  border-color: var(--brass-500);
+  color: var(--brass-300);
+}
