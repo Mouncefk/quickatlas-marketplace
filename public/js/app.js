@@ -1729,6 +1729,7 @@ async function loadFavoriteDestinations() {
     const { countries, cities } = await api('/me/favorite-destinations');
     state.favoriteCountryIds = new Set(countries.map((c) => c.id));
     state.favoriteCityIds = new Set(cities.map((c) => c.id));
+    renderFavoriteHeartsOnMap();
     const grid = document.getElementById('favoriteDestinationsGrid');
     grid.innerHTML = '';
     if (countries.length === 0 && cities.length === 0) { section.hidden = true; return; }
@@ -1770,6 +1771,7 @@ async function toggleFavoriteCountry(countryId, btnEl) {
       btnEl.textContent = !isFav ? `♥ ${i18n.t('destinations.remove')}` : `♡ ${i18n.t('destinations.add')}`;
     }
     loadFavoriteDestinations();
+    renderFavoriteHeartsOnMap();
   } catch (e) {
     showToast(e.message);
   }
@@ -1790,6 +1792,7 @@ async function toggleFavoriteCity(cityId, btnEl) {
       btnEl.textContent = !isFav ? '♥' : '♡';
     }
     loadFavoriteDestinations();
+    renderFavoriteHeartsOnMap();
   } catch (e) {
     showToast(e.message);
   }
@@ -3032,6 +3035,28 @@ function onAuthSuccess(data) {
 // ---------- Carte du monde (D3 + world-atlas) ----------
 let mapSelection = null;
 let countryPathsByIso = {};
+/** Affiche un petit cœur sur chaque pays déjà mis en favori, directement
+ * sur la carte du monde — indicateur visuel uniquement, la mise en favori
+ * elle-même reste gérée depuis la fiche pays (bouton cœur existant). */
+function renderFavoriteHeartsOnMap() {
+  if (!mapSelection) return;
+  mapSelection.selectAll('.country-favorite-heart').remove();
+  if (!state.favoriteCountryIds || state.favoriteCountryIds.size === 0) return;
+  const isoToCountry = {};
+  state.countries.forEach((c) => (isoToCountry[String(Number(c.iso_numeric))] = c));
+  mapSelection.selectAll('path.country-shape').each(function () {
+    const iso = this.getAttribute('data-iso');
+    const country = isoToCountry[iso];
+    if (!country || !state.favoriteCountryIds.has(country.id)) return;
+    const bbox = this.getBBox();
+    d3.select(this.parentNode)
+      .append('text')
+      .attr('class', 'country-favorite-heart')
+      .attr('x', bbox.x + bbox.width / 2)
+      .attr('y', bbox.y + bbox.height / 2)
+      .text('❤️');
+  });
+}
 async function initMap() {
   const container = document.getElementById('mapContainer');
   const width = container.clientWidth || 960;
@@ -3084,6 +3109,7 @@ async function initMap() {
     zoomLayer.append('path').datum(nightCircle).attr('d', path).attr('class', 'night-overlay');
   } catch { /* décoratif uniquement : on ignore si d3.geoCircle n'est pas disponible */ }
   mapSelection = zoomLayer;
+  renderFavoriteHeartsOnMap();
 }
 function highlightCountryOnMap(isoNumeric) {
   if (!mapSelection) return;
