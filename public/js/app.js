@@ -244,6 +244,7 @@ function logout() {
 function openAuthModal(tab = 'login') {
   document.getElementById('authModal').hidden = false;
   switchAuthTab(tab);
+  setAccountType(false);
 }
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === (tab === 'forgot' || tab === 'reset' ? 'login' : tab)));
