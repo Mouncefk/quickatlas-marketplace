@@ -455,4 +455,21 @@ db.exec(`
     }
   }
 }
+// Boîte de réception admin — emails reçus sur contact@quickatlas.net,
+// synchronisés périodiquement via IMAP (voir checkInboxEmails côté
+// serveur). uid = identifiant IMAP du message, utilisé pour éviter les
+// doublons d'une synchronisation à l'autre.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS inbox_emails (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uid INTEGER UNIQUE NOT NULL,
+    from_address TEXT NOT NULL,
+    from_name TEXT,
+    subject TEXT,
+    body_text TEXT,
+    received_at TEXT NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    replied INTEGER NOT NULL DEFAULT 0
+  );
+`);
 export default db;
