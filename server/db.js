@@ -472,4 +472,14 @@ db.exec(`
     replied INTEGER NOT NULL DEFAULT 0
   );
 `);
+// Migration : version HTML du corps de l'email — les emails automatiques
+// (notifications de réseaux sociaux, newsletters) ont souvent une version
+// texte brut illisible (pleine de liens de suivi), alors que la version
+// HTML s'affiche normalement comme dans une vraie messagerie.
+{
+  const inboxColumns = db.prepare("PRAGMA table_info(inbox_emails)").all();
+  if (!inboxColumns.some((c) => c.name === 'body_html')) {
+    db.exec('ALTER TABLE inbox_emails ADD COLUMN body_html TEXT');
+  }
+}
 export default db;
