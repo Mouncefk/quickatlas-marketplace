@@ -695,7 +695,13 @@
         <button type="button" id="adminLogoResetBtn" class="btn btn--ghost btn--small" data-i18n="admin.logo_reset">Revenir au logo par défaut</button>
       </div>
       <div id="adminInboxPanel" class="admin-panel" hidden>
-        <button type="button" id="adminInboxComposeBtn" class="btn btn--primary btn--small" data-i18n="admin.inbox_compose_button">✉️ Nouveau message</button>
+        <div class="inbox-toolbar">
+          <div class="inbox-view-toggle">
+            <button type="button" class="auth-tab active" id="adminInboxViewReceivedBtn" data-i18n="admin.inbox_view_received">📥 Boîte de réception</button>
+            <button type="button" class="auth-tab" id="adminInboxViewSentBtn" data-i18n="admin.inbox_view_sent">📤 Messages envoyés</button>
+          </div>
+          <button type="button" id="adminInboxComposeBtn" class="btn btn--primary btn--small" data-i18n="admin.inbox_compose_button">✉️ Nouveau message</button>
+        </div>
         <div class="messages-layout">
           <aside class="conversations-list" id="adminInboxList"></aside>
           <div class="conversation-thread" id="adminInboxThread">
