@@ -226,7 +226,7 @@
   </section>
   <!-- ===== PUBLISH ===== -->
   <section id="view-publish" class="view" hidden>
-    <div class="form-page">
+    <div class="form-page form-page--wide">
       <p class="eyebrow" data-i18n="publish.eyebrow">NOUVELLE ANNONCE</p>
       <h1 data-i18n="publish.title">Publier un bien</h1>
       <p class="hero-sub" data-i18n="publish.sub">Décrivez ce que vous vendez ou louez. Votre annonce sera visible dès sa publication.</p>
@@ -345,10 +345,15 @@
         </div>
         <aside class="publish-side-panel" id="publishSidePanel">
           <h3 class="publish-side-panel-title" data-i18n="publish.side_panel_title">Détails spécifiques</h3>
-          <label class="terms-checkbox">
-            <input type="checkbox" name="is_secondhand" id="secondhandCheckbox" />
-            <span data-i18n="publish.secondhand_label">♻️ Cet article est d'occasion / de seconde main</span>
-          </label>
+          <div class="form-row">
+            <p class="form-hint" data-i18n="publish.condition_question">Ce produit est neuf ?</p>
+            <div class="account-type-toggle" id="conditionToggle" role="radiogroup" aria-label="État du produit">
+              <button type="button" class="account-type-btn" id="conditionNewBtn" data-i18n="publish.condition_new">✨ Neuf</button>
+              <button type="button" class="account-type-btn" id="conditionUsedBtn" data-i18n="publish.condition_used">♻️ Occasion</button>
+            </div>
+            <input type="hidden" name="is_secondhand" id="secondhandCheckbox" value="" />
+            <p class="form-error" id="conditionError" hidden data-i18n="publish.condition_required">Merci de préciser si le produit est neuf ou d'occasion.</p>
+          </div>
           <div id="tourismLodgingRow" hidden>
             <div class="form-row form-row--split">
               <label><span data-i18n="publish.label_capacity">Capacité (voyageurs)</span>
