@@ -434,4 +434,25 @@ db.exec(`
     value TEXT
   );
 `);
+// Migration : champs spécifiques à la catégorie Véhicules (marque, modèle,
+// année, kilométrage, état, transmission, carburant) — première étape d'un
+// effort progressif pour détailler chaque catégorie, comme ça avait déjà
+// été fait pour le Tourisme (Hébergement).
+{
+  const listingColumns2 = db.prepare("PRAGMA table_info(listings)").all();
+  const vehicleColumns = [
+    ['vehicle_brand', 'TEXT'],
+    ['vehicle_model', 'TEXT'],
+    ['vehicle_year', 'INTEGER'],
+    ['vehicle_mileage', 'INTEGER'],
+    ['vehicle_condition', 'TEXT'],
+    ['vehicle_transmission', 'TEXT'],
+    ['vehicle_fuel_type', 'TEXT'],
+  ];
+  for (const [name, type] of vehicleColumns) {
+    if (!listingColumns2.some((c) => c.name === name)) {
+      db.exec(`ALTER TABLE listings ADD COLUMN ${name} ${type}`);
+    }
+  }
+}
 export default db;
