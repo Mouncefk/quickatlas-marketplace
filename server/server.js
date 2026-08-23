@@ -2567,13 +2567,16 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, 400, { error: 'Destinataire, sujet et message sont requis.' });
       }
       await sendMail({ to, purpose: 'admin_compose', subject, text, link: SITE_URL });
+      db.prepare(
+        'INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read) VALUES (?, ?, ?, ?, ?, datetime(\'now\'), \'sent\', 1)'
+      ).run(-Date.now() - Math.floor(Math.random() * 1000), admin.email || 'contact@quickatlas.net', to, subject, text);
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/admin/inbox' && method === 'GET') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
       const rows = db
-        .prepare('SELECT id, from_address, from_name, subject, received_at, is_read, replied FROM inbox_emails ORDER BY received_at DESC LIMIT 200')
+        .prepare('SELECT id, from_address, from_name, to_address, subject, received_at, is_read, replied, direction FROM inbox_emails ORDER BY received_at DESC LIMIT 200')
         .all();
       return sendJSON(res, 200, rows);
     }
@@ -2583,7 +2586,8 @@ const server = http.createServer(async (req, res) => {
       const email = db.prepare('SELECT * FROM inbox_emails WHERE id = ?').get(Number(m[1]));
       if (!email) return sendJSON(res, 404, { error: 'Email introuvable.' });
       db.prepare('UPDATE inbox_emails SET is_read = 1 WHERE id = ?').run(email.id);
-      return sendJSON(res, 200, email);
+      const sentReplies = db.prepare('SELECT * FROM inbox_emails WHERE in_reply_to_id = ? ORDER BY received_at ASC').all(email.id);
+      return sendJSON(res, 200, { ...email, sent_replies: sentReplies });
     }
     if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)\/reply$/)) && method === 'POST') {
       const admin = requireAdmin(req, res);
@@ -2601,6 +2605,16 @@ const server = http.createServer(async (req, res) => {
         link: SITE_URL,
       });
       db.prepare('UPDATE inbox_emails SET replied = 1 WHERE id = ?').run(email.id);
+      db.prepare(
+        'INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read, in_reply_to_id) VALUES (?, ?, ?, ?, ?, datetime(\'now\'), \'sent\', 1, ?)'
+      ).run(
+        -Date.now() - Math.floor(Math.random() * 1000),
+        admin.email || 'contact@quickatlas.net',
+        email.from_address,
+        email.subject && email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
+        replyText,
+        email.id
+      );
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/admin/cities' && method === 'POST') {
