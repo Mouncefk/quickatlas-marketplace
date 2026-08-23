@@ -13,7 +13,9 @@
     "go-live": "node --env-file-if-exists=.env server/go-live.js"
   },
   "dependencies": {
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "imapflow": "^1.7.1",
+    "mailparser": "^3.9.15"
   },
   "license": "UNLICENSED"
 }
