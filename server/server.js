@@ -2575,9 +2575,10 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/admin/inbox' && method === 'GET') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
+      const view = url.searchParams.get('view') === 'sent' ? 'sent' : 'received';
       const rows = db
-        .prepare("SELECT id, from_address, from_name, to_address, subject, received_at, is_read, replied, direction FROM inbox_emails WHERE NOT (direction = 'sent' AND in_reply_to_id IS NOT NULL) ORDER BY received_at DESC LIMIT 200")
-        .all();
+        .prepare('SELECT id, from_address, from_name, to_address, subject, received_at, is_read, replied, direction FROM inbox_emails WHERE direction = ? ORDER BY received_at DESC LIMIT 200')
+        .all(view);
       return sendJSON(res, 200, rows);
     }
     if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)$/)) && method === 'GET') {
