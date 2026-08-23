@@ -3783,16 +3783,17 @@ async function loadAdminInbox() {
       return;
     }
     for (const mail of emails) {
+      const isSent = mail.direction === 'sent';
       list.append(
         el('button', {
           class: `conversation-item ${!mail.is_read ? 'is-unread' : ''}`,
           type: 'button',
           onclick: () => openAdminInboxEmail(mail.id),
         }, [
-          el('span', { class: 'conversation-item-name' }, mail.from_name || mail.from_address),
+          el('span', { class: 'conversation-item-name' }, `${isSent ? '↗ ' : ''}${isSent ? mail.to_address : (mail.from_name || mail.from_address)}`),
           el('span', { class: 'conversation-item-preview' }, mail.subject || i18n.t('admin.inbox_no_subject')),
           el('span', { class: 'conversation-item-date' }, new Date(mail.received_at).toLocaleDateString()),
-          mail.replied ? el('span', { class: 'conversation-item-badge' }, i18n.t('admin.inbox_replied')) : null,
+          !isSent && mail.replied ? el('span', { class: 'conversation-item-badge' }, i18n.t('admin.inbox_replied')) : null,
         ])
       );
     }
@@ -3816,6 +3817,12 @@ async function openAdminInboxEmail(id) {
       mail.body_html
         ? el('iframe', { class: 'inbox-email-iframe', srcdoc: mail.body_html, sandbox: '', title: 'Contenu de l\'email' })
         : el('p', { class: 'inbox-email-body' }, mail.body_text || ''),
+      ...(mail.sent_replies || []).map((reply) =>
+        el('div', { class: 'inbox-sent-reply' }, [
+          el('p', { class: 'form-hint' }, `↗ ${i18n.t('admin.inbox_replied')} — ${new Date(reply.received_at).toLocaleString()}`),
+          el('p', { class: 'inbox-email-body' }, reply.body_text || ''),
+        ])
+      ),
       el('form', { id: 'adminInboxReplyForm', class: 'atlas-form' }, [
         el('div', { class: 'form-row' }, [
           el('label', {}, [
