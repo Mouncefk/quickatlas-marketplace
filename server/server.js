@@ -2568,8 +2568,8 @@ const server = http.createServer(async (req, res) => {
       }
       await sendMail({ to, purpose: 'admin_compose', subject, text, link: SITE_URL });
       db.prepare(
-        'INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read) VALUES (?, ?, ?, ?, ?, datetime(\'now\'), \'sent\', 1)'
-      ).run(-Date.now() - Math.floor(Math.random() * 1000), admin.email || 'contact@quickatlas.net', to, subject, text);
+        "INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read) VALUES (?, ?, ?, ?, ?, ?, 'sent', 1)"
+      ).run(-Date.now() - Math.floor(Math.random() * 1000), admin.email || 'contact@quickatlas.net', to, subject, text, new Date().toISOString());
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/admin/inbox' && method === 'GET') {
@@ -2606,13 +2606,14 @@ const server = http.createServer(async (req, res) => {
       });
       db.prepare('UPDATE inbox_emails SET replied = 1 WHERE id = ?').run(email.id);
       db.prepare(
-        'INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read, in_reply_to_id) VALUES (?, ?, ?, ?, ?, datetime(\'now\'), \'sent\', 1, ?)'
+        "INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read, in_reply_to_id) VALUES (?, ?, ?, ?, ?, ?, 'sent', 1, ?)"
       ).run(
         -Date.now() - Math.floor(Math.random() * 1000),
         admin.email || 'contact@quickatlas.net',
         email.from_address,
         email.subject && email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
         replyText,
+        new Date().toISOString(),
         email.id
       );
       return sendJSON(res, 200, { ok: true });
