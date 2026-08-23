@@ -3768,7 +3768,9 @@ async function openAdminInboxEmail(id) {
         el('h3', {}, mail.subject || i18n.t('admin.inbox_no_subject')),
         el('p', { class: 'form-hint' }, `${mail.from_name || ''} <${mail.from_address}> — ${new Date(mail.received_at).toLocaleString()}`),
       ]),
-      el('p', { class: 'inbox-email-body' }, mail.body_text || ''),
+      mail.body_html
+        ? el('iframe', { class: 'inbox-email-iframe', srcdoc: mail.body_html, sandbox: '', title: 'Contenu de l\'email' })
+        : el('p', { class: 'inbox-email-body' }, mail.body_text || ''),
       el('form', { id: 'adminInboxReplyForm', class: 'atlas-form' }, [
         el('div', { class: 'form-row' }, [
           el('label', {}, [
