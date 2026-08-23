@@ -482,4 +482,26 @@ db.exec(`
     db.exec('ALTER TABLE inbox_emails ADD COLUMN body_html TEXT');
   }
 }
+// Migration : traçabilité des messages envoyés depuis l'admin (réponses et
+// compositions libres) — jusqu'ici, un message envoyé disparaissait de
+// l'écran sans laisser de trace. direction distingue reçu/envoyé,
+// to_address est le destinataire d'un message envoyé, in_reply_to_id relie
+// une réponse à l'email reçu d'origine (pour afficher un vrai fil).
+{
+  const inboxColumns2 = db.prepare("PRAGMA table_info(inbox_emails)").all();
+  const sentTrackingColumns = [
+    ['direction', "TEXT NOT NULL DEFAULT 'received'"],
+    ['to_address', 'TEXT'],
+    ['in_reply_to_id', 'INTEGER REFERENCES inbox_emails(id)'],
+  ];
+  for (const [name, def] of sentTrackingColumns) {
+    if (!inboxColumns2.some((c) => c.name === name)) {
+      db.exec(`ALTER TABLE inbox_emails ADD COLUMN ${name} ${def}`);
+    }
+  }
+  // uid est NOT NULL en base, mais les messages envoyés n'ont pas d'UID
+  // IMAP réel — on en génère un négatif unique pour respecter la
+  // contrainte sans jamais entrer en conflit avec un vrai UID (toujours
+  // positif).
+}
 export default db;
