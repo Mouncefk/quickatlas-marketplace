@@ -2637,3 +2637,15 @@ textarea { resize: vertical; }
   background: #ffffff;
   margin: 16px 0 24px;
 }
+.inbox-sent-reply {
+  background: rgba(76,140,130,0.06);
+  border-left: 2px solid var(--teal-500);
+  padding: 10px 14px;
+  margin: 0 0 16px;
+  border-radius: 0 6px 6px 0;
+}
+.inbox-sent-reply .inbox-email-body {
+  margin: 4px 0 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
