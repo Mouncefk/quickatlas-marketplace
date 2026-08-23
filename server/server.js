@@ -2553,6 +2553,22 @@ const server = http.createServer(async (req, res) => {
     }
     // Boîte de réception admin — liste, lecture (marque comme lu) et
     // réponse (via le même mécanisme d'envoi que le reste du site).
+    // Composition libre — envoie un nouvel email à n'importe quelle
+    // adresse, sans être rattaché à un message reçu (contrairement à
+    // /reply). Utilise le même mécanisme d'envoi que le reste du site.
+    if (pathname === '/api/admin/inbox/compose' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const to = (body.to || '').trim();
+      const subject = (body.subject || '').trim();
+      const text = (body.text || '').trim();
+      if (!to || !subject || !text) {
+        return sendJSON(res, 400, { error: 'Destinataire, sujet et message sont requis.' });
+      }
+      await sendMail({ to, purpose: 'admin_compose', subject, text, link: SITE_URL });
+      return sendJSON(res, 200, { ok: true });
+    }
     if (pathname === '/api/admin/inbox' && method === 'GET') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
