@@ -2557,7 +2557,7 @@ textarea { resize: vertical; }
 /* ---------- Formulaire de publication : grille deux colonnes ---------- */
 .publish-form-grid {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 380px;
   grid-template-areas:
     "main side"
     "footer footer";
@@ -2593,6 +2593,10 @@ textarea { resize: vertical; }
   font-size: 0.95rem;
   color: rgba(241,233,216,0.85);
   margin: 0;
+}
+.publish-side-panel .form-row--split {
+  flex-direction: column;
+  gap: 10px;
 }
 @media (max-width: 900px) {
   .publish-form-grid {
