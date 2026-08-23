@@ -3728,6 +3728,51 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
 /** Charge la liste des emails reçus dans l'onglet admin "Boîte de
  * réception", façon liste de conversations (même esprit que la
  * messagerie interne du site). */
+/** Affiche un formulaire de composition libre dans le volet de droite —
+ * envoi à n'importe quelle adresse, sans être rattaché à un email reçu. */
+function openAdminInboxCompose() {
+  const thread = document.getElementById('adminInboxThread');
+  thread.innerHTML = '';
+  thread.append(
+    el('h3', {}, i18n.t('admin.inbox_compose_title')),
+    el('form', { id: 'adminInboxComposeForm', class: 'atlas-form' }, [
+      el('div', { class: 'form-row' }, [
+        el('label', {}, [
+          el('span', {}, i18n.t('admin.inbox_compose_to')),
+          el('input', { type: 'email', id: 'adminInboxComposeTo', required: true }),
+        ]),
+      ]),
+      el('div', { class: 'form-row' }, [
+        el('label', {}, [
+          el('span', {}, i18n.t('admin.inbox_compose_subject')),
+          el('input', { type: 'text', id: 'adminInboxComposeSubject', required: true }),
+        ]),
+      ]),
+      el('div', { class: 'form-row' }, [
+        el('label', {}, [
+          el('span', {}, i18n.t('admin.inbox_reply_label')),
+          el('textarea', { id: 'adminInboxComposeText', rows: '6', required: true }),
+        ]),
+      ]),
+      el('button', { type: 'submit', class: 'btn btn--primary' }, i18n.t('admin.inbox_compose_send')),
+    ])
+  );
+  document.getElementById('adminInboxComposeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const to = document.getElementById('adminInboxComposeTo').value.trim();
+    const subject = document.getElementById('adminInboxComposeSubject').value.trim();
+    const text = document.getElementById('adminInboxComposeText').value.trim();
+    if (!to || !subject || !text) return;
+    try {
+      await api('/admin/inbox/compose', { method: 'POST', body: JSON.stringify({ to, subject, text }) });
+      showToast(i18n.t('admin.inbox_compose_sent'));
+      openAdminInboxCompose();
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+}
+document.getElementById('adminInboxComposeBtn')?.addEventListener('click', openAdminInboxCompose);
 async function loadAdminInbox() {
   const list = document.getElementById('adminInboxList');
   try {
