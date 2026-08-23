@@ -238,7 +238,8 @@
         <li data-i18n="publish.benefit_available">✅ Disponible 24h/24</li>
         <li data-i18n="publish.benefit_unlimited">✅ Aucune limite de publication</li>
       </ul>
-      <form id="publishForm" class="atlas-form">
+      <form id="publishForm" class="atlas-form publish-form-grid">
+        <div class="publish-main-column">
         <div class="form-row">
           <label><span data-i18n="publish.label_title">Titre</span>
             <input type="text" name="title" required maxlength="120" data-i18n-placeholder="publish.placeholder_title" placeholder="Ex. Appartement lumineux 3 pièces" />
@@ -341,83 +342,89 @@
             <input type="text" name="trade_description" id="tradeDescriptionInput" placeholder="Ex. un vélo électrique, une console de jeux…" />
           </label>
         </div>
-        <label class="terms-checkbox">
-          <input type="checkbox" name="is_secondhand" id="secondhandCheckbox" />
-          <span data-i18n="publish.secondhand_label">♻️ Cet article est d'occasion / de seconde main</span>
-        </label>
-        <div id="tourismLodgingRow" hidden>
-          <div class="form-row form-row--split">
-            <label><span data-i18n="publish.label_capacity">Capacité (voyageurs)</span>
-              <input type="number" name="capacity_guests" id="publishCapacityGuests" min="1" step="1" placeholder="2" />
-            </label>
-            <label><span data-i18n="publish.label_bedrooms">Chambres</span>
-              <input type="number" name="bedrooms" id="publishBedrooms" min="0" step="1" placeholder="1" />
-            </label>
-            <label><span data-i18n="publish.label_bathrooms">Salles de bain</span>
-              <input type="number" name="bathrooms" id="publishBathrooms" min="0" step="1" placeholder="1" />
-            </label>
-          </div>
-          <fieldset class="amenities-fieldset">
-            <legend data-i18n="publish.label_amenities">Équipements</legend>
-            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="wifi" /> <span data-i18n="publish.amenity_wifi">Wi-Fi</span></label>
-            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="pool" /> <span data-i18n="publish.amenity_pool">Piscine</span></label>
-            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="air_conditioning" /> <span data-i18n="publish.amenity_ac">Climatisation</span></label>
-            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="parking" /> <span data-i18n="publish.amenity_parking">Parking</span></label>
-            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="sea_view" /> <span data-i18n="publish.amenity_sea_view">Vue mer</span></label>
-            <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="breakfast" /> <span data-i18n="publish.amenity_breakfast">Petit-déjeuner inclus</span></label>
-          </fieldset>
         </div>
-        <div id="vehicleDetailsRow" hidden>
-          <div class="form-row form-row--split">
-            <label><span data-i18n="publish.label_vehicle_brand">Marque</span>
-              <input type="text" name="vehicle_brand" id="publishVehicleBrand" placeholder="Ex. Renault, Toyota…" />
-            </label>
-            <label><span data-i18n="publish.label_vehicle_model">Modèle</span>
-              <input type="text" name="vehicle_model" id="publishVehicleModel" placeholder="Ex. Clio, Corolla…" />
-            </label>
+        <aside class="publish-side-panel" id="publishSidePanel">
+          <h3 class="publish-side-panel-title" data-i18n="publish.side_panel_title">Détails spécifiques</h3>
+          <label class="terms-checkbox">
+            <input type="checkbox" name="is_secondhand" id="secondhandCheckbox" />
+            <span data-i18n="publish.secondhand_label">♻️ Cet article est d'occasion / de seconde main</span>
+          </label>
+          <div id="tourismLodgingRow" hidden>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_capacity">Capacité (voyageurs)</span>
+                <input type="number" name="capacity_guests" id="publishCapacityGuests" min="1" step="1" placeholder="2" />
+              </label>
+              <label><span data-i18n="publish.label_bedrooms">Chambres</span>
+                <input type="number" name="bedrooms" id="publishBedrooms" min="0" step="1" placeholder="1" />
+              </label>
+              <label><span data-i18n="publish.label_bathrooms">Salles de bain</span>
+                <input type="number" name="bathrooms" id="publishBathrooms" min="0" step="1" placeholder="1" />
+              </label>
+            </div>
+            <fieldset class="amenities-fieldset">
+              <legend data-i18n="publish.label_amenities">Équipements</legend>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="wifi" /> <span data-i18n="publish.amenity_wifi">Wi-Fi</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="pool" /> <span data-i18n="publish.amenity_pool">Piscine</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="air_conditioning" /> <span data-i18n="publish.amenity_ac">Climatisation</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="parking" /> <span data-i18n="publish.amenity_parking">Parking</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="sea_view" /> <span data-i18n="publish.amenity_sea_view">Vue mer</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="breakfast" /> <span data-i18n="publish.amenity_breakfast">Petit-déjeuner inclus</span></label>
+            </fieldset>
           </div>
-          <div class="form-row form-row--split">
-            <label><span data-i18n="publish.label_vehicle_year">Année</span>
-              <input type="number" name="vehicle_year" id="publishVehicleYear" min="1900" max="2100" step="1" placeholder="2020" />
-            </label>
-            <label><span data-i18n="publish.label_vehicle_mileage">Kilométrage</span>
-              <input type="number" name="vehicle_mileage" id="publishVehicleMileage" min="0" step="1" placeholder="50000" />
-            </label>
+          <div id="vehicleDetailsRow" hidden>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_vehicle_brand">Marque</span>
+                <input type="text" name="vehicle_brand" id="publishVehicleBrand" placeholder="Ex. Renault, Toyota…" />
+              </label>
+              <label><span data-i18n="publish.label_vehicle_model">Modèle</span>
+                <input type="text" name="vehicle_model" id="publishVehicleModel" placeholder="Ex. Clio, Corolla…" />
+              </label>
+            </div>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_vehicle_year">Année</span>
+                <input type="number" name="vehicle_year" id="publishVehicleYear" min="1900" max="2100" step="1" placeholder="2020" />
+              </label>
+              <label><span data-i18n="publish.label_vehicle_mileage">Kilométrage</span>
+                <input type="number" name="vehicle_mileage" id="publishVehicleMileage" min="0" step="1" placeholder="50000" />
+              </label>
+            </div>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_vehicle_condition">État</span>
+                <select name="vehicle_condition" id="publishVehicleCondition">
+                  <option value="" data-i18n="publish.vehicle_condition_default">— Non précisé —</option>
+                  <option value="neuf" data-i18n="publish.vehicle_condition_new">Neuf</option>
+                  <option value="tres_bon_etat" data-i18n="publish.vehicle_condition_excellent">Très bon état</option>
+                  <option value="bon_etat" data-i18n="publish.vehicle_condition_good">Bon état</option>
+                  <option value="a_reviser" data-i18n="publish.vehicle_condition_fair">À réviser</option>
+                  <option value="pour_pieces" data-i18n="publish.vehicle_condition_parts">Pour pièces</option>
+                </select>
+              </label>
+              <label><span data-i18n="publish.label_vehicle_transmission">Transmission</span>
+                <select name="vehicle_transmission" id="publishVehicleTransmission">
+                  <option value="" data-i18n="publish.vehicle_transmission_default">— Non précisé —</option>
+                  <option value="manuelle" data-i18n="publish.vehicle_transmission_manual">Manuelle</option>
+                  <option value="automatique" data-i18n="publish.vehicle_transmission_auto">Automatique</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-row">
+              <label><span data-i18n="publish.label_vehicle_fuel">Carburant</span>
+                <select name="vehicle_fuel_type" id="publishVehicleFuelType">
+                  <option value="" data-i18n="publish.vehicle_fuel_default">— Non précisé —</option>
+                  <option value="essence" data-i18n="publish.vehicle_fuel_petrol">Essence</option>
+                  <option value="diesel" data-i18n="publish.vehicle_fuel_diesel">Diesel</option>
+                  <option value="hybride" data-i18n="publish.vehicle_fuel_hybrid">Hybride</option>
+                  <option value="electrique" data-i18n="publish.vehicle_fuel_electric">Électrique</option>
+                </select>
+              </label>
+            </div>
           </div>
-          <div class="form-row form-row--split">
-            <label><span data-i18n="publish.label_vehicle_condition">État</span>
-              <select name="vehicle_condition" id="publishVehicleCondition">
-                <option value="" data-i18n="publish.vehicle_condition_default">— Non précisé —</option>
-                <option value="neuf" data-i18n="publish.vehicle_condition_new">Neuf</option>
-                <option value="tres_bon_etat" data-i18n="publish.vehicle_condition_excellent">Très bon état</option>
-                <option value="bon_etat" data-i18n="publish.vehicle_condition_good">Bon état</option>
-                <option value="a_reviser" data-i18n="publish.vehicle_condition_fair">À réviser</option>
-                <option value="pour_pieces" data-i18n="publish.vehicle_condition_parts">Pour pièces</option>
-              </select>
-            </label>
-            <label><span data-i18n="publish.label_vehicle_transmission">Transmission</span>
-              <select name="vehicle_transmission" id="publishVehicleTransmission">
-                <option value="" data-i18n="publish.vehicle_transmission_default">— Non précisé —</option>
-                <option value="manuelle" data-i18n="publish.vehicle_transmission_manual">Manuelle</option>
-                <option value="automatique" data-i18n="publish.vehicle_transmission_auto">Automatique</option>
-              </select>
-            </label>
-          </div>
-          <div class="form-row">
-            <label><span data-i18n="publish.label_vehicle_fuel">Carburant</span>
-              <select name="vehicle_fuel_type" id="publishVehicleFuelType">
-                <option value="" data-i18n="publish.vehicle_fuel_default">— Non précisé —</option>
-                <option value="essence" data-i18n="publish.vehicle_fuel_petrol">Essence</option>
-                <option value="diesel" data-i18n="publish.vehicle_fuel_diesel">Diesel</option>
-                <option value="hybride" data-i18n="publish.vehicle_fuel_hybrid">Hybride</option>
-                <option value="electrique" data-i18n="publish.vehicle_fuel_electric">Électrique</option>
-              </select>
-            </label>
-          </div>
+        </aside>
+        <div class="publish-form-footer">
+          <p class="form-notice" id="publishTermsNotice"></p>
+          <p class="form-error" id="publishError" hidden></p>
+          <button type="submit" class="btn btn--primary" data-i18n="publish.submit">Publier l'annonce</button>
         </div>
-        <p class="form-notice" id="publishTermsNotice"></p>
-        <p class="form-error" id="publishError" hidden></p>
-        <button type="submit" class="btn btn--primary" data-i18n="publish.submit">Publier l'annonce</button>
       </form>
     </div>
   </section>
