@@ -3773,10 +3773,23 @@ function openAdminInboxCompose() {
   });
 }
 document.getElementById('adminInboxComposeBtn')?.addEventListener('click', openAdminInboxCompose);
+document.getElementById('adminInboxViewReceivedBtn')?.addEventListener('click', () => {
+  adminInboxCurrentView = 'received';
+  document.getElementById('adminInboxViewReceivedBtn').classList.add('active');
+  document.getElementById('adminInboxViewSentBtn').classList.remove('active');
+  loadAdminInbox();
+});
+document.getElementById('adminInboxViewSentBtn')?.addEventListener('click', () => {
+  adminInboxCurrentView = 'sent';
+  document.getElementById('adminInboxViewSentBtn').classList.add('active');
+  document.getElementById('adminInboxViewReceivedBtn').classList.remove('active');
+  loadAdminInbox();
+});
+let adminInboxCurrentView = 'received';
 async function loadAdminInbox() {
   const list = document.getElementById('adminInboxList');
   try {
-    const emails = await api('/admin/inbox');
+    const emails = await api(`/admin/inbox?view=${adminInboxCurrentView}`);
     list.innerHTML = '';
     if (emails.length === 0) {
       list.append(el('p', { class: 'empty-state' }, i18n.t('admin.inbox_empty')));
