@@ -2554,3 +2554,53 @@ textarea { resize: vertical; }
   padding: 5px 12px;
   border-radius: 999px;
 }
+/* ---------- Formulaire de publication : grille deux colonnes ---------- */
+.publish-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-template-areas:
+    "main side"
+    "footer footer";
+  align-items: start;
+  gap: 20px 28px;
+}
+.publish-main-column {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.publish-form-footer {
+  grid-area: footer;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.publish-side-panel {
+  grid-area: side;
+  background: var(--ink-700);
+  border: 1px solid var(--ink-line);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 88px;
+}
+.publish-side-panel-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: rgba(241,233,216,0.85);
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .publish-form-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "main"
+      "side"
+      "footer";
+  }
+  .publish-side-panel { position: static; }
+}
