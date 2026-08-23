@@ -470,12 +470,27 @@ state.categoryBrowse = { category: null, subcategory: '', type: '', sort: 'newes
 function updateSecondhandVisibility(categorySlug, checkboxId) {
   const checkbox = document.getElementById(checkboxId);
   if (!checkbox) return;
-  const row = checkbox.closest('label');
+  const row = checkbox.closest('.form-row');
   if (!row) return;
   const isTourism = categorySlug === 'tourisme-voyages';
   row.hidden = isTourism;
-  if (isTourism) checkbox.checked = false;
+  if (isTourism) {
+    checkbox.value = '';
+    document.getElementById('conditionNewBtn')?.classList.remove('active');
+    document.getElementById('conditionUsedBtn')?.classList.remove('active');
+    document.getElementById('conditionError').hidden = true;
+  }
 }
+/** Bascule Neuf/Occasion — choix obligatoire, sans valeur par défaut, pour
+ * ne jamais présumer silencieusement qu'une annonce est neuve. */
+function setProductCondition(isSecondhand) {
+  document.getElementById('secondhandCheckbox').value = isSecondhand ? 'true' : 'false';
+  document.getElementById('conditionNewBtn').classList.toggle('active', !isSecondhand);
+  document.getElementById('conditionUsedBtn').classList.toggle('active', isSecondhand);
+  document.getElementById('conditionError').hidden = true;
+}
+document.getElementById('conditionNewBtn')?.addEventListener('click', () => setProductCondition(false));
+document.getElementById('conditionUsedBtn')?.addEventListener('click', () => setProductCondition(true));
 /** Affiche les champs "Date de début / Date de fin" uniquement pour la
  * catégorie Tourisme & Voyages (séjour, excursion, croisière…) — les vide
  * quand on les masque, pour ne jamais envoyer une date orpheline d'une
@@ -2818,6 +2833,9 @@ function updateCategoryMismatchWarning() {
 function preparePublishForm() {
   document.getElementById('publishError').hidden = true;
   document.getElementById('publishForm').reset();
+  document.getElementById('conditionNewBtn').classList.remove('active');
+  document.getElementById('conditionUsedBtn').classList.remove('active');
+  document.getElementById('conditionError').hidden = true;
   resetImageUpload();
   document.getElementById('publishImageUrl').disabled = false;
   document.getElementById('aiDraftBox').hidden = !state.aiSettings.has_key;
@@ -2854,6 +2872,12 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
   const fd = new FormData(form);
+  const conditionRow = document.getElementById('secondhandCheckbox').closest('.form-row');
+  if (!conditionRow.hidden && fd.get('is_secondhand') === '') {
+    document.getElementById('conditionError').hidden = false;
+    conditionRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   const payload = {
     title: fd.get('title'),
     category_id: Number(fd.get('category_id')),
@@ -2866,7 +2890,7 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     images: uploadedImageUrl ? [uploadedImageUrl] : (fd.get('image') ? [fd.get('image')] : []),
     open_to_trade: fd.get('open_to_trade') === 'on',
     trade_description: fd.get('trade_description'),
-    is_secondhand: fd.get('is_secondhand') === 'on',
+    is_secondhand: fd.get('is_secondhand') === 'true',
     date_start: fd.get('date_start') || null,
     date_end: fd.get('date_end') || null,
     price_promo: fd.get('price_promo') || null,
