@@ -425,13 +425,14 @@ async function checkInboxEmails() {
         const parsed = await simpleParser(message.source);
         const fromEntry = (parsed.from && parsed.from.value && parsed.from.value[0]) || {};
         db.prepare(
-          'INSERT INTO inbox_emails (uid, from_address, from_name, subject, body_text, received_at) VALUES (?, ?, ?, ?, ?, ?)'
+          'INSERT INTO inbox_emails (uid, from_address, from_name, subject, body_text, body_html, received_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
         ).run(
           message.uid,
           (fromEntry.address || '').toLowerCase(),
           fromEntry.name || null,
           parsed.subject || '(sans objet)',
           (parsed.text || '').slice(0, 5000),
+          parsed.html ? parsed.html.slice(0, 100000) : null,
           (parsed.date || new Date()).toISOString()
         );
       }
