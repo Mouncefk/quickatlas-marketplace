@@ -11,6 +11,8 @@ import { translateListing, draftListing, analyzeFraudRisk, translateText } from 
 import { translateListingFree } from './free-translate.js';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
+import { ImapFlow } from 'imapflow';
+import { simpleParser } from 'mailparser';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const PORT = process.env.PORT || 3000;
@@ -392,6 +394,59 @@ function normalizeCityName(str) {
  * l'email de notification part automatiquement, sans action admin.
  * Fonctionne quelle que soit la façon dont la ville a été ajoutée
  * (interface admin ou script direct en base). */
+/** Synchronise la boîte de réception admin depuis Gmail via IMAP — ne
+ * récupère que les emails plus récents que le dernier UID déjà connu
+ * (mémorisé dans site_settings), pour ne jamais retraiter deux fois le
+ * même message. Reste silencieuse si SMTP_USER/SMTP_PASS ne sont pas
+ * configurées (site fonctionne alors sans boîte de réception admin).
+ */
+async function checkInboxEmails() {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return;
+  const client = new ImapFlow({
+    host: 'imap.gmail.com',
+    port: 993,
+    secure: true,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    logger: false,
+  });
+  await client.connect();
+  try {
+    const lock = await client.getMailboxLock('INBOX');
+    try {
+      const lastUidRow = db.prepare("SELECT value FROM site_settings WHERE key = 'inbox_last_uid'").get();
+      const lastUid = lastUidRow ? Number(lastUidRow.value) : 0;
+      const range = lastUid > 0 ? `${lastUid + 1}:*` : '1:*';
+      let maxUid = lastUid;
+      for await (const message of client.fetch(range, { uid: true, source: true }, { uid: true })) {
+        if (message.uid <= lastUid) continue;
+        if (message.uid > maxUid) maxUid = message.uid;
+        const existing = db.prepare('SELECT id FROM inbox_emails WHERE uid = ?').get(message.uid);
+        if (existing) continue;
+        const parsed = await simpleParser(message.source);
+        const fromEntry = (parsed.from && parsed.from.value && parsed.from.value[0]) || {};
+        db.prepare(
+          'INSERT INTO inbox_emails (uid, from_address, from_name, subject, body_text, received_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(
+          message.uid,
+          (fromEntry.address || '').toLowerCase(),
+          fromEntry.name || null,
+          parsed.subject || '(sans objet)',
+          (parsed.text || '').slice(0, 5000),
+          (parsed.date || new Date()).toISOString()
+        );
+      }
+      if (maxUid > lastUid) {
+        db.prepare(
+          "INSERT INTO site_settings (key, value) VALUES ('inbox_last_uid', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        ).run(String(maxUid));
+      }
+    } finally {
+      lock.release();
+    }
+  } finally {
+    await client.logout();
+  }
+}
 async function checkCityRequestFulfillments() {
   const pending = db.prepare('SELECT * FROM city_requests WHERE status = ?').all('pending');
   for (const reqRow of pending) {
@@ -2495,6 +2550,42 @@ const server = http.createServer(async (req, res) => {
       db.prepare("DELETE FROM site_settings WHERE key = 'logo_url'").run();
       return sendJSON(res, 200, { ok: true });
     }
+    // Boîte de réception admin — liste, lecture (marque comme lu) et
+    // réponse (via le même mécanisme d'envoi que le reste du site).
+    if (pathname === '/api/admin/inbox' && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const rows = db
+        .prepare('SELECT id, from_address, from_name, subject, received_at, is_read, replied FROM inbox_emails ORDER BY received_at DESC LIMIT 200')
+        .all();
+      return sendJSON(res, 200, rows);
+    }
+    if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)$/)) && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const email = db.prepare('SELECT * FROM inbox_emails WHERE id = ?').get(Number(m[1]));
+      if (!email) return sendJSON(res, 404, { error: 'Email introuvable.' });
+      db.prepare('UPDATE inbox_emails SET is_read = 1 WHERE id = ?').run(email.id);
+      return sendJSON(res, 200, email);
+    }
+    if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)\/reply$/)) && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const email = db.prepare('SELECT * FROM inbox_emails WHERE id = ?').get(Number(m[1]));
+      if (!email) return sendJSON(res, 404, { error: 'Email introuvable.' });
+      const body = await readBody(req);
+      const replyText = (body.text || '').trim();
+      if (!replyText) return sendJSON(res, 400, { error: 'Message vide.' });
+      await sendMail({
+        to: email.from_address,
+        purpose: 'admin_reply',
+        subject: email.subject && email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
+        text: replyText,
+        link: SITE_URL,
+      });
+      db.prepare('UPDATE inbox_emails SET replied = 1 WHERE id = ?').run(email.id);
+      return sendJSON(res, 200, { ok: true });
+    }
     if (pathname === '/api/admin/cities' && method === 'POST') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
@@ -2702,4 +2793,8 @@ server.listen(PORT, () => {
   setInterval(() => {
     checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification périodique :', err.message));
   }, 60 * 60 * 1000);
+  checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation initiale :', err.message));
+  setInterval(() => {
+    checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation périodique :', err.message));
+  }, 10 * 60 * 1000);
 });
