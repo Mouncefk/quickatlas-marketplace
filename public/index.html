@@ -573,6 +573,7 @@
         <button class="auth-tab" data-admin-tab="categories" data-i18n="admin.tab_categories">Catégories</button>
         <button class="auth-tab" data-admin-tab="city-requests" data-i18n="admin.tab_city_requests">Villes demandées</button>
         <button class="auth-tab" data-admin-tab="appearance" data-i18n="admin.tab_appearance">Apparence</button>
+        <button class="auth-tab" data-admin-tab="inbox" data-i18n="admin.tab_inbox">Boîte de réception</button>
       </div>
       <div id="adminDashboardPanel" class="admin-panel">
         <div class="dashboard-cards" id="dashboardCards"></div>
@@ -692,6 +693,14 @@
         </label>
         <p class="upload-progress" id="adminLogoUploadProgress" hidden></p>
         <button type="button" id="adminLogoResetBtn" class="btn btn--ghost btn--small" data-i18n="admin.logo_reset">Revenir au logo par défaut</button>
+      </div>
+      <div id="adminInboxPanel" class="admin-panel" hidden>
+        <div class="messages-layout">
+          <aside class="conversations-list" id="adminInboxList"></aside>
+          <div class="conversation-thread" id="adminInboxThread">
+            <p class="empty-state" data-i18n="admin.inbox_select">Sélectionnez un email à gauche.</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
