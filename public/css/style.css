@@ -2539,3 +2539,18 @@ textarea { resize: vertical; }
   pointer-events: none;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
 }
+/* ---------- Caractéristiques véhicule (fiche détail) ---------- */
+.vehicle-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 16px;
+}
+.vehicle-facts span {
+  background: rgba(198,161,91,0.12);
+  border: 1px solid rgba(198,161,91,0.3);
+  color: var(--brass-300);
+  font-size: 0.85rem;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
