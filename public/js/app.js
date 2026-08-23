@@ -3719,10 +3719,84 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminCategoriesPanel').hidden = btn.dataset.adminTab !== 'categories';
     document.getElementById('adminCityRequestsPanel').hidden = btn.dataset.adminTab !== 'city-requests';
     document.getElementById('adminAppearancePanel').hidden = btn.dataset.adminTab !== 'appearance';
+    document.getElementById('adminInboxPanel').hidden = btn.dataset.adminTab !== 'inbox';
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
     if (btn.dataset.adminTab === 'appearance') loadAdminLogoPreview();
+    if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
   })
 );
+/** Charge la liste des emails reçus dans l'onglet admin "Boîte de
+ * réception", façon liste de conversations (même esprit que la
+ * messagerie interne du site). */
+async function loadAdminInbox() {
+  const list = document.getElementById('adminInboxList');
+  try {
+    const emails = await api('/admin/inbox');
+    list.innerHTML = '';
+    if (emails.length === 0) {
+      list.append(el('p', { class: 'empty-state' }, i18n.t('admin.inbox_empty')));
+      return;
+    }
+    for (const mail of emails) {
+      list.append(
+        el('button', {
+          class: `conversation-item ${!mail.is_read ? 'is-unread' : ''}`,
+          type: 'button',
+          onclick: () => openAdminInboxEmail(mail.id),
+        }, [
+          el('span', { class: 'conversation-item-name' }, mail.from_name || mail.from_address),
+          el('span', { class: 'conversation-item-preview' }, mail.subject || i18n.t('admin.inbox_no_subject')),
+          el('span', { class: 'conversation-item-date' }, new Date(mail.received_at).toLocaleDateString()),
+          mail.replied ? el('span', { class: 'conversation-item-badge' }, i18n.t('admin.inbox_replied')) : null,
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+/** Ouvre un email reçu (le marque lu côté serveur), et affiche un
+ * formulaire de réponse directe — envoyée via le même mécanisme que le
+ * reste du site (sendMail côté serveur). */
+async function openAdminInboxEmail(id) {
+  const thread = document.getElementById('adminInboxThread');
+  try {
+    const mail = await api(`/admin/inbox/${id}`);
+    thread.innerHTML = '';
+    thread.append(
+      el('div', { class: 'inbox-email-header' }, [
+        el('h3', {}, mail.subject || i18n.t('admin.inbox_no_subject')),
+        el('p', { class: 'form-hint' }, `${mail.from_name || ''} <${mail.from_address}> — ${new Date(mail.received_at).toLocaleString()}`),
+      ]),
+      el('p', { class: 'inbox-email-body' }, mail.body_text || ''),
+      el('form', { id: 'adminInboxReplyForm', class: 'atlas-form' }, [
+        el('div', { class: 'form-row' }, [
+          el('label', {}, [
+            el('span', {}, i18n.t('admin.inbox_reply_label')),
+            el('textarea', { id: 'adminInboxReplyText', rows: '4' }),
+          ]),
+        ]),
+        el('button', { type: 'submit', class: 'btn btn--primary' }, i18n.t('admin.inbox_reply_send')),
+      ])
+    );
+    document.getElementById('adminInboxReplyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = document.getElementById('adminInboxReplyText').value.trim();
+      if (!text) return;
+      try {
+        await api(`/admin/inbox/${id}/reply`, { method: 'POST', body: JSON.stringify({ text }) });
+        showToast(i18n.t('admin.inbox_reply_sent'));
+        loadAdminInbox();
+        openAdminInboxEmail(id);
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+    loadAdminInbox();
+  } catch (e) {
+    showToast(e.message);
+  }
+}
 /** Affiche l'aperçu du logo actuel dans le panneau admin (image
  * personnalisée si définie, sinon le compas par défaut). */
 async function loadAdminLogoPreview() {
