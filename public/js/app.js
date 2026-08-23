@@ -739,6 +739,9 @@ async function loadCategories() {
     updateSecondhandVisibility(findCategoryById(pubCat.value)?.slug, 'secondhandCheckbox');
     updateTourismDatesVisibility(findCategoryById(pubCat.value)?.slug);
     updateTourismPriceExtrasVisibility(findCategoryById(pubCat.value)?.slug);
+    const newSubSlug = findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug;
+    updateTourismLodgingVisibility(newSubSlug);
+    updateVehicleDetailsVisibility(newSubSlug);
   });
   catFilter.addEventListener('change', () => {
     fillSubcategorySelect(document.getElementById('subcategoryFilter'), findCategoryBySlug(catFilter.value), true);
