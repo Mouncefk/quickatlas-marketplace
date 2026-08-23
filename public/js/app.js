@@ -828,6 +828,23 @@ function updateTourismLodgingVisibility(subcategorySlug) {
     row.querySelectorAll('input[name="amenities"]').forEach((cb) => { cb.checked = false; });
   }
 }
+/** Affiche les champs spécifiques Véhicules (marque, modèle, année,
+ * kilométrage, état, transmission, carburant) pour toutes les sous-
+ * catégories Véhicules sauf Pièces & accessoires, qui n'a pas de
+ * kilométrage/année propre à un véhicule précis. */
+function updateVehicleDetailsVisibility(subcategorySlug) {
+  const row = document.getElementById('vehicleDetailsRow');
+  if (!row) return;
+  const VEHICLE_SUBCATEGORIES = ['auto', 'bateau', 'camion', 'caravane', 'moto', 'quad-buggy', 'remorque', 'utilitaire', 'velo'];
+  const showFields = VEHICLE_SUBCATEGORIES.includes(subcategorySlug);
+  row.hidden = !showFields;
+  if (!showFields) {
+    ['publishVehicleBrand', 'publishVehicleModel', 'publishVehicleYear', 'publishVehicleMileage', 'publishVehicleCondition', 'publishVehicleTransmission', 'publishVehicleFuelType'].forEach((id) => {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    });
+  }
+}
 function fillSubcategorySelect(selectEl, category, withAllOption) {
   selectEl.innerHTML = '';
   if (withAllOption) selectEl.append(el('option', { value: '' }, i18n.t('filter.all_natures')));
@@ -1611,6 +1628,25 @@ function amenityLabel(code) {
   };
   const entry = map[code];
   return entry ? `${entry[0]} ${i18n.t(entry[1])}` : code;
+}
+function vehicleConditionLabel(code) {
+  const map = {
+    neuf: 'publish.vehicle_condition_new', tres_bon_etat: 'publish.vehicle_condition_excellent',
+    bon_etat: 'publish.vehicle_condition_good', a_reviser: 'publish.vehicle_condition_fair',
+    pour_pieces: 'publish.vehicle_condition_parts',
+  };
+  return map[code] ? i18n.t(map[code]) : code;
+}
+function vehicleTransmissionLabel(code) {
+  const map = { manuelle: 'publish.vehicle_transmission_manual', automatique: 'publish.vehicle_transmission_auto' };
+  return map[code] ? i18n.t(map[code]) : code;
+}
+function vehicleFuelLabel(code) {
+  const map = {
+    essence: 'publish.vehicle_fuel_petrol', diesel: 'publish.vehicle_fuel_diesel',
+    hybride: 'publish.vehicle_fuel_hybrid', electrique: 'publish.vehicle_fuel_electric',
+  };
+  return map[code] ? i18n.t(map[code]) : code;
 }
 function priceTypeLabel(priceType) {
   const map = {
@@ -2396,6 +2432,14 @@ async function openListingDetail(id) {
     l.amenities_json ? el('div', { class: 'tourism-amenities' },
       JSON.parse(l.amenities_json).map((a) => el('span', { class: 'tourism-amenity-chip' }, amenityLabel(a)))
     ) : null,
+    (l.vehicle_brand || l.vehicle_model || l.vehicle_year || l.vehicle_mileage || l.vehicle_condition || l.vehicle_transmission || l.vehicle_fuel_type) ? el('div', { class: 'vehicle-facts' }, [
+      (l.vehicle_brand || l.vehicle_model) ? el('span', {}, [l.vehicle_brand, l.vehicle_model].filter(Boolean).join(' ')) : null,
+      l.vehicle_year ? el('span', {}, String(l.vehicle_year)) : null,
+      l.vehicle_mileage ? el('span', {}, `${Number(l.vehicle_mileage).toLocaleString()} km`) : null,
+      l.vehicle_condition ? el('span', {}, vehicleConditionLabel(l.vehicle_condition)) : null,
+      l.vehicle_transmission ? el('span', {}, vehicleTransmissionLabel(l.vehicle_transmission)) : null,
+      l.vehicle_fuel_type ? el('span', {}, vehicleFuelLabel(l.vehicle_fuel_type)) : null,
+    ].filter(Boolean)) : null,
   ].filter(Boolean);
   content.append(
     ...(isTourismListing
@@ -2785,6 +2829,7 @@ function preparePublishForm() {
   const cat = findCategoryById(document.getElementById('publishCategory').value);
   fillSubcategorySelect(document.getElementById('publishSubcategory'), cat, false);
   updateTourismLodgingVisibility(findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug);
+  updateVehicleDetailsVisibility(findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug);
   updatePublishTypeAndPriceUI(cat);
   updateSecondhandVisibility(cat ? cat.slug : null, 'secondhandCheckbox');
   updateTourismDatesVisibility(cat ? cat.slug : null);
@@ -2800,6 +2845,7 @@ document.querySelector('#publishForm textarea[name=description]').addEventListen
 document.getElementById('publishCategory').addEventListener('change', updateCategoryMismatchWarning);
 document.getElementById('publishSubcategory').addEventListener('change', (e) => {
   updateTourismLodgingVisibility(findSubcategoryById(e.target.value)?.slug);
+  updateVehicleDetailsVisibility(findSubcategoryById(e.target.value)?.slug);
 });
 document.getElementById('publishForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -2826,6 +2872,13 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     bedrooms: fd.get('bedrooms') || null,
     bathrooms: fd.get('bathrooms') || null,
     amenities: fd.getAll('amenities'),
+    vehicle_brand: fd.get('vehicle_brand') || null,
+    vehicle_model: fd.get('vehicle_model') || null,
+    vehicle_year: fd.get('vehicle_year') || null,
+    vehicle_mileage: fd.get('vehicle_mileage') || null,
+    vehicle_condition: fd.get('vehicle_condition') || null,
+    vehicle_transmission: fd.get('vehicle_transmission') || null,
+    vehicle_fuel_type: fd.get('vehicle_fuel_type') || null,
     language: i18n.effectiveLang(),
   };
   const errEl = document.getElementById('publishError');
