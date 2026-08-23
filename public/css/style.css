@@ -2605,3 +2605,35 @@ textarea { resize: vertical; }
       "footer";
   }
 }
+/* ---------- Boîte de réception admin ---------- */
+.conversation-item.is-unread { background: rgba(198,161,91,0.08); }
+.conversation-item.is-unread .conversation-item-name { color: var(--brass-300); }
+.conversation-item-date {
+  font-size: 0.7rem;
+  color: rgba(241,233,216,0.45);
+}
+.conversation-item-badge {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--teal-500);
+  background: rgba(76,140,130,0.12);
+  padding: 1px 7px;
+  border-radius: 999px;
+  align-self: flex-start;
+}
+.inbox-email-header h3 { margin: 0 0 4px; }
+.inbox-email-body {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  margin: 16px 0 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--ink-line);
+}
+.inbox-email-iframe {
+  width: 100%;
+  min-height: 500px;
+  border: 1px solid var(--ink-line);
+  border-radius: 8px;
+  background: #ffffff;
+  margin: 16px 0 24px;
+}
