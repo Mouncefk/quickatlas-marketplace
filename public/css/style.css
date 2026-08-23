@@ -2585,8 +2585,6 @@ textarea { resize: vertical; }
   display: flex;
   flex-direction: column;
   gap: 14px;
-  position: sticky;
-  top: 88px;
 }
 .publish-side-panel-title {
   font-family: var(--font-display);
@@ -2606,5 +2604,4 @@ textarea { resize: vertical; }
       "side"
       "footer";
   }
-  .publish-side-panel { position: static; }
 }
