@@ -504,4 +504,15 @@ db.exec(`
   // contrainte sans jamais entrer en conflit avec un vrai UID (toujours
   // positif).
 }
+// Migration : préférence de visibilité publique du numéro de téléphone —
+// activée par défaut pour ne rien changer au comportement des comptes
+// existants (le numéro était jusqu'ici toujours visible dès qu'il était
+// renseigné). L'utilisateur peut la désactiver à tout moment depuis son
+// profil, sans jamais perdre le numéro lui-même.
+{
+  const userColumns = db.prepare("PRAGMA table_info(users)").all();
+  if (!userColumns.some((c) => c.name === 'show_phone_publicly')) {
+    db.exec('ALTER TABLE users ADD COLUMN show_phone_publicly INTEGER NOT NULL DEFAULT 1');
+  }
+}
 export default db;
