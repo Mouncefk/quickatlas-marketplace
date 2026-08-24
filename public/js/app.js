@@ -757,6 +757,7 @@ async function loadCategories() {
     const newSubSlug = findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug;
     updateTourismLodgingVisibility(newSubSlug);
     updateVehicleDetailsVisibility(newSubSlug);
+    updateRealEstateDetailsVisibility(newSubSlug);
   });
   catFilter.addEventListener('change', () => {
     fillSubcategorySelect(document.getElementById('subcategoryFilter'), findCategoryBySlug(catFilter.value), true);
@@ -858,6 +859,23 @@ function updateVehicleDetailsVisibility(subcategorySlug) {
   row.hidden = !showFields;
   if (!showFields) {
     ['publishVehicleBrand', 'publishVehicleModel', 'publishVehicleYear', 'publishVehicleMileage', 'publishVehicleCondition', 'publishVehicleTransmission', 'publishVehicleFuelType'].forEach((id) => {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    });
+  }
+}
+/** Affiche les champs spécifiques Immobilier (type de bien, surface,
+ * pièces, étage, meublé, année de construction) pour toutes les sous-
+ * catégories Immobilier sauf Terrain, qui n'a ni pièces, ni étage, ni
+ * caractère meublé. */
+function updateRealEstateDetailsVisibility(subcategorySlug) {
+  const row = document.getElementById('realEstateDetailsRow');
+  if (!row) return;
+  const REAL_ESTATE_SUBCATEGORIES = ['appartement', 'bureau', 'chambre', 'colocation', 'entrepot', 'immeuble-rapport', 'location-vacances', 'maison', 'parking-garage'];
+  const showFields = REAL_ESTATE_SUBCATEGORIES.includes(subcategorySlug);
+  row.hidden = !showFields;
+  if (!showFields) {
+    ['publishPropertyType', 'publishSurfaceM2', 'publishNumRooms', 'publishFloorNumber', 'publishFurnished', 'publishConstructionYear'].forEach((id) => {
       const input = document.getElementById(id);
       if (input) input.value = '';
     });
@@ -1666,6 +1684,18 @@ function vehicleFuelLabel(code) {
   };
   return map[code] ? i18n.t(map[code]) : code;
 }
+function propertyTypeLabel(code) {
+  const map = {
+    appartement: 'publish.property_type_apartment', maison: 'publish.property_type_house',
+    terrain: 'publish.property_type_land', local_commercial: 'publish.property_type_commercial',
+    bureau: 'publish.property_type_office', autre: 'publish.property_type_other',
+  };
+  return map[code] ? i18n.t(map[code]) : code;
+}
+function furnishedLabel(code) {
+  const map = { oui: 'publish.furnished_yes', non: 'publish.furnished_no' };
+  return map[code] ? i18n.t(map[code]) : code;
+}
 function priceTypeLabel(priceType) {
   const map = {
     par_nuit: 'publish.price_type_night', par_personne: 'publish.price_type_person',
@@ -2461,6 +2491,14 @@ async function openListingDetail(id) {
       l.vehicle_transmission ? el('span', {}, vehicleTransmissionLabel(l.vehicle_transmission)) : null,
       l.vehicle_fuel_type ? el('span', {}, vehicleFuelLabel(l.vehicle_fuel_type)) : null,
     ].filter(Boolean)) : null,
+    (l.property_type || l.surface_m2 || l.num_rooms || l.floor_number || l.furnished || l.construction_year) ? el('div', { class: 'vehicle-facts' }, [
+      l.property_type ? el('span', {}, propertyTypeLabel(l.property_type)) : null,
+      l.surface_m2 ? el('span', {}, `${l.surface_m2} m²`) : null,
+      l.num_rooms ? el('span', {}, i18n.t('publish.num_rooms_display', { count: l.num_rooms })) : null,
+      l.floor_number ? el('span', {}, l.floor_number) : null,
+      l.furnished ? el('span', {}, furnishedLabel(l.furnished)) : null,
+      l.construction_year ? el('span', {}, String(l.construction_year)) : null,
+    ].filter(Boolean)) : null,
   ].filter(Boolean);
   content.append(
     ...(isTourismListing
@@ -2854,6 +2892,7 @@ function preparePublishForm() {
   fillSubcategorySelect(document.getElementById('publishSubcategory'), cat, false);
   updateTourismLodgingVisibility(findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug);
   updateVehicleDetailsVisibility(findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug);
+  updateRealEstateDetailsVisibility(findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug);
   updatePublishTypeAndPriceUI(cat);
   updateSecondhandVisibility(cat ? cat.slug : null, 'secondhandCheckbox');
   updateTourismDatesVisibility(cat ? cat.slug : null);
@@ -2870,6 +2909,7 @@ document.getElementById('publishCategory').addEventListener('change', updateCate
 document.getElementById('publishSubcategory').addEventListener('change', (e) => {
   updateTourismLodgingVisibility(findSubcategoryById(e.target.value)?.slug);
   updateVehicleDetailsVisibility(findSubcategoryById(e.target.value)?.slug);
+  updateRealEstateDetailsVisibility(findSubcategoryById(e.target.value)?.slug);
 });
 document.getElementById('publishForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -2909,6 +2949,12 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     vehicle_condition: fd.get('vehicle_condition') || null,
     vehicle_transmission: fd.get('vehicle_transmission') || null,
     vehicle_fuel_type: fd.get('vehicle_fuel_type') || null,
+    property_type: fd.get('property_type') || null,
+    surface_m2: fd.get('surface_m2') || null,
+    num_rooms: fd.get('num_rooms') || null,
+    floor_number: fd.get('floor_number') || null,
+    furnished: fd.get('furnished') || null,
+    construction_year: fd.get('construction_year') || null,
     language: i18n.effectiveLang(),
   };
   const errEl = document.getElementById('publishError');
