@@ -515,4 +515,23 @@ db.exec(`
     db.exec('ALTER TABLE users ADD COLUMN show_phone_publicly INTEGER NOT NULL DEFAULT 1');
   }
 }
+// Migration : champs spécifiques à la catégorie Immobilier (type de bien,
+// surface, pièces, étage, meublé, année de construction) — tous optionnels,
+// même principe que Véhicules.
+{
+  const listingColumns3 = db.prepare("PRAGMA table_info(listings)").all();
+  const realEstateColumns = [
+    ['property_type', 'TEXT'],
+    ['surface_m2', 'REAL'],
+    ['num_rooms', 'INTEGER'],
+    ['floor_number', 'TEXT'],
+    ['furnished', 'TEXT'],
+    ['construction_year', 'INTEGER'],
+  ];
+  for (const [name, type] of realEstateColumns) {
+    if (!listingColumns3.some((c) => c.name === name)) {
+      db.exec(`ALTER TABLE listings ADD COLUMN ${name} ${type}`);
+    }
+  }
+}
 export default db;
