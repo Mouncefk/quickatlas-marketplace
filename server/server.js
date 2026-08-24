@@ -2551,6 +2551,22 @@ const server = http.createServer(async (req, res) => {
       db.prepare("DELETE FROM site_settings WHERE key = 'logo_url'").run();
       return sendJSON(res, 200, { ok: true });
     }
+    // Activation/désactivation de la carte du monde sur l'accueil — utile
+    // pour masquer temporairement le concept lors d'une présentation, sans
+    // toucher au reste de la page (titre, recherche restent visibles).
+    // Activée par défaut si jamais réglée (absence de ligne = activée).
+    if (pathname === '/api/settings/map-enabled' && method === 'GET') {
+      const row = db.prepare("SELECT value FROM site_settings WHERE key = 'map_enabled'").get();
+      return sendJSON(res, 200, { enabled: row ? row.value === 'true' : true });
+    }
+    if (pathname === '/api/admin/settings/map-enabled' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const enabled = body.enabled !== false;
+      db.prepare("INSERT INTO site_settings (key, value) VALUES ('map_enabled', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(enabled ? 'true' : 'false');
+      return sendJSON(res, 200, { enabled });
+    }
     // Boîte de réception admin — liste, lecture (marque comme lu) et
     // réponse (via le même mécanisme d'envoi que le reste du site).
     // Composition libre — envoie un nouvel email à n'importe quelle
