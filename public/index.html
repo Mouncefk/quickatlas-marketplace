@@ -80,7 +80,7 @@
         </form>
       </div>
     </div>
-    <div class="map-wrap map-wrap--edge">
+    <div class="map-wrap map-wrap--edge" id="mapWrap">
       <div id="mapContainer" class="map-container" aria-label="Carte du monde interactive"></div>
       <div class="map-legend">
         <span class="legend-dot legend-dot--active"></span> <span data-i18n="legend.active">pays avec annonces</span>
@@ -693,6 +693,13 @@
         </label>
         <p class="upload-progress" id="adminLogoUploadProgress" hidden></p>
         <button type="button" id="adminLogoResetBtn" class="btn btn--ghost btn--small" data-i18n="admin.logo_reset">Revenir au logo par défaut</button>
+        <hr class="admin-section-divider" />
+        <h3 data-i18n="admin.map_title">Carte du monde (accueil)</h3>
+        <p class="form-hint" data-i18n="admin.map_intro">Permet de masquer temporairement la carte lors d'une présentation — le titre et la recherche restent visibles.</p>
+        <label class="terms-checkbox">
+          <input type="checkbox" id="adminMapEnabledCheckbox" checked />
+          <span data-i18n="admin.map_enabled_label">Afficher la carte sur l'accueil</span>
+        </label>
       </div>
       <div id="adminInboxPanel" class="admin-panel" hidden>
         <div class="inbox-toolbar">
