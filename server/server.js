@@ -1067,13 +1067,13 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/me/phone' && method === 'PUT') {
       const user = requireAuth(req, res);
       if (!user) return;
-      const { phone } = await readBody(req);
+      const { phone, show_phone_publicly } = await readBody(req);
       const cleaned = (phone || '').replace(/[^\d+]/g, '').trim();
       if (cleaned && !/^\+?\d{6,15}$/.test(cleaned)) {
         return sendJSON(res, 400, { error: 'Numéro invalide. Utilisez le format international, ex. +212612345678.' });
       }
-      db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(cleaned || null, user.id);
-      return sendJSON(res, 200, { phone: cleaned || null });
+      db.prepare('UPDATE users SET phone = ?, show_phone_publicly = ? WHERE id = ?').run(cleaned || null, show_phone_publicly === false ? 0 : 1, user.id);
+      return sendJSON(res, 200, { phone: cleaned || null, show_phone_publicly: show_phone_publicly === false ? false : true });
     }
     if (pathname === '/api/auth/resend-verification' && method === 'POST') {
       const user = requireAuth(req, res);
@@ -1592,7 +1592,7 @@ const server = http.createServer(async (req, res) => {
           `SELECT l.*, cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
-                  u.name AS owner_name, u.email_verified_at AS owner_verified_at, u.phone AS owner_phone,
+                  u.name AS owner_name, u.email_verified_at AS owner_verified_at, CASE WHEN u.show_phone_publicly = 1 THEN u.phone ELSE NULL END AS owner_phone,
                   u.is_professional AS owner_is_professional, u.company_name AS owner_company_name,
                   u.company_logo_url AS owner_company_logo_url, u.company_website AS owner_company_website,
                   u.pro_tier AS owner_pro_tier, u.email AS owner_email,
