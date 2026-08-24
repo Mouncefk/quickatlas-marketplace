@@ -521,7 +521,6 @@ db.exec(`
 {
   const listingColumns3 = db.prepare("PRAGMA table_info(listings)").all();
   const realEstateColumns = [
-    ['property_type', 'TEXT'],
     ['surface_m2', 'REAL'],
     ['num_rooms', 'INTEGER'],
     ['floor_number', 'TEXT'],
