@@ -3137,6 +3137,20 @@ function renderFavoriteHeartsOnMap() {
       .text('❤️');
   });
 }
+/** Vérifie si la carte est activée (réglage admin) avant de l'initialiser
+ * — permet de la masquer temporairement (présentation, démo) sans toucher
+ * au reste de la page. Activée par défaut si l'appel échoue. */
+async function maybeInitMap() {
+  try {
+    const { enabled } = await api('/settings/map-enabled');
+    if (!enabled) {
+      const wrap = document.getElementById('mapWrap');
+      if (wrap) wrap.hidden = true;
+      return;
+    }
+  } catch { /* en cas d'échec, on affiche la carte par défaut */ }
+  initMap();
+}
 async function initMap() {
   const container = document.getElementById('mapContainer');
   const width = container.clientWidth || 960;
@@ -3721,7 +3735,7 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminAppearancePanel').hidden = btn.dataset.adminTab !== 'appearance';
     document.getElementById('adminInboxPanel').hidden = btn.dataset.adminTab !== 'inbox';
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
-    if (btn.dataset.adminTab === 'appearance') loadAdminLogoPreview();
+    if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
   })
 );
@@ -3866,6 +3880,25 @@ async function openAdminInboxEmail(id) {
 }
 /** Affiche l'aperçu du logo actuel dans le panneau admin (image
  * personnalisée si définie, sinon le compas par défaut). */
+/** Charge l'état actuel (activée/désactivée) de la carte dans le
+ * panneau admin Apparence. */
+async function loadAdminMapSetting() {
+  const checkbox = document.getElementById('adminMapEnabledCheckbox');
+  if (!checkbox) return;
+  try {
+    const { enabled } = await api('/settings/map-enabled');
+    checkbox.checked = enabled;
+  } catch { /* pas grave, garde son état actuel */ }
+}
+document.getElementById('adminMapEnabledCheckbox')?.addEventListener('change', async (e) => {
+  try {
+    await api('/admin/settings/map-enabled', { method: 'POST', body: JSON.stringify({ enabled: e.target.checked }) });
+    showToast(e.target.checked ? i18n.t('admin.map_enabled_toast') : i18n.t('admin.map_disabled_toast'));
+  } catch (err) {
+    e.target.checked = !e.target.checked;
+    showToast(err.message);
+  }
+});
 async function loadAdminLogoPreview() {
   const preview = document.getElementById('adminLogoPreview');
   try {
@@ -4477,7 +4510,7 @@ async function boot() {
   } catch (e) {
     showToast(i18n.t('toast.server_unreachable'));
   }
-  initMap();
+  maybeInitMap();
   initGoogleSignIn();
   handleAuthLinksFromUrl();
   handleInitialUrlRoute();
