@@ -2028,6 +2028,7 @@ async function loadPassport() {
     box.append(el('p', { class: 'passport-empty' }, friendlyErrorMessage(e)));
   }
   document.getElementById('phoneInput').value = state.user.phone || '';
+  document.getElementById('showPhonePubliclyCheckbox').checked = state.user.show_phone_publicly !== false;
   const referralLink = `${window.location.origin}/?ref=${state.user.referral_code || ''}`;
   document.getElementById('referralLinkInput').value = referralLink;
   document.getElementById('referralCreditsText').textContent = i18n.t('passport.credits_balance', { count: state.user.free_boost_credits || 0 });
@@ -2113,8 +2114,10 @@ document.getElementById('phoneForm').addEventListener('submit', async (e) => {
   const errEl = document.getElementById('phoneError');
   errEl.hidden = true;
   try {
-    const result = await api('/me/phone', { method: 'PUT', body: JSON.stringify({ phone: fd.get('phone') }) });
+    const showPublicly = document.getElementById('showPhonePubliclyCheckbox').checked;
+    const result = await api('/me/phone', { method: 'PUT', body: JSON.stringify({ phone: fd.get('phone'), show_phone_publicly: showPublicly }) });
     state.user.phone = result.phone;
+    state.user.show_phone_publicly = result.show_phone_publicly;
     localStorage.setItem('atlas_user', JSON.stringify(state.user));
     showToast(i18n.t('toast.phone_saved'));
   } catch (err) {
