@@ -1347,7 +1347,7 @@ const server = http.createServer(async (req, res) => {
         SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.created_at,
                cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at
+               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at
         FROM listings l
         JOIN categories cat ON cat.id = l.category_id
         LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
@@ -1368,7 +1368,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/listings/promo' && method === 'GET') {
       const row = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.view_count, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.view_count, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM listings l
@@ -1456,7 +1456,7 @@ const server = http.createServer(async (req, res) => {
         SELECT l.id, l.title, l.description, l.listing_type, l.price, l.currency, l.images_json, l.created_at, l.boosted_until,
                cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
+               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
                u.is_professional, u.company_name, u.company_logo_url, u.pro_tier
         FROM listings l
         JOIN categories cat ON cat.id = l.category_id
@@ -1501,7 +1501,7 @@ const server = http.createServer(async (req, res) => {
         SELECT l.id, l.title, l.description, l.listing_type, l.price, l.currency, l.images_json, l.created_at, l.boosted_until,
                cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
+               ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
                u.is_professional, u.company_name, u.company_logo_url, u.pro_tier
         FROM listings l
         JOIN categories cat ON cat.id = l.category_id
@@ -1540,7 +1540,7 @@ const server = http.createServer(async (req, res) => {
       if (!user) return;
       if (!requireVerifiedEmail(user, res)) return;
       const body = await readBody(req);
-      const { title, description, listing_type, price, currency, city_id, category_id, subcategory_id, images, open_to_trade, trade_description, language, is_secondhand, date_start, date_end, price_promo, price_type, capacity_guests, bedrooms, bathrooms, amenities, vehicle_brand, vehicle_model, vehicle_year, vehicle_mileage, vehicle_condition, vehicle_transmission, vehicle_fuel_type, property_type, surface_m2, num_rooms, floor_number, furnished, construction_year } = body;
+      const { title, description, listing_type, price, currency, city_id, category_id, subcategory_id, images, open_to_trade, trade_description, language, is_secondhand, date_start, date_end, price_promo, price_type, capacity_guests, bedrooms, bathrooms, amenities, vehicle_brand, vehicle_model, vehicle_year, vehicle_mileage, vehicle_condition, vehicle_transmission, vehicle_fuel_type, surface_m2, num_rooms, floor_number, furnished, construction_year } = body;
       const VALID_TYPES = ['vente', 'location', 'achat', 'offre_emploi', 'demande_emploi'];
       if (!title || !listing_type || !VALID_TYPES.includes(listing_type)) {
         return sendJSON(res, 400, { error: "Titre et type d'annonce valide requis." });
@@ -1571,10 +1571,10 @@ const server = http.createServer(async (req, res) => {
       const listingLang = ['fr', 'en', 'ar', 'es', 'pt', 'it'].includes(language) ? language : 'fr';
       const id = db
         .prepare(
-          `INSERT INTO listings (user_id, city_id, category_id, subcategory_id, title, description, listing_type, price, currency, images_json, open_to_trade, trade_description, language, is_secondhand, date_start, date_end, price_promo, price_type, capacity_guests, bedrooms, bathrooms, amenities_json, vehicle_brand, vehicle_model, vehicle_year, vehicle_mileage, vehicle_condition, vehicle_transmission, vehicle_fuel_type, property_type, surface_m2, num_rooms, floor_number, furnished, construction_year)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO listings (user_id, city_id, category_id, subcategory_id, title, description, listing_type, price, currency, images_json, open_to_trade, trade_description, language, is_secondhand, date_start, date_end, price_promo, price_type, capacity_guests, bedrooms, bathrooms, amenities_json, vehicle_brand, vehicle_model, vehicle_year, vehicle_mileage, vehicle_condition, vehicle_transmission, vehicle_fuel_type, surface_m2, num_rooms, floor_number, furnished, construction_year)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
-        .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null, listingLang, is_secondhand ? 1 : 0, (date_start || '').trim() || null, (date_end || '').trim() || null, price_promo === null || price_promo === undefined || price_promo === '' ? null : Number(price_promo), (price_type || '').trim() || null, capacity_guests === null || capacity_guests === undefined || capacity_guests === '' ? null : Number(capacity_guests), bedrooms === null || bedrooms === undefined || bedrooms === '' ? null : Number(bedrooms), bathrooms === null || bathrooms === undefined || bathrooms === '' ? null : Number(bathrooms), Array.isArray(amenities) && amenities.length ? JSON.stringify(amenities) : null, (vehicle_brand || '').trim() || null, (vehicle_model || '').trim() || null, vehicle_year === null || vehicle_year === undefined || vehicle_year === '' ? null : Number(vehicle_year), vehicle_mileage === null || vehicle_mileage === undefined || vehicle_mileage === '' ? null : Number(vehicle_mileage), (vehicle_condition || '').trim() || null, (vehicle_transmission || '').trim() || null, (vehicle_fuel_type || '').trim() || null, (property_type || '').trim() || null, surface_m2 === null || surface_m2 === undefined || surface_m2 === '' ? null : Number(surface_m2), num_rooms === null || num_rooms === undefined || num_rooms === '' ? null : Number(num_rooms), (floor_number || '').trim() || null, (furnished || '').trim() || null, construction_year === null || construction_year === undefined || construction_year === '' ? null : Number(construction_year))
+        .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null, listingLang, is_secondhand ? 1 : 0, (date_start || '').trim() || null, (date_end || '').trim() || null, price_promo === null || price_promo === undefined || price_promo === '' ? null : Number(price_promo), (price_type || '').trim() || null, capacity_guests === null || capacity_guests === undefined || capacity_guests === '' ? null : Number(capacity_guests), bedrooms === null || bedrooms === undefined || bedrooms === '' ? null : Number(bedrooms), bathrooms === null || bathrooms === undefined || bathrooms === '' ? null : Number(bathrooms), Array.isArray(amenities) && amenities.length ? JSON.stringify(amenities) : null, (vehicle_brand || '').trim() || null, (vehicle_model || '').trim() || null, vehicle_year === null || vehicle_year === undefined || vehicle_year === '' ? null : Number(vehicle_year), vehicle_mileage === null || vehicle_mileage === undefined || vehicle_mileage === '' ? null : Number(vehicle_mileage), (vehicle_condition || '').trim() || null, (vehicle_transmission || '').trim() || null, (vehicle_fuel_type || '').trim() || null, surface_m2 === null || surface_m2 === undefined || surface_m2 === '' ? null : Number(surface_m2), num_rooms === null || num_rooms === undefined || num_rooms === '' ? null : Number(num_rooms), (floor_number || '').trim() || null, (furnished || '').trim() || null, construction_year === null || construction_year === undefined || construction_year === '' ? null : Number(construction_year))
         .lastInsertRowid;
       const risk = computeFraudRisk({ price: finalPrice, currency: currency || 'EUR', description: (description || '').trim(), images, subcategoryId, userId: user.id, title: title.trim(), categorySlug: category.slug });
       if (risk.score > 0) {
@@ -1591,7 +1591,7 @@ const server = http.createServer(async (req, res) => {
         .prepare(
           `SELECT l.*, cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
-                  ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
+                  ci.name AS city_name, ci.timezone AS city_timezone, co.iso2 AS country_iso2, co.name AS country_name, co.currency AS country_currency, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
                   u.name AS owner_name, u.email_verified_at AS owner_verified_at, CASE WHEN u.show_phone_publicly = 1 THEN u.phone ELSE NULL END AS owner_phone,
                   u.is_professional AS owner_is_professional, u.company_name AS owner_company_name,
                   u.company_logo_url AS owner_company_logo_url, u.company_website AS owner_company_website,
@@ -1667,7 +1667,7 @@ const server = http.createServer(async (req, res) => {
       if (!listing) return sendJSON(res, 404, { error: 'Annonce introuvable' });
       const rows = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM listings l
@@ -1856,7 +1856,7 @@ const server = http.createServer(async (req, res) => {
       const rows = db
         .prepare(
           `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.status, l.images_json, l.created_at,
-                  l.expires_at, l.boosted_until, l.view_count, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at,
+                  l.expires_at, l.boosted_until, l.view_count, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at,
                   ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name, cat.slug AS category_slug, cat.name AS category_name,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   (SELECT COUNT(*) FROM favorites f WHERE f.listing_id = l.id) AS favorite_count
@@ -1921,7 +1921,7 @@ const server = http.createServer(async (req, res) => {
       if (!admin) return;
       const rows = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.status, l.created_at, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.expires_at,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.status, l.created_at, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.expires_at,
                   l.fraud_risk_score, l.fraud_risk_reasons,
                   cat.name AS category_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name,
                   u.name AS owner_name, u.email AS owner_email
@@ -2206,7 +2206,7 @@ const server = http.createServer(async (req, res) => {
       if (!countryId) return sendJSON(res, 400, { error: 'country_id requis.' });
       const listings = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM listings l
@@ -2462,7 +2462,7 @@ const server = http.createServer(async (req, res) => {
       if (!user) return;
       const rows = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.created_at, l.view_count, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.expires_at,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.created_at, l.view_count, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.expires_at,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name,
                   ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
@@ -2809,7 +2809,7 @@ const server = http.createServer(async (req, res) => {
       if (!search) return sendJSON(res, 404, { error: 'Alerte introuvable.' });
       const rows = db
         .prepare(
-          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.property_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
+          `SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, l.boosted_until, l.is_secondhand, l.date_start, l.date_end, l.price_promo, l.price_type, l.capacity_guests, l.bedrooms, l.bathrooms, l.amenities_json, l.vehicle_brand, l.vehicle_model, l.vehicle_year, l.vehicle_mileage, l.vehicle_condition, l.vehicle_transmission, l.vehicle_fuel_type, l.surface_m2, l.num_rooms, l.floor_number, l.furnished, l.construction_year, l.is_demo, l.transaction_completed, l.created_at, l.expires_at,
                   cat.slug AS category_slug, cat.name AS category_name, cat.icon AS category_icon,
                   sub.slug AS subcategory_slug, sub.name AS subcategory_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM saved_search_matches m
