@@ -3894,6 +3894,15 @@ document.getElementById('adminMapEnabledCheckbox')?.addEventListener('change', a
   try {
     await api('/admin/settings/map-enabled', { method: 'POST', body: JSON.stringify({ enabled: e.target.checked }) });
     showToast(e.target.checked ? i18n.t('admin.map_enabled_toast') : i18n.t('admin.map_disabled_toast'));
+    const wrap = document.getElementById('mapWrap');
+    if (wrap) {
+      if (e.target.checked) {
+        wrap.hidden = false;
+        if (!mapSelection) initMap();
+      } else {
+        wrap.hidden = true;
+      }
+    }
   } catch (err) {
     e.target.checked = !e.target.checked;
     showToast(err.message);
