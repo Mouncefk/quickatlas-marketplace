@@ -424,6 +424,44 @@
               </label>
             </div>
           </div>
+          <div id="realEstateDetailsRow" hidden>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_property_type">Type de bien</span>
+                <select name="property_type" id="publishPropertyType">
+                  <option value="" data-i18n="publish.property_type_default">— Non précisé —</option>
+                  <option value="appartement" data-i18n="publish.property_type_apartment">Appartement</option>
+                  <option value="maison" data-i18n="publish.property_type_house">Maison</option>
+                  <option value="terrain" data-i18n="publish.property_type_land">Terrain</option>
+                  <option value="local_commercial" data-i18n="publish.property_type_commercial">Local commercial</option>
+                  <option value="bureau" data-i18n="publish.property_type_office">Bureau</option>
+                  <option value="autre" data-i18n="publish.property_type_other">Autre</option>
+                </select>
+              </label>
+              <label><span data-i18n="publish.label_surface">Surface habitable (m²)</span>
+                <input type="number" name="surface_m2" id="publishSurfaceM2" min="0" step="0.1" placeholder="75" />
+              </label>
+            </div>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_num_rooms">Nombre de pièces</span>
+                <input type="number" name="num_rooms" id="publishNumRooms" min="0" step="1" placeholder="3" />
+              </label>
+              <label><span data-i18n="publish.label_floor_number">Étage</span>
+                <input type="text" name="floor_number" id="publishFloorNumber" placeholder="Ex. RDC, 3ᵉ avec ascenseur…" />
+              </label>
+            </div>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_furnished">Meublé</span>
+                <select name="furnished" id="publishFurnished">
+                  <option value="" data-i18n="publish.furnished_default">— Non précisé —</option>
+                  <option value="oui" data-i18n="publish.furnished_yes">Meublé</option>
+                  <option value="non" data-i18n="publish.furnished_no">Non meublé</option>
+                </select>
+              </label>
+              <label><span data-i18n="publish.label_construction_year">Année de construction</span>
+                <input type="number" name="construction_year" id="publishConstructionYear" min="1800" max="2100" step="1" placeholder="2010" />
+              </label>
+            </div>
+          </div>
         </aside>
         <div class="publish-form-footer">
           <p class="form-notice" id="publishTermsNotice"></p>
