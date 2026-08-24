@@ -875,7 +875,7 @@ function updateRealEstateDetailsVisibility(subcategorySlug) {
   const showFields = REAL_ESTATE_SUBCATEGORIES.includes(subcategorySlug);
   row.hidden = !showFields;
   if (!showFields) {
-    ['publishPropertyType', 'publishSurfaceM2', 'publishNumRooms', 'publishFloorNumber', 'publishFurnished', 'publishConstructionYear'].forEach((id) => {
+    ['publishSurfaceM2', 'publishNumRooms', 'publishFloorNumber', 'publishFurnished', 'publishConstructionYear'].forEach((id) => {
       const input = document.getElementById(id);
       if (input) input.value = '';
     });
@@ -1684,14 +1684,6 @@ function vehicleFuelLabel(code) {
   };
   return map[code] ? i18n.t(map[code]) : code;
 }
-function propertyTypeLabel(code) {
-  const map = {
-    appartement: 'publish.property_type_apartment', maison: 'publish.property_type_house',
-    terrain: 'publish.property_type_land', local_commercial: 'publish.property_type_commercial',
-    bureau: 'publish.property_type_office', autre: 'publish.property_type_other',
-  };
-  return map[code] ? i18n.t(map[code]) : code;
-}
 function furnishedLabel(code) {
   const map = { oui: 'publish.furnished_yes', non: 'publish.furnished_no' };
   return map[code] ? i18n.t(map[code]) : code;
@@ -2491,8 +2483,7 @@ async function openListingDetail(id) {
       l.vehicle_transmission ? el('span', {}, vehicleTransmissionLabel(l.vehicle_transmission)) : null,
       l.vehicle_fuel_type ? el('span', {}, vehicleFuelLabel(l.vehicle_fuel_type)) : null,
     ].filter(Boolean)) : null,
-    (l.property_type || l.surface_m2 || l.num_rooms || l.floor_number || l.furnished || l.construction_year) ? el('div', { class: 'vehicle-facts' }, [
-      l.property_type ? el('span', {}, propertyTypeLabel(l.property_type)) : null,
+    (l.surface_m2 || l.num_rooms || l.floor_number || l.furnished || l.construction_year) ? el('div', { class: 'vehicle-facts' }, [
       l.surface_m2 ? el('span', {}, `${l.surface_m2} m²`) : null,
       l.num_rooms ? el('span', {}, i18n.t('publish.num_rooms_display', { count: l.num_rooms })) : null,
       l.floor_number ? el('span', {}, l.floor_number) : null,
@@ -2949,7 +2940,6 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     vehicle_condition: fd.get('vehicle_condition') || null,
     vehicle_transmission: fd.get('vehicle_transmission') || null,
     vehicle_fuel_type: fd.get('vehicle_fuel_type') || null,
-    property_type: fd.get('property_type') || null,
     surface_m2: fd.get('surface_m2') || null,
     num_rooms: fd.get('num_rooms') || null,
     floor_number: fd.get('floor_number') || null,
