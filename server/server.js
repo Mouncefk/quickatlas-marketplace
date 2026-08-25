@@ -1850,6 +1850,86 @@ const server = http.createServer(async (req, res) => {
         top_listings: topListings,
       });
     }
+    // Tableau de bord détaillé — toutes les annonces du vendeur (pas
+    // seulement le top 5), avec vues et favoris par annonce, pour un vrai
+    // suivi de performance.
+    if (pathname === '/api/me/listings-stats' && method === 'GET') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const rows = db
+        .prepare(
+          `SELECT l.id, l.title, l.view_count, l.status, l.created_at, l.expires_at,
+                  (SELECT COUNT(*) FROM favorites f WHERE f.listing_id = l.id) AS fav_count
+           FROM listings l WHERE l.user_id = ? ORDER BY l.created_at DESC`
+        )
+        .all(user.id);
+      return sendJSON(res, 200, rows);
+    }
+    // Clients intéressés — utilisateurs ayant mis en favori au moins une
+    // annonce du vendeur connecté, avec le détail de quelle(s) annonce(s).
+    // Sert de base au ciblage "avant-première" ci-dessous.
+    if (pathname === '/api/me/interested-clients' && method === 'GET') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const rows = db
+        .prepare(
+          `SELECT u.id AS user_id, u.name AS user_name, l.id AS listing_id, l.title AS listing_title, f.created_at AS favorited_at
+           FROM favorites f
+           JOIN listings l ON l.id = f.listing_id
+           JOIN users u ON u.id = f.user_id
+           WHERE l.user_id = ?
+           ORDER BY f.created_at DESC`
+        )
+        .all(user.id);
+      const clientsMap = new Map();
+      for (const row of rows) {
+        if (!clientsMap.has(row.user_id)) {
+          clientsMap.set(row.user_id, { user_id: row.user_id, user_name: row.user_name, listings: [] });
+        }
+        clientsMap.get(row.user_id).listings.push({ listing_id: row.listing_id, listing_title: row.listing_title, favorited_at: row.favorited_at });
+      }
+      return sendJSON(res, 200, Array.from(clientsMap.values()));
+    }
+    // Avant-première — prévient, via la messagerie interne, tous les
+    // clients ayant déjà mis en favori une autre annonce du même vendeur,
+    // qu'une nouvelle annonce vient d'être publiée. Réutilise le système
+    // de conversations existant (une conversation par annonce/acheteur).
+    if ((m = pathname.match(/^\/api\/listings\/(\d+)\/notify-clients$/)) && method === 'POST') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const listing = db.prepare('SELECT id, title, user_id FROM listings WHERE id = ?').get(Number(m[1]));
+      if (!listing) return sendJSON(res, 404, { error: 'Annonce introuvable.' });
+      if (listing.user_id !== user.id && user.role !== 'admin') {
+        return sendJSON(res, 403, { error: "Vous n'êtes pas propriétaire de cette annonce." });
+      }
+      const interestedUserIds = db
+        .prepare(
+          `SELECT DISTINCT f.user_id
+           FROM favorites f JOIN listings l ON l.id = f.listing_id
+           WHERE l.user_id = ? AND l.id != ?`
+        )
+        .all(listing.user_id, listing.id)
+        .map((r) => r.user_id);
+      let notified = 0;
+      const messageBody = `Bonjour, je vous préviens en avant-première d'une nouvelle annonce qui pourrait vous intéresser : "${listing.title}". N'hésitez pas à y jeter un œil !`;
+      for (const buyerId of interestedUserIds) {
+        if (buyerId === listing.user_id) continue;
+        let conversation = db
+          .prepare('SELECT id FROM conversations WHERE listing_id = ? AND buyer_id = ?')
+          .get(listing.id, buyerId);
+        let conversationId;
+        if (conversation) {
+          conversationId = conversation.id;
+        } else {
+          conversationId = db
+            .prepare('INSERT INTO conversations (listing_id, buyer_id, seller_id) VALUES (?, ?, ?)')
+            .run(listing.id, buyerId, listing.user_id).lastInsertRowid;
+        }
+        db.prepare('INSERT INTO messages (conversation_id, sender_id, body) VALUES (?, ?, ?)').run(conversationId, listing.user_id, messageBody);
+        notified++;
+      }
+      return sendJSON(res, 200, { ok: true, notified });
+    }
     if (pathname === '/api/me/listings' && method === 'GET') {
       const user = requireAuth(req, res);
       if (!user) return;
