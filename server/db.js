@@ -533,4 +533,19 @@ db.exec(`
     }
   }
 }
+// Géolocalisation des vues — table dédiée pour tracer l'origine
+// géographique (pays/ville uniquement, jamais l'adresse IP elle-même,
+// par souci de vie privée) de chaque consultation d'annonce. Alimente le
+// tableau de bord professionnel (répartition géographique des visiteurs).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS listing_views (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_id INTEGER NOT NULL,
+    country TEXT,
+    city TEXT,
+    viewed_at TEXT NOT NULL,
+    FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
+  );
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(listing_id);`);
 export default db;
