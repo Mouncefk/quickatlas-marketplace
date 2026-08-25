@@ -3115,6 +3115,39 @@ document.getElementById('showInterestedClientsBtn')?.addEventListener('click', (
   panel.hidden = !panel.hidden;
   if (!panel.hidden) loadInterestedClients();
 });
+/** Charge et affiche la répartition géographique (par pays) des
+ * visiteurs de toutes les annonces du vendeur connecté. */
+async function loadGeoStats() {
+  const list = document.getElementById('geoStatsList');
+  list.innerHTML = '';
+  try {
+    const rows = await api('/me/listings-geo');
+    if (rows.length === 0) {
+      list.append(el('p', { class: 'empty-state' }, i18n.t('mine.no_geo_stats')));
+      return;
+    }
+    const maxViews = Math.max(...rows.map((r) => r.view_count));
+    for (const r of rows) {
+      const pct = Math.round((r.view_count / maxViews) * 100);
+      list.append(
+        el('div', { class: 'geo-stat-row' }, [
+          el('span', { class: 'geo-stat-country' }, r.country),
+          el('div', { class: 'geo-stat-bar-track' }, [
+            el('div', { class: 'geo-stat-bar-fill', style: `width:${pct}%;` }),
+          ]),
+          el('span', { class: 'geo-stat-count' }, String(r.view_count)),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+document.getElementById('showGeoStatsBtn')?.addEventListener('click', () => {
+  const panel = document.getElementById('geoStatsPanel');
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) loadGeoStats();
+});
 function listingExpiryInfo(l) {
   const expiresAt = new Date(l.expires_at + 'Z');
   const daysLeft = Math.ceil((expiresAt - Date.now()) / 86400000);
