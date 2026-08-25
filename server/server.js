@@ -1856,6 +1856,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/me/listings-stats' && method === 'GET') {
       const user = requireAuth(req, res);
       if (!user) return;
+      if (!user.is_professional) return sendJSON(res, 403, { error: 'Réservé aux comptes professionnels.' });
       const rows = db
         .prepare(
           `SELECT l.id, l.title, l.view_count, l.status, l.created_at, l.expires_at,
@@ -1871,6 +1872,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/me/interested-clients' && method === 'GET') {
       const user = requireAuth(req, res);
       if (!user) return;
+      if (!user.is_professional) return sendJSON(res, 403, { error: 'Réservé aux comptes professionnels.' });
       const rows = db
         .prepare(
           `SELECT u.id AS user_id, u.name AS user_name, l.id AS listing_id, l.title AS listing_title, f.created_at AS favorited_at
@@ -1897,6 +1899,7 @@ const server = http.createServer(async (req, res) => {
     if ((m = pathname.match(/^\/api\/listings\/(\d+)\/notify-clients$/)) && method === 'POST') {
       const user = requireAuth(req, res);
       if (!user) return;
+      if (!user.is_professional) return sendJSON(res, 403, { error: 'Réservé aux comptes professionnels.' });
       const listing = db.prepare('SELECT id, title, user_id FROM listings WHERE id = ?').get(Number(m[1]));
       if (!listing) return sendJSON(res, 404, { error: 'Annonce introuvable.' });
       if (listing.user_id !== user.id && user.role !== 'admin') {
