@@ -466,6 +466,28 @@
       <p class="eyebrow" data-i18n="mine.eyebrow">TABLEAU DE BORD</p>
       <h1 data-i18n="mine.title">Mes annonces</h1>
       <div class="seller-stats" id="sellerStats"></div>
+      <div class="dashboard-detail-toggle">
+        <button type="button" id="showDetailedStatsBtn" class="btn btn--ghost btn--small" data-i18n="mine.show_detailed_stats">📊 Voir le détail par annonce</button>
+        <button type="button" id="showInterestedClientsBtn" class="btn btn--ghost btn--small" data-i18n="mine.show_interested_clients">👥 Mes clients intéressés</button>
+      </div>
+      <div id="detailedStatsPanel" hidden>
+        <table class="dashboard-table" id="detailedStatsTable">
+          <thead>
+            <tr>
+              <th data-i18n="mine.stats_col_title">Annonce</th>
+              <th data-i18n="mine.stats_col_views">Vues</th>
+              <th data-i18n="mine.stats_col_favorites">Favoris</th>
+              <th data-i18n="mine.stats_col_status">Statut</th>
+              <th data-i18n="mine.stats_col_date">Publiée le</th>
+            </tr>
+          </thead>
+          <tbody id="detailedStatsBody"></tbody>
+        </table>
+      </div>
+      <div id="interestedClientsPanel" hidden>
+        <p class="form-hint" data-i18n="mine.interested_clients_hint">Ces personnes ont mis au moins une de vos annonces en favori — elles seront prévenues en avant-première si vous utilisez le bouton "Prévenir mes clients" sur une nouvelle annonce.</p>
+        <div id="interestedClientsList"></div>
+      </div>
       <p class="referral-reminder" id="referralReminder" hidden></p>
       <div class="listing-grid" id="myListingGrid"></div>
     </div>
