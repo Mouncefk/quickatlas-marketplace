@@ -474,6 +474,38 @@ async function checkCityRequestFulfillments() {
     }
   }
 }
+/** Résout le pays et la ville approximative d'une adresse IP visiteur,
+ * via un service de géolocalisation gratuit — sans jamais conserver
+ * l'adresse IP elle-même en base (seuls pays/ville sont stockés).
+ * Reste totalement silencieuse en cas d'échec : la vue est comptée
+ * normalement même si la géolocalisation échoue. */
+async function geolocateIp(ip) {
+  if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) return null;
+  try {
+    const response = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,city`);
+    const data = await response.json();
+    if (data.status !== 'success') return null;
+    return { country: data.country || null, city: data.city || null };
+  } catch {
+    return null;
+  }
+}
+/** Enregistre une vue géolocalisée pour une annonce, en tâche de fond
+ * (n'attend jamais cette fonction — ne doit jamais ralentir l'affichage
+ * de la fiche annonce pour le visiteur). */
+function logListingViewAsync(listingId, req) {
+  const forwarded = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const ip = forwarded || req.socket.remoteAddress || '';
+  geolocateIp(ip)
+    .then((geo) => {
+      db.prepare('INSERT INTO listing_views (listing_id, country, city, viewed_at) VALUES (?, ?, ?, datetime(\'now\'))').run(
+        listingId,
+        geo?.country || null,
+        geo?.city || null
+      );
+    })
+    .catch((err) => console.error('[géolocalisation] échec silencieux :', err.message));
+}
 async function checkListingExpirations() {
   const soon = db
     .prepare(
@@ -1609,6 +1641,7 @@ const server = http.createServer(async (req, res) => {
         .get(Number(m[1]));
       if (!row) return sendJSON(res, 404, { error: 'Annonce introuvable' });
       db.prepare('UPDATE listings SET view_count = view_count + 1 WHERE id = ?').run(row.id);
+      logListingViewAsync(row.id, req);
       row.view_count = row.view_count + 1;
       row.images = JSON.parse(row.images_json);
       row.owner_verified = !!row.owner_verified_at;
@@ -1862,6 +1895,26 @@ const server = http.createServer(async (req, res) => {
           `SELECT l.id, l.title, l.view_count, l.status, l.created_at, l.expires_at,
                   (SELECT COUNT(*) FROM favorites f WHERE f.listing_id = l.id) AS fav_count
            FROM listings l WHERE l.user_id = ? ORDER BY l.created_at DESC`
+        )
+        .all(user.id);
+      return sendJSON(res, 200, rows);
+    }
+    // Répartition géographique des visiteurs — pays d'origine des vues,
+    // toutes annonces confondues ou par annonce, pour le tableau de bord
+    // professionnel.
+    if (pathname === '/api/me/listings-geo' && method === 'GET') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      if (!user.is_professional) return sendJSON(res, 403, { error: 'Réservé aux comptes professionnels.' });
+      const rows = db
+        .prepare(
+          `SELECT lv.country, COUNT(*) AS view_count
+           FROM listing_views lv
+           JOIN listings l ON l.id = lv.listing_id
+           WHERE l.user_id = ? AND lv.country IS NOT NULL
+           GROUP BY lv.country
+           ORDER BY view_count DESC
+           LIMIT 15`
         )
         .all(user.id);
       return sendJSON(res, 200, rows);
