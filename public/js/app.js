@@ -3021,6 +3021,8 @@ async function loadMyListings() {
   loadSellerStats();
 }
 async function loadSellerStats() {
+  const proToggle = document.getElementById('proDashboardToggle');
+  if (proToggle) proToggle.hidden = !state.user?.is_professional;
   const box = document.getElementById('sellerStats');
   try {
     const s = await api('/me/stats');
@@ -3152,7 +3154,7 @@ function renderMyListings(listings) {
             el('button', { class: 'btn btn--ghost btn--small', onclick: async (e) => { e.stopPropagation(); const r = await api(`/listings/${l.id}/mark-completed`, { method: 'POST' }); showToast(r.transaction_completed ? i18n.t('toast.marked_completed') : i18n.t('toast.unmarked_completed')); loadMyListings(); } },
               l.transaction_completed ? i18n.t('mine.unmark_completed') : (l.listing_type === 'location' ? i18n.t('mine.mark_rented') : i18n.t('mine.mark_sold'))),
             el('button', { class: 'btn btn--danger btn--small', onclick: (e) => { e.stopPropagation(); deleteListing(l.id); } }, i18n.t('mine.delete')),
-            el('button', { class: 'btn btn--ghost btn--small', onclick: async (e) => { e.stopPropagation(); await notifyInterestedClients(l.id); } }, `📣 ${i18n.t('mine.notify_clients')}`),
+            state.user?.is_professional ? el('button', { class: 'btn btn--ghost btn--small', onclick: async (e) => { e.stopPropagation(); await notifyInterestedClients(l.id); } }, `📣 ${i18n.t('mine.notify_clients')}`) : null,
           ]),
         ]),
       ])
