@@ -2666,3 +2666,37 @@ textarea { resize: vertical; }
   border-top: 1px solid var(--ink-line);
   margin: 20px 0 16px;
 }
+/* ---------- Tableau de bord vendeur : détail par annonce & clients intéressés ---------- */
+.dashboard-detail-toggle {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+.dashboard-table th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink-line);
+  color: var(--brass-300);
+  font-weight: 600;
+}
+.dashboard-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ink-line);
+}
+.interested-client-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ink-line);
+  font-size: 0.9rem;
+}
+.interested-client-name { font-weight: 600; color: var(--parchment-100); }
+.interested-client-listings { color: rgba(241,233,216,0.6); text-align: right; }
