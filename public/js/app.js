@@ -3043,6 +3043,76 @@ async function loadSellerStats() {
     )
   );
 }
+/** Charge et affiche le détail vue/favoris par annonce, dans le panneau
+ * "Voir le détail par annonce" du tableau de bord. */
+async function loadDetailedStats() {
+  const tbody = document.getElementById('detailedStatsBody');
+  tbody.innerHTML = '';
+  try {
+    const rows = await api('/me/listings-stats');
+    if (rows.length === 0) {
+      tbody.append(el('tr', {}, [el('td', { colspan: '5' }, i18n.t('mine.empty'))]));
+      return;
+    }
+    for (const r of rows) {
+      tbody.append(
+        el('tr', {}, [
+          el('td', {}, r.title),
+          el('td', {}, String(r.view_count)),
+          el('td', {}, String(r.fav_count)),
+          el('td', {}, r.status),
+          el('td', {}, new Date(r.created_at + 'Z').toLocaleDateString()),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+/** Charge et affiche la liste des clients ayant mis en favori au moins
+ * une annonce du vendeur connecté. */
+async function loadInterestedClients() {
+  const list = document.getElementById('interestedClientsList');
+  list.innerHTML = '';
+  try {
+    const clients = await api('/me/interested-clients');
+    if (clients.length === 0) {
+      list.append(el('p', { class: 'empty-state' }, i18n.t('mine.no_interested_clients')));
+      return;
+    }
+    for (const c of clients) {
+      list.append(
+        el('div', { class: 'interested-client-row' }, [
+          el('span', { class: 'interested-client-name' }, c.user_name),
+          el('span', { class: 'interested-client-listings' }, c.listings.map((li) => li.listing_title).join(', ')),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+/** Prévient, via la messagerie interne, tous les clients ayant déjà mis
+ * en favori une autre annonce du vendeur, qu'une nouvelle annonce vient
+ * d'être publiée — pour leur offrir une avant-première. */
+async function notifyInterestedClients(listingId) {
+  try {
+    const res = await api(`/listings/${listingId}/notify-clients`, { method: 'POST' });
+    showToast(res.notified > 0 ? i18n.t('mine.notify_clients_success', { count: res.notified }) : i18n.t('mine.notify_clients_none'));
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+document.getElementById('showDetailedStatsBtn')?.addEventListener('click', () => {
+  const panel = document.getElementById('detailedStatsPanel');
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) loadDetailedStats();
+});
+document.getElementById('showInterestedClientsBtn')?.addEventListener('click', () => {
+  const panel = document.getElementById('interestedClientsPanel');
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) loadInterestedClients();
+});
 function listingExpiryInfo(l) {
   const expiresAt = new Date(l.expires_at + 'Z');
   const daysLeft = Math.ceil((expiresAt - Date.now()) / 86400000);
@@ -3082,6 +3152,7 @@ function renderMyListings(listings) {
             el('button', { class: 'btn btn--ghost btn--small', onclick: async (e) => { e.stopPropagation(); const r = await api(`/listings/${l.id}/mark-completed`, { method: 'POST' }); showToast(r.transaction_completed ? i18n.t('toast.marked_completed') : i18n.t('toast.unmarked_completed')); loadMyListings(); } },
               l.transaction_completed ? i18n.t('mine.unmark_completed') : (l.listing_type === 'location' ? i18n.t('mine.mark_rented') : i18n.t('mine.mark_sold'))),
             el('button', { class: 'btn btn--danger btn--small', onclick: (e) => { e.stopPropagation(); deleteListing(l.id); } }, i18n.t('mine.delete')),
+            el('button', { class: 'btn btn--ghost btn--small', onclick: async (e) => { e.stopPropagation(); await notifyInterestedClients(l.id); } }, `📣 ${i18n.t('mine.notify_clients')}`),
           ]),
         ]),
       ])
