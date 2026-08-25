@@ -469,6 +469,7 @@
       <div class="dashboard-detail-toggle" id="proDashboardToggle" hidden>
         <button type="button" id="showDetailedStatsBtn" class="btn btn--ghost btn--small" data-i18n="mine.show_detailed_stats">📊 Voir le détail par annonce</button>
         <button type="button" id="showInterestedClientsBtn" class="btn btn--ghost btn--small" data-i18n="mine.show_interested_clients">👥 Mes clients intéressés</button>
+        <button type="button" id="showGeoStatsBtn" class="btn btn--ghost btn--small" data-i18n="mine.show_geo_stats">🌍 Origine géographique</button>
       </div>
       <div id="detailedStatsPanel" hidden>
         <table class="dashboard-table" id="detailedStatsTable">
@@ -487,6 +488,10 @@
       <div id="interestedClientsPanel" hidden>
         <p class="form-hint" data-i18n="mine.interested_clients_hint">Ces personnes ont mis au moins une de vos annonces en favori — elles seront prévenues en avant-première si vous utilisez le bouton "Prévenir mes clients" sur une nouvelle annonce.</p>
         <div id="interestedClientsList"></div>
+      </div>
+      <div id="geoStatsPanel" hidden>
+        <p class="form-hint" data-i18n="mine.geo_stats_hint">Origine géographique (pays) des visiteurs de vos annonces, sur l'ensemble de vos publications.</p>
+        <div id="geoStatsList"></div>
       </div>
       <p class="referral-reminder" id="referralReminder" hidden></p>
       <div class="listing-grid" id="myListingGrid"></div>
