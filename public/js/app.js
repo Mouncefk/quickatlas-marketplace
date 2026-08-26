@@ -4024,6 +4024,7 @@ async function loadAdminInbox() {
           el('span', { class: 'conversation-item-preview' }, mail.subject || i18n.t('admin.inbox_no_subject')),
           el('span', { class: 'conversation-item-date' }, new Date(mail.received_at).toLocaleDateString()),
           !isSent && mail.replied ? el('span', { class: 'conversation-item-badge' }, i18n.t('admin.inbox_replied')) : null,
+          mail.from_spam ? el('span', { class: 'conversation-item-badge conversation-item-badge--spam' }, `⚠️ ${i18n.t('admin.inbox_from_spam')}`) : null,
         ])
       );
     }
@@ -4044,6 +4045,7 @@ async function openAdminInboxEmail(id) {
       el('div', { class: 'inbox-email-header' }, [
         el('h3', {}, mail.subject || i18n.t('admin.inbox_no_subject')),
         el('p', { class: 'form-hint' }, `${mail.from_name || ''} <${mail.from_address}> — ${new Date(mail.received_at).toLocaleString()}`),
+        mail.from_spam ? el('p', { class: 'inbox-spam-warning' }, `⚠️ ${i18n.t('admin.inbox_from_spam_detail')}`) : null,
         el('button', {
           class: 'btn btn--danger btn--small', style: 'margin-top:8px;',
           onclick: async () => {
