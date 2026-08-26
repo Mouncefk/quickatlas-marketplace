@@ -2765,3 +2765,93 @@ textarea { resize: vertical; }
   font-weight: 600;
   flex-shrink: 0;
 }
+/* ---------- Tableau de bord vendeur : détail par annonce & clients intéressés ---------- */
+.dashboard-detail-toggle {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+.dashboard-table th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink-line);
+  color: var(--brass-300);
+  font-weight: 600;
+}
+.dashboard-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ink-line);
+}
+.interested-client-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ink-line);
+  font-size: 0.9rem;
+}
+.interested-client-name { font-weight: 600; color: var(--parchment-100); }
+.interested-client-listings { color: rgba(241,233,216,0.6); text-align: right; }
+.geo-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+.geo-stat-country {
+  width: 130px;
+  flex-shrink: 0;
+  color: var(--parchment-100);
+}
+.geo-stat-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--ink-700);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.geo-stat-bar-fill {
+  height: 100%;
+  background: var(--teal-500);
+  border-radius: 5px;
+}
+.geo-stat-count {
+  width: 40px;
+  text-align: right;
+  color: var(--brass-300);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+/* ---------- Boîte de réception (Administration) : pièces jointes ---------- */
+.attachment-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.attachment-preview-name {
+  font-size: 0.85rem;
+  color: var(--parchment-100);
+}
+.attachment-remove-btn {
+  background: none;
+  border: none;
+  color: var(--rust-500);
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+.attachment-progress {
+  font-size: 0.85rem;
+  color: rgba(241,233,216,0.6);
+  font-style: italic;
+}
