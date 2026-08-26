@@ -400,6 +400,49 @@ function normalizeCityName(str) {
  * même message. Reste silencieuse si SMTP_USER/SMTP_PASS ne sont pas
  * configurées (site fonctionne alors sans boîte de réception admin).
  */
+/** Synchronise un dossier IMAP donné vers la table inbox_emails. Pour la
+ * boîte de réception normale, les uid sont stockés tels quels (positifs).
+ * Pour le dossier Spam, ils sont stockés en négatif — les uid IMAP ne sont
+ * uniques qu'au sein d'un même dossier, alors que la colonne uid de la
+ * base est UNIQUE globalement ; cela garantit qu'un message du spam ne
+ * peut jamais entrer en collision avec un message de la boîte normale. */
+async function syncImapFolder(client, { mailboxPath, settingsKey, fromSpam }) {
+  const lock = await client.getMailboxLock(mailboxPath);
+  try {
+    const lastUidRow = db.prepare('SELECT value FROM site_settings WHERE key = ?').get(settingsKey);
+    const lastUid = lastUidRow ? Number(lastUidRow.value) : 0;
+    const range = lastUid > 0 ? `${lastUid + 1}:*` : '1:*';
+    let maxUid = lastUid;
+    for await (const message of client.fetch(range, { uid: true, source: true }, { uid: true })) {
+      if (message.uid <= lastUid) continue;
+      if (message.uid > maxUid) maxUid = message.uid;
+      const storedUid = fromSpam ? -message.uid : message.uid;
+      const existing = db.prepare('SELECT id FROM inbox_emails WHERE uid = ?').get(storedUid);
+      if (existing) continue;
+      const parsed = await simpleParser(message.source);
+      const fromEntry = (parsed.from && parsed.from.value && parsed.from.value[0]) || {};
+      db.prepare(
+        'INSERT INTO inbox_emails (uid, from_address, from_name, subject, body_text, body_html, received_at, from_spam) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(
+        storedUid,
+        (fromEntry.address || '').toLowerCase(),
+        fromEntry.name || null,
+        parsed.subject || '(sans objet)',
+        (parsed.text || '').slice(0, 5000),
+        parsed.html ? parsed.html.slice(0, 100000) : null,
+        (parsed.date || new Date()).toISOString(),
+        fromSpam ? 1 : 0
+      );
+    }
+    if (maxUid > lastUid) {
+      db.prepare(
+        "INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+      ).run(settingsKey, String(maxUid));
+    }
+  } finally {
+    lock.release();
+  }
+}
 async function checkInboxEmails() {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return;
   const client = new ImapFlow({
@@ -411,38 +454,14 @@ async function checkInboxEmails() {
   });
   await client.connect();
   try {
-    const lock = await client.getMailboxLock('INBOX');
+    await syncImapFolder(client, { mailboxPath: 'INBOX', settingsKey: 'inbox_last_uid', fromSpam: false });
     try {
-      const lastUidRow = db.prepare("SELECT value FROM site_settings WHERE key = 'inbox_last_uid'").get();
-      const lastUid = lastUidRow ? Number(lastUidRow.value) : 0;
-      const range = lastUid > 0 ? `${lastUid + 1}:*` : '1:*';
-      let maxUid = lastUid;
-      for await (const message of client.fetch(range, { uid: true, source: true }, { uid: true })) {
-        if (message.uid <= lastUid) continue;
-        if (message.uid > maxUid) maxUid = message.uid;
-        const existing = db.prepare('SELECT id FROM inbox_emails WHERE uid = ?').get(message.uid);
-        if (existing) continue;
-        const parsed = await simpleParser(message.source);
-        const fromEntry = (parsed.from && parsed.from.value && parsed.from.value[0]) || {};
-        db.prepare(
-          'INSERT INTO inbox_emails (uid, from_address, from_name, subject, body_text, body_html, received_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).run(
-          message.uid,
-          (fromEntry.address || '').toLowerCase(),
-          fromEntry.name || null,
-          parsed.subject || '(sans objet)',
-          (parsed.text || '').slice(0, 5000),
-          parsed.html ? parsed.html.slice(0, 100000) : null,
-          (parsed.date || new Date()).toISOString()
-        );
-      }
-      if (maxUid > lastUid) {
-        db.prepare(
-          "INSERT INTO site_settings (key, value) VALUES ('inbox_last_uid', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-        ).run(String(maxUid));
-      }
-    } finally {
-      lock.release();
+      await syncImapFolder(client, { mailboxPath: '[Gmail]/Spam', settingsKey: 'inbox_spam_last_uid', fromSpam: true });
+    } catch (err) {
+      // Le nom exact du dossier Spam peut varier selon la langue du
+      // compte Gmail — on ne fait jamais échouer toute la synchronisation
+      // pour ça, la boîte de réception normale reste à jour dans tous les cas.
+      console.error('[inbox] échec de la synchronisation du dossier Spam :', err.message);
     }
   } finally {
     await client.logout();
@@ -2779,7 +2798,7 @@ const server = http.createServer(async (req, res) => {
       if (!admin) return;
       const view = url.searchParams.get('view') === 'sent' ? 'sent' : 'received';
       const rows = db
-        .prepare('SELECT id, from_address, from_name, to_address, subject, received_at, is_read, replied, direction FROM inbox_emails WHERE direction = ? ORDER BY received_at DESC LIMIT 200')
+        .prepare('SELECT id, from_address, from_name, to_address, subject, received_at, is_read, replied, direction, from_spam FROM inbox_emails WHERE direction = ? ORDER BY received_at DESC LIMIT 200')
         .all(view);
       return sendJSON(res, 200, rows);
     }
