@@ -482,6 +482,18 @@ db.exec(`
     db.exec('ALTER TABLE inbox_emails ADD COLUMN body_html TEXT');
   }
 }
+// Migration : marque les emails récupérés depuis le dossier Spam plutôt
+// que la boîte de réception normale — pour ne rien manquer (un vrai
+// prospect peut y atterrir par erreur), tout en gardant la distinction
+// visible côté admin. Leur uid est stocké en négatif (voir
+// checkInboxEmails) pour ne jamais entrer en collision avec un uid réel
+// de la boîte de réception, la colonne uid étant UNIQUE.
+{
+  const spamColumns = db.prepare("PRAGMA table_info(inbox_emails)").all();
+  if (!spamColumns.some((c) => c.name === 'from_spam')) {
+    db.exec('ALTER TABLE inbox_emails ADD COLUMN from_spam INTEGER NOT NULL DEFAULT 0');
+  }
+}
 // Migration : traçabilité des messages envoyés depuis l'admin (réponses et
 // compositions libres) — jusqu'ici, un message envoyé disparaissait de
 // l'écran sans laisser de trace. direction distingue reçu/envoyé,
