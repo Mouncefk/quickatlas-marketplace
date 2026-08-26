@@ -3889,9 +3889,57 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
  * messagerie interne du site). */
 /** Affiche un formulaire de composition libre dans le volet de droite —
  * envoi à n'importe quelle adresse, sans être rattaché à un email reçu. */
+/** Crée un champ "pièce jointe" réutilisable (bouton de sélection +
+ * aperçu du nom de fichier + bouton de retrait), pour la composition et
+ * la réponse dans la boîte de réception admin. Retourne un objet
+ * { node, getAttachment() } où getAttachment() renvoie soit null, soit
+ * { url, filename, mime } une fois l'upload terminé. */
+function createAttachmentField() {
+  let current = null;
+  const preview = el('span', { class: 'attachment-preview-name' });
+  const removeBtn = el('button', { type: 'button', class: 'attachment-remove-btn', hidden: 'true' }, '×');
+  const progress = el('span', { class: 'attachment-progress', hidden: 'true' }, i18n.t('upload.in_progress'));
+  const fileInput = el('input', {
+    type: 'file', style: 'display:none;',
+    onchange: async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 10_000_000) { showToast(i18n.t('admin.attachment_too_large')); e.target.value = ''; return; }
+      progress.hidden = false;
+      preview.textContent = '';
+      removeBtn.hidden = true;
+      try {
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const res = await api('/admin/uploads/attachment', { method: 'POST', body: JSON.stringify({ data: base64, mime: file.type, filename: file.name }) });
+        current = { url: res.url, filename: res.filename, mime: res.mime };
+        preview.textContent = `📎 ${file.name}`;
+        removeBtn.hidden = false;
+      } catch (err) {
+        showToast(friendlyErrorMessage(err));
+      } finally {
+        progress.hidden = true;
+        e.target.value = '';
+      }
+    },
+  });
+  removeBtn.addEventListener('click', () => {
+    current = null;
+    preview.textContent = '';
+    removeBtn.hidden = true;
+  });
+  const attachBtn = el('button', { type: 'button', class: 'btn btn--ghost btn--small', onclick: () => fileInput.click() }, `📎 ${i18n.t('admin.attach_file')}`);
+  const node = el('div', { class: 'attachment-field' }, [fileInput, attachBtn, progress, preview, removeBtn]);
+  return { node, getAttachment: () => current };
+}
 function openAdminInboxCompose() {
   const thread = document.getElementById('adminInboxThread');
   thread.innerHTML = '';
+  const attachmentField = createAttachmentField();
   thread.append(
     el('h3', {}, i18n.t('admin.inbox_compose_title')),
     el('form', { id: 'adminInboxComposeForm', class: 'atlas-form' }, [
@@ -3913,6 +3961,7 @@ function openAdminInboxCompose() {
           el('textarea', { id: 'adminInboxComposeText', rows: '6', required: true }),
         ]),
       ]),
+      el('div', { class: 'form-row' }, [attachmentField.node]),
       el('button', { type: 'submit', class: 'btn btn--primary' }, i18n.t('admin.inbox_compose_send')),
     ])
   );
@@ -3922,8 +3971,17 @@ function openAdminInboxCompose() {
     const subject = document.getElementById('adminInboxComposeSubject').value.trim();
     const text = document.getElementById('adminInboxComposeText').value.trim();
     if (!to || !subject || !text) return;
+    const attachment = attachmentField.getAttachment();
     try {
-      await api('/admin/inbox/compose', { method: 'POST', body: JSON.stringify({ to, subject, text }) });
+      await api('/admin/inbox/compose', {
+        method: 'POST',
+        body: JSON.stringify({
+          to, subject, text,
+          attachment_url: attachment?.url || null,
+          attachment_filename: attachment?.filename || null,
+          attachment_mime: attachment?.mime || null,
+        }),
+      });
       showToast(i18n.t('admin.inbox_compose_sent'));
       openAdminInboxCompose();
     } catch (err) {
@@ -3981,10 +4039,25 @@ async function openAdminInboxEmail(id) {
   try {
     const mail = await api(`/admin/inbox/${id}`);
     thread.innerHTML = '';
+    const replyAttachmentField = createAttachmentField();
     thread.append(
       el('div', { class: 'inbox-email-header' }, [
         el('h3', {}, mail.subject || i18n.t('admin.inbox_no_subject')),
         el('p', { class: 'form-hint' }, `${mail.from_name || ''} <${mail.from_address}> — ${new Date(mail.received_at).toLocaleString()}`),
+        el('button', {
+          class: 'btn btn--danger btn--small', style: 'margin-top:8px;',
+          onclick: async () => {
+            if (!confirm(i18n.t('admin.inbox_confirm_delete'))) return;
+            try {
+              await api(`/admin/inbox/${id}`, { method: 'DELETE' });
+              showToast(i18n.t('admin.inbox_deleted'));
+              thread.innerHTML = '';
+              loadAdminInbox();
+            } catch (err) {
+              showToast(err.message);
+            }
+          },
+        }, `🗑 ${i18n.t('admin.inbox_delete')}`),
       ]),
       mail.body_html
         ? el('iframe', { class: 'inbox-email-iframe', srcdoc: mail.body_html, sandbox: '', title: 'Contenu de l\'email' })
@@ -4002,6 +4075,7 @@ async function openAdminInboxEmail(id) {
             el('textarea', { id: 'adminInboxReplyText', rows: '4' }),
           ]),
         ]),
+        el('div', { class: 'form-row' }, [replyAttachmentField.node]),
         el('button', { type: 'submit', class: 'btn btn--primary' }, i18n.t('admin.inbox_reply_send')),
       ])
     );
@@ -4009,8 +4083,17 @@ async function openAdminInboxEmail(id) {
       e.preventDefault();
       const text = document.getElementById('adminInboxReplyText').value.trim();
       if (!text) return;
+      const attachment = replyAttachmentField.getAttachment();
       try {
-        await api(`/admin/inbox/${id}/reply`, { method: 'POST', body: JSON.stringify({ text }) });
+        await api(`/admin/inbox/${id}/reply`, {
+          method: 'POST',
+          body: JSON.stringify({
+            text,
+            attachment_url: attachment?.url || null,
+            attachment_filename: attachment?.filename || null,
+            attachment_mime: attachment?.mime || null,
+          }),
+        });
         showToast(i18n.t('admin.inbox_reply_sent'));
         loadAdminInbox();
         openAdminInboxEmail(id);
