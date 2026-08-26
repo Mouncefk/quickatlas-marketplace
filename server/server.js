@@ -506,6 +506,20 @@ function logListingViewAsync(listingId, req) {
     })
     .catch((err) => console.error('[géolocalisation] échec silencieux :', err.message));
 }
+/** Lit un fichier joint précédemment téléversé (via /api/admin/uploads/attachment)
+ * à partir de son URL relative, pour le transmettre à sendMail(). Retourne
+ * null si l'URL est absente ou invalide, plutôt que de faire échouer tout
+ * l'envoi pour une pièce jointe manquante. */
+function readAttachmentFromUrl(attachmentUrl, attachmentFilename, attachmentMime) {
+  if (!attachmentUrl || !attachmentUrl.startsWith('/attachments/')) return null;
+  try {
+    const filePath = path.join(DATA_DIR, 'attachments', path.basename(attachmentUrl));
+    const content = fs.readFileSync(filePath);
+    return [{ filename: attachmentFilename || path.basename(attachmentUrl), mimeType: attachmentMime || 'application/octet-stream', content }];
+  } catch {
+    return null;
+  }
+}
 async function checkListingExpirations() {
   const soon = db
     .prepare(
@@ -846,6 +860,20 @@ const server = http.createServer(async (req, res) => {
       const filePath = path.join(DATA_DIR, 'uploads', filename);
       return fs.readFile(filePath, (err, data) => {
         if (err) { res.writeHead(404); return res.end('Image introuvable'); }
+        const ext = path.extname(filePath);
+        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' });
+        res.end(data);
+      });
+    }
+    // Pièces jointes des emails envoyés depuis l'Administration — accès
+    // volontairement non authentifié (comme /uploads/) car ces fichiers ont
+    // vocation à transiter par email ; le nom de fichier aléatoire fait
+    // office de protection suffisante pour ce cas d'usage.
+    if (pathname.startsWith('/attachments/')) {
+      const filename = path.basename(pathname);
+      const filePath = path.join(DATA_DIR, 'attachments', filename);
+      return fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(404); return res.end('Fichier introuvable'); }
         const ext = path.extname(filePath);
         res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' });
         res.end(data);
@@ -2446,6 +2474,27 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, 201, { url: `/uploads/${filename}` });
       }
     }
+    // Upload générique (n'importe quel type de fichier, pas seulement des
+    // images) — réservé aux administrateurs, pour joindre des pièces
+    // jointes aux emails envoyés depuis la boîte de réception du site.
+    if (pathname === '/api/admin/uploads/attachment' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const { data, mime, filename: originalName } = await readBody(req);
+      if (!data || !originalName) return sendJSON(res, 400, { error: 'Fichier invalide.' });
+      const buffer = Buffer.from(data, 'base64');
+      if (buffer.length > 10_000_000) return sendJSON(res, 400, { error: 'Fichier trop volumineux (10 Mo maximum).' });
+      const attachmentsDir = path.join(DATA_DIR, 'attachments');
+      if (!fs.existsSync(attachmentsDir)) fs.mkdirSync(attachmentsDir, { recursive: true });
+      const safeExt = (originalName.split('.').pop() || 'bin').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
+      const storedFilename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${safeExt}`;
+      fs.writeFileSync(path.join(attachmentsDir, storedFilename), buffer);
+      return sendJSON(res, 201, {
+        url: `/attachments/${storedFilename}`,
+        filename: originalName,
+        mime: mime || 'application/octet-stream',
+      });
+    }
     if (pathname === '/api/geo-guess' && method === 'GET') {
       const tz = url.searchParams.get('tz');
       const locale = url.searchParams.get('locale');
@@ -2718,7 +2767,8 @@ const server = http.createServer(async (req, res) => {
       if (!to || !subject || !text) {
         return sendJSON(res, 400, { error: 'Destinataire, sujet et message sont requis.' });
       }
-      await sendMail({ to, purpose: 'admin_compose', subject, text, link: SITE_URL });
+      const attachments = readAttachmentFromUrl(body.attachment_url, body.attachment_filename, body.attachment_mime);
+      await sendMail({ to, purpose: 'admin_compose', subject, text, link: SITE_URL, attachments });
       db.prepare(
         "INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read) VALUES (?, ?, ?, ?, ?, ?, 'sent', 1)"
       ).run(-Date.now() - Math.floor(Math.random() * 1000), admin.email || 'contact@quickatlas.net', to, subject, text, new Date().toISOString());
@@ -2742,6 +2792,20 @@ const server = http.createServer(async (req, res) => {
       const sentReplies = db.prepare('SELECT * FROM inbox_emails WHERE in_reply_to_id = ? ORDER BY received_at ASC').all(email.id);
       return sendJSON(res, 200, { ...email, sent_replies: sentReplies });
     }
+    // Suppression d'un email de la boîte de réception — retire aussi les
+    // réponses envoyées qui lui sont liées. Sans danger vis-à-vis de la
+    // synchronisation IMAP : celle-ci ne revisite jamais les UID déjà vus
+    // (voir checkInboxEmails), donc l'email ne réapparaîtra pas au
+    // prochain cycle.
+    if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)$/)) && method === 'DELETE') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const email = db.prepare('SELECT id FROM inbox_emails WHERE id = ?').get(Number(m[1]));
+      if (!email) return sendJSON(res, 404, { error: 'Email introuvable.' });
+      db.prepare('DELETE FROM inbox_emails WHERE in_reply_to_id = ?').run(email.id);
+      db.prepare('DELETE FROM inbox_emails WHERE id = ?').run(email.id);
+      return sendJSON(res, 200, { ok: true });
+    }
     if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)\/reply$/)) && method === 'POST') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
@@ -2750,12 +2814,14 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const replyText = (body.text || '').trim();
       if (!replyText) return sendJSON(res, 400, { error: 'Message vide.' });
+      const attachments = readAttachmentFromUrl(body.attachment_url, body.attachment_filename, body.attachment_mime);
       await sendMail({
         to: email.from_address,
         purpose: 'admin_reply',
         subject: email.subject && email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
         text: replyText,
         link: SITE_URL,
+        attachments,
       });
       db.prepare('UPDATE inbox_emails SET replied = 1 WHERE id = ?').run(email.id);
       db.prepare(
