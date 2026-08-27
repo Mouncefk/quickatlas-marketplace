@@ -413,6 +413,7 @@ async function syncImapFolder(client, { mailboxPath, settingsKey, fromSpam }) {
     const lastUid = lastUidRow ? Number(lastUidRow.value) : 0;
     const range = lastUid > 0 ? `${lastUid + 1}:*` : '1:*';
     let maxUid = lastUid;
+    let inserted = 0;
     for await (const message of client.fetch(range, { uid: true, source: true }, { uid: true })) {
       if (message.uid <= lastUid) continue;
       if (message.uid > maxUid) maxUid = message.uid;
@@ -433,18 +434,25 @@ async function syncImapFolder(client, { mailboxPath, settingsKey, fromSpam }) {
         (parsed.date || new Date()).toISOString(),
         fromSpam ? 1 : 0
       );
+      inserted++;
     }
     if (maxUid > lastUid) {
       db.prepare(
         "INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
       ).run(settingsKey, String(maxUid));
     }
+    console.log(`[inbox] ${mailboxPath} : dernier uid connu = ${lastUid}, plage interrogée = ${range}, ${inserted} nouveau(x) email(s) inséré(s), nouveau dernier uid = ${maxUid}`);
+    return inserted;
   } finally {
     lock.release();
   }
 }
 async function checkInboxEmails() {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return;
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log('[inbox] synchronisation ignorée : SMTP_USER ou SMTP_PASS absent(e) des variables d\'environnement.');
+    return;
+  }
+  console.log(`[inbox] début de synchronisation (compte : ${process.env.SMTP_USER})`);
   const client = new ImapFlow({
     host: 'imap.gmail.com',
     port: 993,
@@ -463,6 +471,7 @@ async function checkInboxEmails() {
       // pour ça, la boîte de réception normale reste à jour dans tous les cas.
       console.error('[inbox] échec de la synchronisation du dossier Spam :', err.message);
     }
+    console.log('[inbox] synchronisation terminée avec succès.');
   } finally {
     await client.logout();
   }
