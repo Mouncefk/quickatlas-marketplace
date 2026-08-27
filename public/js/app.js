@@ -4003,28 +4003,88 @@ document.getElementById('adminInboxViewSentBtn')?.addEventListener('click', () =
   loadAdminInbox();
 });
 let adminInboxCurrentView = 'received';
+/** Met à jour l'affichage de la barre d'actions groupées (compteur,
+ * activation du bouton Supprimer) en fonction de la sélection actuelle. */
+function updateAdminInboxBulkToolbar() {
+  const countEl = document.getElementById('adminInboxSelectedCount');
+  const deleteBtn = document.getElementById('adminInboxBulkDeleteBtn');
+  if (!countEl || !deleteBtn) return;
+  const n = adminInboxSelectedIds.size;
+  countEl.textContent = n > 0 ? i18n.t('admin.inbox_selected_count', { count: n }) : '';
+  deleteBtn.disabled = n === 0;
+}
+document.getElementById('adminInboxSelectAllCheckbox')?.addEventListener('change', (e) => {
+  const checkboxes = document.querySelectorAll('#adminInboxList .conversation-item-checkbox');
+  if (e.target.checked) {
+    adminInboxSelectedIds = new Set();
+    // Reconstruit la sélection depuis la liste affichée à l'écran — évite
+    // de dépendre d'un identifiant stocké sur chaque case à cocher.
+    api(`/admin/inbox?view=${adminInboxCurrentView}`).then((emails) => {
+      for (const mail of emails) adminInboxSelectedIds.add(mail.id);
+      checkboxes.forEach((cb) => { cb.checked = true; });
+      updateAdminInboxBulkToolbar();
+    });
+  } else {
+    adminInboxSelectedIds = new Set();
+    checkboxes.forEach((cb) => { cb.checked = false; });
+    updateAdminInboxBulkToolbar();
+  }
+});
+document.getElementById('adminInboxBulkDeleteBtn')?.addEventListener('click', async () => {
+  if (adminInboxSelectedIds.size === 0) return;
+  if (!confirm(i18n.t('admin.inbox_confirm_bulk_delete', { count: adminInboxSelectedIds.size }))) return;
+  try {
+    const res = await api('/admin/inbox/bulk-delete', { method: 'POST', body: JSON.stringify({ ids: Array.from(adminInboxSelectedIds) }) });
+    showToast(i18n.t('admin.inbox_bulk_deleted', { count: res.deleted }));
+    document.getElementById('adminInboxThread').innerHTML = '';
+    loadAdminInbox();
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+let adminInboxSelectedIds = new Set();
 async function loadAdminInbox() {
+  adminInboxSelectedIds = new Set();
   const list = document.getElementById('adminInboxList');
+  const bulkToolbar = document.getElementById('adminInboxBulkToolbar');
+  const selectAllCheckbox = document.getElementById('adminInboxSelectAllCheckbox');
+  if (selectAllCheckbox) selectAllCheckbox.checked = false;
+  updateAdminInboxBulkToolbar();
   try {
     const emails = await api(`/admin/inbox?view=${adminInboxCurrentView}`);
     list.innerHTML = '';
     if (emails.length === 0) {
+      if (bulkToolbar) bulkToolbar.hidden = true;
       list.append(el('p', { class: 'empty-state' }, i18n.t('admin.inbox_empty')));
       return;
     }
+    if (bulkToolbar) bulkToolbar.hidden = false;
     for (const mail of emails) {
       const isSent = mail.direction === 'sent';
+      const checkbox = el('input', {
+        type: 'checkbox',
+        class: 'conversation-item-checkbox',
+        onclick: (e) => e.stopPropagation(),
+        onchange: (e) => {
+          if (e.target.checked) adminInboxSelectedIds.add(mail.id);
+          else adminInboxSelectedIds.delete(mail.id);
+          updateAdminInboxBulkToolbar();
+        },
+      });
       list.append(
-        el('button', {
-          class: `conversation-item ${!mail.is_read ? 'is-unread' : ''}`,
-          type: 'button',
-          onclick: () => openAdminInboxEmail(mail.id),
-        }, [
-          el('span', { class: 'conversation-item-name' }, `${isSent ? '↗ ' : ''}${isSent ? mail.to_address : (mail.from_name || mail.from_address)}`),
-          el('span', { class: 'conversation-item-preview' }, mail.subject || i18n.t('admin.inbox_no_subject')),
-          el('span', { class: 'conversation-item-date' }, new Date(mail.received_at).toLocaleDateString()),
-          !isSent && mail.replied ? el('span', { class: 'conversation-item-badge' }, i18n.t('admin.inbox_replied')) : null,
-          mail.from_spam ? el('span', { class: 'conversation-item-badge conversation-item-badge--spam' }, `⚠️ ${i18n.t('admin.inbox_from_spam')}`) : null,
+        el('div', { class: 'conversation-item-row' }, [
+          checkbox,
+          el('button', {
+            class: `conversation-item ${!mail.is_read ? 'is-unread' : ''}`,
+            type: 'button',
+            onclick: () => openAdminInboxEmail(mail.id),
+          }, [
+            el('span', { class: 'conversation-item-name' }, `${isSent ? '↗ ' : ''}${isSent ? mail.to_address : (mail.from_name || mail.from_address)}`),
+            el('span', { class: 'conversation-item-preview' }, mail.subject || i18n.t('admin.inbox_no_subject')),
+            el('span', { class: 'conversation-item-date' }, new Date(mail.received_at).toLocaleDateString()),
+            !isSent && mail.replied ? el('span', { class: 'conversation-item-badge' }, i18n.t('admin.inbox_replied')) : null,
+            mail.from_spam ? el('span', { class: 'conversation-item-badge conversation-item-badge--spam' }, `⚠️ ${i18n.t('admin.inbox_from_spam')}`) : null,
+          ]),
         ])
       );
     }
