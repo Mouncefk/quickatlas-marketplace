@@ -21,9 +21,24 @@ function listingCountryLabel(l) {
   return l && l.country_iso2 ? i18n.t('countryname.' + l.country_iso2.toLowerCase()) : (l ? l.country_name : '');
 }
 const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+/** Lit un objet JSON depuis localStorage de façon totalement sûre —
+ * tolère une clé absente, la chaîne littérale "undefined" (déjà
+ * rencontrée en pratique, provoque un plantage total du script si non
+ * gérée), ou tout JSON invalide/corrompu. Retourne toujours une valeur
+ * exploitable plutôt que de laisser une exception remonter. */
+function safeParseLocalStorage(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw || raw === 'undefined' || raw === 'null') return null;
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
+}
 const state = {
   token: localStorage.getItem('atlas_token') || null,
-  user: JSON.parse(localStorage.getItem('atlas_user') || 'null'),
+  user: safeParseLocalStorage('atlas_user'),
   categories: [],
   countries: [],
   selectedCountry: null,
