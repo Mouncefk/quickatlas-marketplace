@@ -2825,6 +2825,26 @@ const server = http.createServer(async (req, res) => {
       db.prepare('DELETE FROM inbox_emails WHERE id = ?').run(email.id);
       return sendJSON(res, 200, { ok: true });
     }
+    // Suppression groupée — accepte soit une liste précise d'identifiants,
+    // soit { all: true, view: 'received'|'sent' } pour tout vider d'un
+    // coup (utilisé par le bouton "Sélectionner tout").
+    if (pathname === '/api/admin/inbox/bulk-delete' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      let ids = [];
+      if (body.all) {
+        const view = body.view === 'sent' ? 'sent' : 'received';
+        ids = db.prepare('SELECT id FROM inbox_emails WHERE direction = ?').all(view).map((r) => r.id);
+      } else if (Array.isArray(body.ids)) {
+        ids = body.ids.map(Number).filter((n) => Number.isInteger(n));
+      }
+      if (ids.length === 0) return sendJSON(res, 200, { ok: true, deleted: 0 });
+      const placeholders = ids.map(() => '?').join(',');
+      db.prepare(`DELETE FROM inbox_emails WHERE in_reply_to_id IN (${placeholders})`).run(...ids);
+      db.prepare(`DELETE FROM inbox_emails WHERE id IN (${placeholders})`).run(...ids);
+      return sendJSON(res, 200, { ok: true, deleted: ids.length });
+    }
     if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)\/reply$/)) && method === 'POST') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
