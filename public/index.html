@@ -767,6 +767,14 @@
           </div>
           <button type="button" id="adminInboxComposeBtn" class="btn btn--primary btn--small" data-i18n="admin.inbox_compose_button">✉️ Nouveau message</button>
         </div>
+        <div class="inbox-bulk-toolbar" id="adminInboxBulkToolbar" hidden>
+          <label class="inbox-select-all-label">
+            <input type="checkbox" id="adminInboxSelectAllCheckbox" />
+            <span data-i18n="admin.inbox_select_all">Tout sélectionner</span>
+          </label>
+          <span id="adminInboxSelectedCount" class="inbox-selected-count"></span>
+          <button type="button" id="adminInboxBulkDeleteBtn" class="btn btn--danger btn--small" disabled>🗑 <span data-i18n="admin.inbox_delete_selected">Supprimer la sélection</span></button>
+        </div>
         <div class="messages-layout">
           <aside class="conversations-list" id="adminInboxList"></aside>
           <div class="conversation-thread" id="adminInboxThread">
