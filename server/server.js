@@ -460,7 +460,20 @@ async function checkInboxEmails() {
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     logger: false,
   });
-  await client.connect();
+  // Essentiel : sans ce gestionnaire, une simple coupure réseau avec Gmail
+  // (délai de connexion dépassé, connexion réinitialisée...) fait planter
+  // tout le processus serveur — en Node.js, un événement 'error' non
+  // écouté sur un flux/socket provoque un arrêt brutal du programme,
+  // pas seulement de la fonction en cours.
+  client.on('error', (err) => {
+    console.error('[inbox] erreur de connexion IMAP (non fatale, capturée) :', err.message);
+  });
+  try {
+    await client.connect();
+  } catch (err) {
+    console.error('[inbox] échec de connexion IMAP, synchronisation annulée pour ce cycle :', err.message);
+    return;
+  }
   try {
     await syncImapFolder(client, { mailboxPath: 'INBOX', settingsKey: 'inbox_last_uid', fromSpam: false });
     try {
@@ -472,8 +485,15 @@ async function checkInboxEmails() {
       console.error('[inbox] échec de la synchronisation du dossier Spam :', err.message);
     }
     console.log('[inbox] synchronisation terminée avec succès.');
+  } catch (err) {
+    console.error('[inbox] échec en cours de synchronisation (non fatal, capturé) :', err.message);
   } finally {
-    await client.logout();
+    try {
+      await client.logout();
+    } catch {
+      // La connexion peut déjà être coupée à ce stade (c'est justement le
+      // scénario qu'on vient de gérer) — on ignore silencieusement.
+    }
   }
 }
 async function checkCityRequestFulfillments() {
