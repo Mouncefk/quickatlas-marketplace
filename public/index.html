@@ -710,6 +710,7 @@
         <button class="auth-tab" data-admin-tab="city-requests" data-i18n="admin.tab_city_requests">Villes demandées</button>
         <button class="auth-tab" data-admin-tab="appearance" data-i18n="admin.tab_appearance">Apparence</button>
         <button class="auth-tab" data-admin-tab="inbox" data-i18n="admin.tab_inbox">Boîte de réception</button>
+        <button class="auth-tab" data-admin-tab="super-admin" id="superAdminTabBtn" hidden data-i18n="admin.tab_super_admin">🌐 Réseau de sites</button>
       </div>
       <div id="adminDashboardPanel" class="admin-panel">
         <div class="dashboard-cards" id="dashboardCards"></div>
@@ -860,8 +861,70 @@
           </div>
         </div>
       </div>
+      <div id="superAdminPanel" class="admin-panel" hidden>
+        <p class="form-hint" data-i18n="admin.super_admin_intro">Créez et gérez les sites du réseau QuickAtlas. Chaque site dispose de sa propre base de données, totalement indépendante des autres — ses utilisateurs, ses annonces, son administrateur.</p>
+        <button type="button" id="superAdminNewSiteBtn" class="btn btn--primary btn--small" data-i18n="admin.super_admin_new_site">+ Nouveau site</button>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th data-i18n="admin.super_admin_col_brand">Marque</th>
+              <th data-i18n="admin.super_admin_col_domain">Domaine</th>
+              <th data-i18n="admin.super_admin_col_owner">Administrateur</th>
+              <th data-i18n="admin.super_admin_col_status">Statut</th>
+              <th data-i18n="admin.super_admin_col_created">Créé le</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="superAdminSitesBody"></tbody>
+        </table>
+      </div>
     </div>
   </section>
+  <!-- ===== Modale : nouveau site (réseau multi-site) ===== -->
+  <div class="modal-overlay" id="newSiteModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="newSiteModal" aria-label="Fermer">&times;</button>
+      <h2 data-i18n="admin.new_site_modal_title">Créer un nouveau site</h2>
+      <form id="newSiteForm" class="atlas-form">
+        <div class="form-row">
+          <label><span data-i18n="admin.new_site_brand">Nom de la marque</span>
+            <input type="text" name="brand_name" required placeholder="Ex. MonSite Immo" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.new_site_slug">Identifiant technique</span>
+            <input type="text" name="slug" required placeholder="ex. monsite-immo" pattern="[a-z0-9-]{2,40}" />
+          </label>
+          <p class="form-hint" data-i18n="admin.new_site_slug_hint">Lettres minuscules, chiffres et tirets uniquement. Ne peut plus être modifié après création.</p>
+        </div>
+        <div class="form-row form-row--split">
+          <label><span data-i18n="admin.new_site_subdomain">Sous-domaine (optionnel)</span>
+            <input type="text" name="subdomain" placeholder="monsite.quickatlas.net" />
+          </label>
+          <label><span data-i18n="admin.new_site_custom_domain">Domaine personnalisé (optionnel)</span>
+            <input type="text" name="custom_domain" placeholder="www.monsite.com" />
+          </label>
+        </div>
+        <p class="form-hint" data-i18n="admin.new_site_domain_hint">Au moins l'un des deux champs ci-dessus est requis.</p>
+        <h3 class="publish-side-panel-title" data-i18n="admin.new_site_owner_title">Administrateur du site</h3>
+        <div class="form-row form-row--split">
+          <label><span data-i18n="admin.new_site_owner_name">Nom</span>
+            <input type="text" name="owner_name" required />
+          </label>
+          <label><span data-i18n="admin.new_site_owner_email">Email</span>
+            <input type="email" name="owner_email" required />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.new_site_owner_password">Mot de passe initial</span>
+            <input type="password" name="owner_password" required minlength="8" />
+          </label>
+        </div>
+        <p class="form-error" id="newSiteError" hidden></p>
+        <button type="submit" class="btn btn--primary" data-i18n="admin.new_site_submit">Créer le site</button>
+      </form>
+    </div>
+  </div>
   <!-- ===== TERMS ===== -->
   <section id="view-terms" class="view" hidden>
     <div class="form-page">
