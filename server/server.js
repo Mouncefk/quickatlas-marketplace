@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db, DATA_DIR } from './db.js';
+import { db, DATA_DIR, masterDb, mainDb, getTenantDatabase, tenantContext, siteInfoContext, initializeDatabase } from './db.js';
 import { hashPassword, verifyPassword, signToken, verifyToken, generateRawToken, hashRawToken, passwordIssues, encryptApiKey, decryptApiKey } from './auth.js';
 import { sendMail } from './mailer.js';
 import { translateListing, draftListing, analyzeFraudRisk, translateText } from './ai.js';
@@ -134,8 +134,22 @@ function requireAuth(req, res) {
 function requireAdmin(req, res) {
   const user = requireAuth(req, res);
   if (!user) return null;
-  if (user.role !== 'admin') {
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
     sendJSON(res, 403, { error: 'Réservé aux administrateurs.' });
+    return null;
+  }
+  return user;
+}
+/** Réserve une route au Super Administrateur — double condition : le
+ * rôle de l'utilisateur ET le fait d'être actuellement sur le site
+ * principal (le panneau Super Admin n'a pas de sens depuis un site
+ * client, même si un utilisateur y avait par erreur ce rôle). */
+function requireSuperAdmin(req, res) {
+  const user = requireAuth(req, res);
+  if (!user) return null;
+  const currentSite = siteInfoContext.getStore();
+  if (user.role !== 'super_admin' || !currentSite || currentSite.slug !== 'main') {
+    sendJSON(res, 403, { error: 'Réservé au super administrateur, depuis le site principal.' });
     return null;
   }
   return user;
@@ -897,7 +911,38 @@ function isValidUploadedImagePath(imageUrl) {
   return typeof imageUrl === 'string' && /^\/uploads\/[a-zA-Z0-9_.-]+$/.test(imageUrl);
 }
 
+/** Détermine, à partir du domaine visité (en-tête Host de la requête),
+ * quel site est concerné et quelle base de données activer. Filet de
+ * sécurité : si le domaine n'est reconnu par aucun site du registre
+ * (ex. l'URL Render par défaut, un accès en local, ou tout simplement
+ * un site pas encore enregistré), on retombe systématiquement sur le
+ * site principal — aucune requête ne peut jamais échouer à cause de ce
+ * mécanisme. Retourne aussi le statut du site, pour bloquer proprement
+ * l'accès à un site suspendu. */
+function resolveSiteForRequest(req) {
+  const hostHeader = (req.headers.host || '').split(':')[0].toLowerCase().trim();
+  if (hostHeader) {
+    const site = masterDb
+      .prepare('SELECT * FROM sites WHERE subdomain = ? OR custom_domain = ?')
+      .get(hostHeader, hostHeader);
+    if (site) {
+      return { site, activeDb: getTenantDatabase(site.db_filename) };
+    }
+  }
+  // Domaine non reconnu — filet de sécurité, on sert le site principal.
+  const mainSite = masterDb.prepare("SELECT * FROM sites WHERE slug = 'main'").get();
+  return { site: mainSite, activeDb: mainDb };
+}
+
 const server = http.createServer(async (req, res) => {
+  const { site, activeDb } = resolveSiteForRequest(req);
+  if (site && site.status === 'suspended') {
+    res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Ce site est temporairement indisponible.');
+  }
+  return tenantContext.run(activeDb, () => siteInfoContext.run(site, () => handleRequest(req, res)));
+});
+async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const { pathname } = url;
   const method = req.method;
@@ -2147,6 +2192,76 @@ const server = http.createServer(async (req, res) => {
         .all();
       return sendJSON(res, 200, rows);
     }
+    // ---------- Super Administrateur (réseau multi-site) ----------
+    if (pathname === '/api/super-admin/sites' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const sites = masterDb
+        .prepare('SELECT id, slug, subdomain, custom_domain, brand_name, status, owner_email, created_at FROM sites ORDER BY created_at DESC')
+        .all();
+      return sendJSON(res, 200, sites);
+    }
+    if (pathname === '/api/super-admin/sites' && method === 'POST') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const slug = (body.slug || '').trim().toLowerCase();
+      const brandName = (body.brand_name || '').trim();
+      const subdomain = (body.subdomain || '').trim().toLowerCase() || null;
+      const customDomain = (body.custom_domain || '').trim().toLowerCase() || null;
+      const ownerName = (body.owner_name || '').trim();
+      const ownerEmail = (body.owner_email || '').trim().toLowerCase();
+      const ownerPassword = body.owner_password || '';
+      if (!/^[a-z0-9-]{2,40}$/.test(slug)) {
+        return sendJSON(res, 400, { error: 'Identifiant de site invalide (lettres minuscules, chiffres et tirets uniquement, 2 à 40 caractères).' });
+      }
+      if (!brandName) return sendJSON(res, 400, { error: 'Le nom de la marque est requis.' });
+      if (!subdomain && !customDomain) {
+        return sendJSON(res, 400, { error: 'Au moins un sous-domaine ou un domaine personnalisé est requis.' });
+      }
+      if (!ownerName || !isValidEmail(ownerEmail)) {
+        return sendJSON(res, 400, { error: "Nom et email valide de l'administrateur du site sont requis." });
+      }
+      const pwIssues = passwordIssues(ownerPassword);
+      if (pwIssues.length) {
+        return sendJSON(res, 400, { error: 'Mot de passe trop faible : 8 caractères minimum, avec au moins une lettre et un chiffre.' });
+      }
+      const existing = masterDb
+        .prepare('SELECT id FROM sites WHERE slug = ? OR (subdomain IS NOT NULL AND subdomain = ?) OR (custom_domain IS NOT NULL AND custom_domain = ?)')
+        .get(slug, subdomain, customDomain);
+      if (existing) return sendJSON(res, 409, { error: 'Un site avec ce slug ou ce domaine existe déjà.' });
+      const dbFilename = `site_${slug}.db`;
+      let newSiteDb;
+      try {
+        newSiteDb = initializeDatabase(path.join(DATA_DIR, dbFilename));
+      } catch (err) {
+        return sendJSON(res, 500, { error: 'Échec de la création de la base du nouveau site : ' + err.message });
+      }
+      const { salt, hash } = hashPassword(ownerPassword);
+      newSiteDb
+        .prepare(
+          "INSERT INTO users (name, email, password_hash, password_salt, role, email_verified_at, terms_accepted_at) VALUES (?, ?, ?, ?, 'admin', datetime('now'), datetime('now'))"
+        )
+        .run(ownerName, ownerEmail, hash, salt);
+      masterDb
+        .prepare(
+          `INSERT INTO sites (slug, subdomain, custom_domain, db_filename, brand_name, owner_email, status) VALUES (?, ?, ?, ?, ?, ?, 'active')`
+        )
+        .run(slug, subdomain, customDomain, dbFilename, brandName, ownerEmail);
+      return sendJSON(res, 201, { ok: true, slug, db_filename: dbFilename });
+    }
+    if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)$/)) && method === 'PUT') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const status = body.status;
+      if (!['active', 'suspended'].includes(status)) return sendJSON(res, 400, { error: 'Statut invalide.' });
+      const targetSite = masterDb.prepare('SELECT id, slug FROM sites WHERE id = ?').get(Number(m[1]));
+      if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
+      if (targetSite.slug === 'main') return sendJSON(res, 400, { error: 'Impossible de suspendre le site principal.' });
+      masterDb.prepare('UPDATE sites SET status = ? WHERE id = ?').run(status, Number(m[1]));
+      return sendJSON(res, 200, { ok: true });
+    }
     if (pathname === '/api/admin/stats' && method === 'GET') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
@@ -3124,19 +3239,27 @@ const server = http.createServer(async (req, res) => {
     console.error(err);
     return sendJSON(res, 500, { error: 'Erreur serveur interne' });
   }
-});
+}
 server.listen(PORT, () => {
   console.log(`QuickAtlas Marketplace en écoute sur http://localhost:${PORT}`);
-  checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification initiale :', err.message));
+  // Les tâches périodiques (expiration des annonces, demandes de villes,
+  // boîte de réception) tournent en dehors du cycle de requête HTTP —
+  // elles n'ont donc aucun contexte de site actif par défaut. En Phase 1
+  // du réseau multi-site, on les rattache explicitement au site
+  // principal, pour préserver leur comportement actuel à l'identique.
+  // Étendre ces tâches à chaque site du réseau est une amélioration
+  // possible pour une phase ultérieure.
+  const runOnMainSite = (fn) => tenantContext.run(mainDb, fn);
+  runOnMainSite(() => checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification initiale :', err.message)));
   setInterval(() => {
-    checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification périodique :', err.message));
+    runOnMainSite(() => checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification périodique :', err.message)));
   }, 60 * 60 * 1000);
-  checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification initiale :', err.message));
+  runOnMainSite(() => checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification initiale :', err.message)));
   setInterval(() => {
-    checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification périodique :', err.message));
+    runOnMainSite(() => checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification périodique :', err.message)));
   }, 60 * 60 * 1000);
-  checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation initiale :', err.message));
+  runOnMainSite(() => checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation initiale :', err.message)));
   setInterval(() => {
-    checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation périodique :', err.message));
+    runOnMainSite(() => checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation périodique :', err.message)));
   }, 10 * 60 * 1000);
 });
