@@ -545,6 +545,26 @@ db.exec(`
     }
   }
 }
+// Migration : champs spécifiques à la catégorie Emploi (type de contrat,
+// télétravail, expérience et niveau d'études requis/recherchés, secteur
+// d'activité) — communs aux offres et demandes d'emploi. job_cv_url ne
+// concerne que les demandes d'emploi (CV du candidat joint à l'annonce).
+{
+  const listingColumns4 = db.prepare("PRAGMA table_info(listings)").all();
+  const jobColumns = [
+    ['job_contract_type', 'TEXT'],
+    ['job_remote_type', 'TEXT'],
+    ['job_experience_level', 'TEXT'],
+    ['job_education_level', 'TEXT'],
+    ['job_sector', 'TEXT'],
+    ['job_cv_url', 'TEXT'],
+  ];
+  for (const [name, type] of jobColumns) {
+    if (!listingColumns4.some((c) => c.name === name)) {
+      db.exec(`ALTER TABLE listings ADD COLUMN ${name} ${type}`);
+    }
+  }
+}
 // Géolocalisation des vues — table dédiée pour tracer l'origine
 // géographique (pays/ville uniquement, jamais l'adresse IP elle-même,
 // par souci de vie privée) de chaque consultation d'annonce. Alimente le
