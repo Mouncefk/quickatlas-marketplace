@@ -479,17 +479,21 @@ function pulseCountry(isoNumeric) {
 }
 state.categoryBrowse = { category: null, subcategory: '', type: '', sort: 'newest' };
 /** Masque la case "Occasion uniquement" (recherche) ou "Cet article est
- * d'occasion" (publication) quand la catégorie active est Tourisme &
- * Voyages — la notion de seconde main n'a pas de sens pour un voyage ou
- * une excursion. Ne fait rien si l'élément n'existe pas sur la page. */
+ * d'occasion" (publication) pour les catégories où la notion de neuf/
+ * occasion n'a pas de sens : Tourisme & Voyages (une excursion n'est ni
+ * neuve ni d'occasion), Immobilier (un bien ne se qualifie pas de la même
+ * façon qu'un objet), Emploi, Opportunités d'affaires et Services (aucun
+ * de ces trois n'est un bien physique). Ne fait rien si l'élément
+ * n'existe pas sur la page. */
+const SECONDHAND_EXCLUDED_CATEGORIES = ['tourisme-voyages', 'immobilier', 'emploi', 'opportunites-affaires', 'services'];
 function updateSecondhandVisibility(categorySlug, checkboxId) {
   const checkbox = document.getElementById(checkboxId);
   if (!checkbox) return;
   const row = checkbox.closest('.form-row');
   if (!row) return;
-  const isTourism = categorySlug === 'tourisme-voyages';
-  row.hidden = isTourism;
-  if (isTourism) {
+  const isExcluded = SECONDHAND_EXCLUDED_CATEGORIES.includes(categorySlug);
+  row.hidden = isExcluded;
+  if (isExcluded) {
     checkbox.value = '';
     document.getElementById('conditionNewBtn')?.classList.remove('active');
     document.getElementById('conditionUsedBtn')?.classList.remove('active');
@@ -1805,6 +1809,17 @@ function jobEducationLevelLabel(code) {
   };
   return map[code] ? i18n.t(map[code]) : code;
 }
+function jobSectorLabel(code) {
+  const map = {
+    informatique: 'publish.job_sector_it', sante: 'publish.job_sector_health', finance: 'publish.job_sector_finance',
+    education: 'publish.job_sector_education', btp: 'publish.job_sector_construction', commerce: 'publish.job_sector_retail',
+    industrie: 'publish.job_sector_industry', transport: 'publish.job_sector_logistics', hotellerie: 'publish.job_sector_hospitality',
+    marketing: 'publish.job_sector_marketing', juridique: 'publish.job_sector_legal', rh: 'publish.job_sector_hr',
+    agriculture: 'publish.job_sector_agriculture', artisanat: 'publish.job_sector_crafts', arts: 'publish.job_sector_arts',
+    administration: 'publish.job_sector_public', autre: 'publish.job_sector_other',
+  };
+  return map[code] ? i18n.t(map[code]) : code;
+}
 function priceTypeLabel(priceType) {
   const map = {
     par_nuit: 'publish.price_type_night', par_personne: 'publish.price_type_person',
@@ -2612,7 +2627,7 @@ async function openListingDetail(id) {
       l.job_remote_type ? el('span', {}, jobRemoteTypeLabel(l.job_remote_type)) : null,
       l.job_experience_level ? el('span', {}, jobExperienceLevelLabel(l.job_experience_level)) : null,
       l.job_education_level ? el('span', {}, jobEducationLevelLabel(l.job_education_level)) : null,
-      l.job_sector ? el('span', {}, l.job_sector) : null,
+      l.job_sector ? el('span', {}, jobSectorLabel(l.job_sector)) : null,
     ].filter(Boolean)) : null,
   ].filter(Boolean);
   content.append(
