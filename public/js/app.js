@@ -769,6 +769,7 @@ async function loadCategories() {
     updateSecondhandVisibility(findCategoryById(pubCat.value)?.slug, 'secondhandCheckbox');
     updateTourismDatesVisibility(findCategoryById(pubCat.value)?.slug);
     updateTourismPriceExtrasVisibility(findCategoryById(pubCat.value)?.slug);
+    updateJobDetailsVisibility(findCategoryById(pubCat.value)?.slug);
     const newSubSlug = findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug;
     updateTourismLodgingVisibility(newSubSlug);
     updateVehicleDetailsVisibility(newSubSlug);
@@ -810,6 +811,7 @@ function updatePublishTypeAndPriceUI(category) {
       priceInput.setAttribute('required', '');
       priceInput.placeholder = '0';
     }
+    updateJobCvVisibility(typeSelect.value);
   };
   typeSelect.onchange = applyPriceRequirement;
   if ([...typeSelect.options].some((o) => o.value === previousValue)) typeSelect.value = previousValue;
@@ -896,6 +898,81 @@ function updateRealEstateDetailsVisibility(subcategorySlug) {
     });
   }
 }
+let publishedJobCvUrl = null;
+let publishedJobCvFilename = null;
+/** Affiche les champs spécifiques Emploi (type de contrat, télétravail,
+ * expérience et niveau d'études requis, secteur d'activité) pour la
+ * catégorie Emploi uniquement — contrairement à Véhicules/Immobilier,
+ * ce n'est pas piloté par la sous-catégorie mais par la catégorie
+ * elle-même, Emploi n'ayant pas de sous-catégories au même sens. */
+function updateJobDetailsVisibility(categorySlug) {
+  const row = document.getElementById('jobDetailsRow');
+  if (!row) return;
+  const showFields = categorySlug === 'emploi';
+  row.hidden = !showFields;
+  if (!showFields) {
+    ['publishJobContractType', 'publishJobRemoteType', 'publishJobExperienceLevel', 'publishJobEducationLevel', 'publishJobSector'].forEach((id) => {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    });
+    resetJobCvUpload();
+  }
+}
+/** Affiche le champ CV uniquement pour une annonce de type "demande
+ * d'emploi" (candidat) — une offre d'emploi (recruteur) n'a pas de CV à
+ * joindre. Appelé à chaque changement du type d'annonce (offre/demande),
+ * pas seulement au changement de catégorie. */
+function updateJobCvVisibility(listingType) {
+  const row = document.getElementById('jobCvRow');
+  if (!row) return;
+  const showCv = listingType === 'demande_emploi';
+  row.hidden = !showCv;
+  if (!showCv) resetJobCvUpload();
+}
+function resetJobCvUpload() {
+  publishedJobCvUrl = null;
+  publishedJobCvFilename = null;
+  const fileInput = document.getElementById('publishJobCvFile');
+  if (fileInput) fileInput.value = '';
+  const preview = document.getElementById('jobCvPreview');
+  if (preview) preview.hidden = true;
+}
+document.getElementById('publishJobCvFile')?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const allowedExt = ['pdf', 'doc', 'docx'];
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!allowedExt.includes(ext)) {
+    showToast(i18n.t('publish.job_cv_invalid_type'));
+    e.target.value = '';
+    return;
+  }
+  if (file.size > 5_000_000) {
+    showToast(i18n.t('upload.too_large'));
+    e.target.value = '';
+    return;
+  }
+  const progress = document.getElementById('jobCvUploadProgress');
+  progress.hidden = false;
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const res = await api('/uploads/cv', { method: 'POST', body: JSON.stringify({ data: base64, mime: file.type, filename: file.name }) });
+    publishedJobCvUrl = res.url;
+    publishedJobCvFilename = res.filename;
+    document.getElementById('jobCvPreviewName').textContent = `📎 ${res.filename}`;
+    document.getElementById('jobCvPreview').hidden = false;
+  } catch (err) {
+    showToast(friendlyErrorMessage(err));
+  } finally {
+    progress.hidden = true;
+  }
+});
+document.getElementById('jobCvRemoveBtn')?.addEventListener('click', resetJobCvUpload);
 function fillSubcategorySelect(selectEl, category, withAllOption) {
   selectEl.innerHTML = '';
   if (withAllOption) selectEl.append(el('option', { value: '' }, i18n.t('filter.all_natures')));
@@ -1703,6 +1780,31 @@ function furnishedLabel(code) {
   const map = { oui: 'publish.furnished_yes', non: 'publish.furnished_no' };
   return map[code] ? i18n.t(map[code]) : code;
 }
+function jobContractTypeLabel(code) {
+  const map = {
+    cdi: 'publish.job_contract_cdi', cdd: 'publish.job_contract_cdd', freelance: 'publish.job_contract_freelance',
+    stage: 'publish.job_contract_stage', alternance: 'publish.job_contract_alternance', interim: 'publish.job_contract_interim',
+  };
+  return map[code] ? i18n.t(map[code]) : code;
+}
+function jobRemoteTypeLabel(code) {
+  const map = { sur_site: 'publish.job_remote_onsite', hybride: 'publish.job_remote_hybrid', distance: 'publish.job_remote_full' };
+  return map[code] ? i18n.t(map[code]) : code;
+}
+function jobExperienceLevelLabel(code) {
+  const map = {
+    debutant: 'publish.job_experience_junior', '1_3_ans': 'publish.job_experience_1_3',
+    '3_5_ans': 'publish.job_experience_3_5', '5_ans_plus': 'publish.job_experience_5_plus',
+  };
+  return map[code] ? i18n.t(map[code]) : code;
+}
+function jobEducationLevelLabel(code) {
+  const map = {
+    aucun: 'publish.job_education_none', bac: 'publish.job_education_bac', bac2: 'publish.job_education_bac2',
+    bac3: 'publish.job_education_bac3', bac5: 'publish.job_education_bac5', doctorat: 'publish.job_education_phd',
+  };
+  return map[code] ? i18n.t(map[code]) : code;
+}
 function priceTypeLabel(priceType) {
   const map = {
     par_nuit: 'publish.price_type_night', par_personne: 'publish.price_type_person',
@@ -2505,6 +2607,13 @@ async function openListingDetail(id) {
       l.furnished ? el('span', {}, furnishedLabel(l.furnished)) : null,
       l.construction_year ? el('span', {}, String(l.construction_year)) : null,
     ].filter(Boolean)) : null,
+    (l.job_contract_type || l.job_remote_type || l.job_experience_level || l.job_education_level || l.job_sector) ? el('div', { class: 'vehicle-facts' }, [
+      l.job_contract_type ? el('span', {}, jobContractTypeLabel(l.job_contract_type)) : null,
+      l.job_remote_type ? el('span', {}, jobRemoteTypeLabel(l.job_remote_type)) : null,
+      l.job_experience_level ? el('span', {}, jobExperienceLevelLabel(l.job_experience_level)) : null,
+      l.job_education_level ? el('span', {}, jobEducationLevelLabel(l.job_education_level)) : null,
+      l.job_sector ? el('span', {}, l.job_sector) : null,
+    ].filter(Boolean)) : null,
   ].filter(Boolean);
   content.append(
     ...(isTourismListing
@@ -2535,6 +2644,7 @@ async function openListingDetail(id) {
       ]),
       el('p', { class: 'view-count' }, `👁 ${i18n.t('detail.view_count', { count: l.view_count })}`),
       el('p', { class: 'view-count' }, `${i18n.t('mine.published_on', { date: new Date(l.created_at + 'Z').toLocaleDateString() })} · ${listingExpiryInfo(l).expired ? i18n.t('expiry.expired') : i18n.t('mine.days_left', { days: listingExpiryInfo(l).daysLeft })}`),
+      l.job_cv_url ? el('a', { class: 'share-postcard-btn', href: l.job_cv_url, target: '_blank', rel: 'noopener' }, `📄 ${i18n.t('publish.job_cv_download')}`) : null,
       favBtn,
       el('button', { class: 'share-postcard-btn', onclick: () => shareListingAsPostcard(l) }, `📮 ${i18n.t('share.postcard_button')}`),
       (state.user && state.user.id !== l.user_id && l.owner_phone)
@@ -2885,6 +2995,7 @@ function preparePublishForm() {
   document.getElementById('conditionError').hidden = true;
   resetImageUpload();
   document.getElementById('publishImageUrl').disabled = false;
+  resetJobCvUpload();
   document.getElementById('aiDraftBox').hidden = !state.aiSettings.has_key;
   document.getElementById('tradeDescriptionRow').hidden = true;
   document.getElementById('aiDraftNotes').value = '';
@@ -2903,6 +3014,7 @@ function preparePublishForm() {
   updateSecondhandVisibility(cat ? cat.slug : null, 'secondhandCheckbox');
   updateTourismDatesVisibility(cat ? cat.slug : null);
   updateTourismPriceExtrasVisibility(cat ? cat.slug : null);
+  updateJobDetailsVisibility(cat ? cat.slug : null);
   const warningEl = document.getElementById('categoryMismatchWarning');
   if (warningEl) warningEl.hidden = true;
 }
@@ -2960,6 +3072,12 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     floor_number: fd.get('floor_number') || null,
     furnished: fd.get('furnished') || null,
     construction_year: fd.get('construction_year') || null,
+    job_contract_type: fd.get('job_contract_type') || null,
+    job_remote_type: fd.get('job_remote_type') || null,
+    job_experience_level: fd.get('job_experience_level') || null,
+    job_education_level: fd.get('job_education_level') || null,
+    job_sector: fd.get('job_sector') || null,
+    job_cv_url: publishedJobCvUrl || null,
     language: i18n.effectiveLang(),
   };
   const errEl = document.getElementById('publishError');
@@ -2973,6 +3091,7 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     form.reset();
     resetImageUpload();
     document.getElementById('publishImageUrl').disabled = false;
+    resetJobCvUpload();
     navigate('mine');
   } catch (err) {
     errEl.textContent = friendlyErrorMessage(err);
