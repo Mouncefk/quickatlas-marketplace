@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db, DATA_DIR, masterDb, mainDb, getTenantDatabase, tenantContext, siteInfoContext, initializeDatabase } from './db.js';
+import { db, DATA_DIR, masterDb, mainDb, getTenantDatabase, tenantContext, siteInfoContext, initializeDatabase, copyReferenceData } from './db.js';
 import { hashPassword, verifyPassword, signToken, verifyToken, generateRawToken, hashRawToken, passwordIssues, encryptApiKey, decryptApiKey } from './auth.js';
 import { sendMail } from './mailer.js';
 import { translateListing, draftListing, analyzeFraudRisk, translateText } from './ai.js';
@@ -2234,6 +2234,10 @@ async function handleRequest(req, res) {
       let newSiteDb;
       try {
         newSiteDb = initializeDatabase(path.join(DATA_DIR, dbFilename));
+        // Copie la géographie (pays, régions, villes) et les catégories du
+        // site principal — sans ça, un nouveau site démarrerait avec une
+        // carte vide et aucune catégorie utilisable.
+        copyReferenceData(mainDb, newSiteDb);
       } catch (err) {
         return sendJSON(res, 500, { error: 'Échec de la création de la base du nouveau site : ' + err.message });
       }
