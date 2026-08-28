@@ -1,14 +1,26 @@
 // db.js — Couche base de données, basée sur le module natif node:sqlite (Node >= 22.5).
 // Aucune dépendance externe n'est nécessaire : tout tourne avec Node seul.
+//
+// Architecture multi-site (réseau white-label) : la fonction
+// initializeDatabase() ci-dessous crée/ouvre UNE base de données complète
+// (schéma + migrations) — appelée une fois pour le site principal au
+// démarrage, et de nouveau à chaque création d'un nouveau site client par
+// le Super Administrateur. Chaque site a sa PROPRE base, totalement
+// indépendante des autres (aucune donnée partagée entre sites, à
+// l'exception du code lui-même). Voir tenantContext plus bas pour le
+// mécanisme qui redirige automatiquement chaque requête vers la bonne
+// base, sans toucher au reste du code existant.
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
+import { AsyncLocalStorage } from 'node:async_hooks';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-export const db = new DatabaseSync(path.join(DATA_DIR, 'atlas.db'));
-db.exec(`
+export function initializeDatabase(dbPath) {
+  const db = new DatabaseSync(dbPath);
+  db.exec(`
   PRAGMA journal_mode = WAL;
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,7 +28,7 @@ db.exec(`
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     password_salt TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin')),
+    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin','super_admin')),
     terms_accepted_at TEXT,
     email_verified_at TEXT,
     ai_provider TEXT CHECK (ai_provider IN ('anthropic','openai') OR ai_provider IS NULL),
@@ -565,6 +577,44 @@ db.exec(`
     }
   }
 }
+// Migration : autorise le rôle 'super_admin' (réseau multi-site) sur la
+// table users. SQLite ne permet pas de modifier une contrainte CHECK
+// directement — la seule méthode sûre est de reconstruire la table avec
+// le nouveau schéma, copier les données telles quelles (mêmes id, donc
+// aucune clé étrangère d'aucune autre table n'est affectée), puis
+// basculer. Opération protégée : ne s'exécute que si la contrainte
+// actuelle ne mentionne pas encore 'super_admin', et entièrement
+// encadrée par une transaction — en cas d'échec à n'importe quelle
+// étape, la table users d'origine reste intacte.
+{
+  const usersTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get();
+  if (usersTableSql && !usersTableSql.sql.includes('super_admin')) {
+    const usersColumns = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
+    const columnList = usersColumns.join(', ');
+    const newUsersSql = usersTableSql.sql
+      .replace(/CHECK\s*\(role IN \('user','admin'\)\)/, "CHECK (role IN ('user','admin','super_admin'))")
+      .replace(/CREATE TABLE users/, 'CREATE TABLE users_rebuild');
+    db.exec('PRAGMA foreign_keys = OFF');
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.exec(newUsersSql);
+      db.exec(`INSERT INTO users_rebuild (${columnList}) SELECT ${columnList} FROM users`);
+      const oldCount = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
+      const newCount = db.prepare('SELECT COUNT(*) AS c FROM users_rebuild').get().c;
+      if (oldCount !== newCount) {
+        throw new Error(`Migration users_rebuild : nombre de lignes différent (${oldCount} avant, ${newCount} après) — annulation.`);
+      }
+      db.exec('DROP TABLE users');
+      db.exec('ALTER TABLE users_rebuild RENAME TO users');
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      console.error('[db] Échec de la migration super_admin sur users, table d\'origine conservée intacte :', err.message);
+    } finally {
+      db.exec('PRAGMA foreign_keys = ON');
+    }
+  }
+}
 // Géolocalisation des vues — table dédiée pour tracer l'origine
 // géographique (pays/ville uniquement, jamais l'adresse IP elle-même,
 // par souci de vie privée) de chaque consultation d'annonce. Alimente le
@@ -580,4 +630,86 @@ db.exec(`
   );
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(listing_id);`);
-export default db;
+  return db;
+}
+
+// ---------- Registre central des sites (réseau multi-site) ----------
+// Petite base séparée, indépendante des bases de contenu (une par site),
+// qui liste tous les sites existants : leur(s) domaine(s), le fichier de
+// base associé, leur statut. C'est elle qui permet de savoir, pour un
+// domaine visité donné, quelle base de contenu activer.
+export const masterDb = initializeMasterDatabase(path.join(DATA_DIR, 'master.db'));
+function initializeMasterDatabase(dbPath) {
+  const db = new DatabaseSync(dbPath);
+  db.exec(`
+    PRAGMA journal_mode = WAL;
+    CREATE TABLE IF NOT EXISTS sites (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,
+      subdomain TEXT UNIQUE,
+      custom_domain TEXT UNIQUE,
+      db_filename TEXT NOT NULL UNIQUE,
+      brand_name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
+      owner_email TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  // Le site principal (celui déjà en place) figure lui-même comme
+  // première entrée du registre, avec quickatlas.net comme domaine
+  // personnalisé — ainsi, le mécanisme de résolution par domaine (voir
+  // server.js) fonctionne de façon uniforme pour tous les sites, y
+  // compris le site principal, sans cas particulier dans le code.
+  const mainSiteExists = db.prepare('SELECT id FROM sites WHERE slug = ?').get('main');
+  if (!mainSiteExists) {
+    db.prepare(
+      `INSERT INTO sites (slug, custom_domain, db_filename, brand_name, status) VALUES (?, ?, ?, ?, 'active')`
+    ).run('main', 'quickatlas.net', 'atlas.db', 'QuickAtlas');
+  }
+  return db;
+}
+
+// ---------- Routage multi-site (AsyncLocalStorage) ----------
+// Cache en mémoire des connexions déjà ouvertes, pour ne jamais rouvrir
+// une base déjà utilisée — un fichier SQLite par site, ouvert une seule
+// fois puis réutilisé pour toutes les requêtes suivantes de ce site.
+const openTenantDatabases = new Map();
+export function getTenantDatabase(dbFilename) {
+  if (openTenantDatabases.has(dbFilename)) return openTenantDatabases.get(dbFilename);
+  const opened = initializeDatabase(path.join(DATA_DIR, dbFilename));
+  openTenantDatabases.set(dbFilename, opened);
+  return opened;
+}
+/** Contexte actif pour la durée d'une requête HTTP : quelle base de
+ * données (quel site) est concernée. Rempli tout au début du traitement
+ * de chaque requête, dans server.js — voir resolveSiteForRequest(). */
+export const tenantContext = new AsyncLocalStorage();
+/** Contexte séparé retenant, pour la durée d'une requête, quel site
+ * (au sens du registre — slug, domaine, statut) est concerné — utile
+ * pour restreindre certaines routes (comme le panneau Super
+ * Administrateur) au seul site principal, indépendamment de quelle
+ * base de données est active. */
+export const siteInfoContext = new AsyncLocalStorage();
+/** Proxy transparent : chaque appel db.prepare(...), db.exec(...), etc.
+ * utilisé dans le reste du code (des centaines d'endroits dans
+ * server.js) est automatiquement redirigé vers la base du site actif de
+ * la requête en cours — aucune des requêtes SQL existantes n'a besoin
+ * d'être modifiée pour devenir compatible multi-site. */
+export const db = new Proxy({}, {
+  get(target, prop) {
+    const current = tenantContext.getStore();
+    if (!current) {
+      throw new Error(
+        `[db] Aucune base de données active pour cette requête (propriété demandée : ${String(prop)}). ` +
+        'Le contexte multi-site (tenantContext.run) doit être défini avant tout accès à "db".'
+      );
+    }
+    const value = current[prop];
+    return typeof value === 'function' ? value.bind(current) : value;
+  },
+});
+// Base du site principal — ouverte une fois au démarrage, comme avant.
+// Sert aussi de filet de sécurité : si un domaine visité n'est reconnu
+// par aucun site du registre, on retombe automatiquement sur cette base
+// plutôt que de faire échouer la requête.
+export const mainDb = getTenantDatabase('atlas.db');
