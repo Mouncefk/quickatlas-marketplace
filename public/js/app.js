@@ -230,7 +230,9 @@ function el(tag, attrs = {}, children = []) {
 function renderAuthZone() {
   const zone = document.getElementById('authZone');
   zone.innerHTML = '';
-  document.getElementById('adminNavLink').hidden = !(state.user && state.user.role === 'admin');
+  document.getElementById('adminNavLink').hidden = !(state.user && (state.user.role === 'admin' || state.user.role === 'super_admin'));
+  const superAdminTabBtnEl = document.getElementById('superAdminTabBtn');
+  if (superAdminTabBtnEl) superAdminTabBtnEl.hidden = !(state.user && state.user.role === 'super_admin');
   document.getElementById('messagesNavLink').hidden = !state.user;
   document.getElementById('favoritesNavLink').hidden = !state.user;
   document.getElementById('alertsNavLink').hidden = !state.user;
@@ -704,7 +706,7 @@ function navigate(view) {
     loadPassport();
   }
   if (view === 'admin') {
-    if (!state.user || state.user.role !== 'admin') { showToast(i18n.t('toast.admin_denied')); navigate('explore'); return; }
+    if (!state.user || (state.user.role !== 'admin' && state.user.role !== 'super_admin')) { showToast(i18n.t('toast.admin_denied')); navigate('explore'); return; }
     loadAdminStats();
     loadAdminUsers();
     loadAdminListings();
@@ -4028,9 +4030,12 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminCityRequestsPanel').hidden = btn.dataset.adminTab !== 'city-requests';
     document.getElementById('adminAppearancePanel').hidden = btn.dataset.adminTab !== 'appearance';
     document.getElementById('adminInboxPanel').hidden = btn.dataset.adminTab !== 'inbox';
+    const superAdminPanelEl = document.getElementById('superAdminPanel');
+    if (superAdminPanelEl) superAdminPanelEl.hidden = btn.dataset.adminTab !== 'super-admin';
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
     if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
+    if (btn.dataset.adminTab === 'super-admin') loadSuperAdminSites();
   })
 );
 /** Charge la liste des emails reçus dans l'onglet admin "Boîte de
@@ -4192,6 +4197,73 @@ document.getElementById('adminInboxBulkDeleteBtn')?.addEventListener('click', as
   }
 });
 let adminInboxSelectedIds = new Set();
+// ---------- Super Administrateur (réseau multi-site) ----------
+async function loadSuperAdminSites() {
+  const tbody = document.getElementById('superAdminSitesBody');
+  if (!tbody) return;
+  try {
+    const sites = await api('/super-admin/sites');
+    tbody.innerHTML = '';
+    for (const s of sites) {
+      const domain = s.custom_domain || s.subdomain || '—';
+      const isMain = s.slug === 'main';
+      tbody.append(
+        el('tr', {}, [
+          el('td', {}, s.brand_name),
+          el('td', {}, domain),
+          el('td', {}, s.owner_email || '—'),
+          el('td', {}, el('span', { class: `role-badge ${s.status === 'active' ? '' : 'role-badge--admin'}` }, i18n.t(s.status === 'active' ? 'admin.super_admin_status_active' : 'admin.super_admin_status_suspended'))),
+          el('td', {}, new Date(s.created_at).toLocaleDateString()),
+          el('td', {}, isMain ? null : el('button', {
+            class: 'btn btn--ghost btn--small',
+            onclick: async () => {
+              try {
+                await api(`/super-admin/sites/${s.id}`, { method: 'PUT', body: JSON.stringify({ status: s.status === 'active' ? 'suspended' : 'active' }) });
+                showToast(i18n.t('toast.super_admin_status_updated'));
+                loadSuperAdminSites();
+              } catch (err) {
+                showToast(err.message);
+              }
+            },
+          }, i18n.t(s.status === 'active' ? 'admin.super_admin_suspend' : 'admin.super_admin_reactivate'))),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+document.getElementById('superAdminNewSiteBtn')?.addEventListener('click', () => {
+  document.getElementById('newSiteForm').reset();
+  document.getElementById('newSiteError').hidden = true;
+  document.getElementById('newSiteModal').hidden = false;
+});
+document.getElementById('newSiteForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('newSiteError');
+  errEl.hidden = true;
+  try {
+    await api('/super-admin/sites', {
+      method: 'POST',
+      body: JSON.stringify({
+        brand_name: fd.get('brand_name'),
+        slug: fd.get('slug'),
+        subdomain: fd.get('subdomain'),
+        custom_domain: fd.get('custom_domain'),
+        owner_name: fd.get('owner_name'),
+        owner_email: fd.get('owner_email'),
+        owner_password: fd.get('owner_password'),
+      }),
+    });
+    showToast(i18n.t('toast.super_admin_site_created'));
+    document.getElementById('newSiteModal').hidden = true;
+    loadSuperAdminSites();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
 async function loadAdminInbox() {
   adminInboxSelectedIds = new Set();
   const list = document.getElementById('adminInboxList');
