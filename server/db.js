@@ -18,6 +18,37 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+/** Copie les données de référence (pays, régions, villes, catégories,
+ * sous-catégories) depuis une base source vers une base cible neuve —
+ * utilisée à la création de chaque nouveau site du réseau, pour qu'il
+ * démarre avec la même géographie et les mêmes catégories que le site
+ * principal, plutôt qu'une base vide et inutilisable. Respecte l'ordre
+ * des dépendances (pays avant régions/villes, catégories avant
+ * sous-catégories) ; entièrement encadrée par une transaction — en cas
+ * d'échec, rien n'est copié plutôt qu'une copie partielle incohérente.
+ * Les identifiants sont préservés à l'identique (la base cible étant
+ * neuve, aucun risque de collision). */
+export function copyReferenceData(sourceDb, targetDb) {
+  const tablesInOrder = ['countries', 'states', 'cities', 'categories', 'subcategories'];
+  targetDb.exec('BEGIN IMMEDIATE');
+  try {
+    for (const table of tablesInOrder) {
+      const columns = sourceDb.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+      const columnList = columns.join(', ');
+      const rows = sourceDb.prepare(`SELECT ${columnList} FROM ${table}`).all();
+      if (rows.length === 0) continue;
+      const placeholders = columns.map(() => '?').join(', ');
+      const insertStmt = targetDb.prepare(`INSERT INTO ${table} (${columnList}) VALUES (${placeholders})`);
+      for (const row of rows) {
+        insertStmt.run(...columns.map((c) => row[c]));
+      }
+    }
+    targetDb.exec('COMMIT');
+  } catch (err) {
+    targetDb.exec('ROLLBACK');
+    throw err;
+  }
+}
 export function initializeDatabase(dbPath) {
   const db = new DatabaseSync(dbPath);
   db.exec(`
