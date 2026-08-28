@@ -451,6 +451,65 @@
               </label>
             </div>
           </div>
+          <div id="jobDetailsRow" hidden>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_job_contract_type">Type de contrat</span>
+                <select name="job_contract_type" id="publishJobContractType">
+                  <option value="" data-i18n="publish.job_contract_default">— Non précisé —</option>
+                  <option value="cdi" data-i18n="publish.job_contract_cdi">CDI</option>
+                  <option value="cdd" data-i18n="publish.job_contract_cdd">CDD</option>
+                  <option value="freelance" data-i18n="publish.job_contract_freelance">Freelance / Indépendant</option>
+                  <option value="stage" data-i18n="publish.job_contract_stage">Stage</option>
+                  <option value="alternance" data-i18n="publish.job_contract_alternance">Alternance</option>
+                  <option value="interim" data-i18n="publish.job_contract_interim">Intérim</option>
+                </select>
+              </label>
+              <label><span data-i18n="publish.label_job_remote_type">Télétravail</span>
+                <select name="job_remote_type" id="publishJobRemoteType">
+                  <option value="" data-i18n="publish.job_remote_default">— Non précisé —</option>
+                  <option value="sur_site" data-i18n="publish.job_remote_onsite">Sur site</option>
+                  <option value="hybride" data-i18n="publish.job_remote_hybrid">Hybride</option>
+                  <option value="distance" data-i18n="publish.job_remote_full">100% à distance</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_job_experience_level">Expérience requise</span>
+                <select name="job_experience_level" id="publishJobExperienceLevel">
+                  <option value="" data-i18n="publish.job_experience_default">— Non précisé —</option>
+                  <option value="debutant" data-i18n="publish.job_experience_junior">Débutant</option>
+                  <option value="1_3_ans" data-i18n="publish.job_experience_1_3">1 à 3 ans</option>
+                  <option value="3_5_ans" data-i18n="publish.job_experience_3_5">3 à 5 ans</option>
+                  <option value="5_ans_plus" data-i18n="publish.job_experience_5_plus">5 ans et plus</option>
+                </select>
+              </label>
+              <label><span data-i18n="publish.label_job_education_level">Niveau d'études</span>
+                <select name="job_education_level" id="publishJobEducationLevel">
+                  <option value="" data-i18n="publish.job_education_default">— Non précisé —</option>
+                  <option value="aucun" data-i18n="publish.job_education_none">Aucun diplôme requis</option>
+                  <option value="bac" data-i18n="publish.job_education_bac">Bac</option>
+                  <option value="bac2" data-i18n="publish.job_education_bac2">Bac+2</option>
+                  <option value="bac3" data-i18n="publish.job_education_bac3">Bac+3 / Licence</option>
+                  <option value="bac5" data-i18n="publish.job_education_bac5">Bac+5 / Master</option>
+                  <option value="doctorat" data-i18n="publish.job_education_phd">Doctorat</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-row">
+              <label><span data-i18n="publish.label_job_sector">Secteur d'activité</span>
+                <input type="text" name="job_sector" id="publishJobSector" placeholder="Ex. Informatique, Santé, BTP…" />
+              </label>
+            </div>
+            <div class="form-row" id="jobCvRow" hidden>
+              <label><span data-i18n="publish.label_job_cv">CV (PDF ou Word, 5 Mo maximum)</span></label>
+              <input type="file" id="publishJobCvFile" accept=".pdf,.doc,.docx" />
+              <p class="form-hint" id="jobCvUploadProgress" hidden data-i18n="upload.in_progress">Envoi en cours…</p>
+              <div id="jobCvPreview" class="attachment-field" hidden>
+                <span class="attachment-preview-name" id="jobCvPreviewName"></span>
+                <button type="button" class="attachment-remove-btn" id="jobCvRemoveBtn">×</button>
+              </div>
+            </div>
+          </div>
         </aside>
         <div class="publish-form-footer">
           <p class="form-notice" id="publishTermsNotice"></p>
