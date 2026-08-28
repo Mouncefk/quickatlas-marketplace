@@ -497,7 +497,26 @@
             </div>
             <div class="form-row">
               <label><span data-i18n="publish.label_job_sector">Secteur d'activité</span>
-                <input type="text" name="job_sector" id="publishJobSector" placeholder="Ex. Informatique, Santé, BTP…" />
+                <select name="job_sector" id="publishJobSector">
+                  <option value="" data-i18n="publish.job_sector_default">— Non précisé —</option>
+                  <option value="informatique" data-i18n="publish.job_sector_it">Informatique &amp; Technologies</option>
+                  <option value="sante" data-i18n="publish.job_sector_health">Santé &amp; Médical</option>
+                  <option value="finance" data-i18n="publish.job_sector_finance">Finance, Banque &amp; Assurance</option>
+                  <option value="education" data-i18n="publish.job_sector_education">Éducation &amp; Formation</option>
+                  <option value="btp" data-i18n="publish.job_sector_construction">BTP &amp; Construction</option>
+                  <option value="commerce" data-i18n="publish.job_sector_retail">Commerce &amp; Vente</option>
+                  <option value="industrie" data-i18n="publish.job_sector_industry">Industrie &amp; Production</option>
+                  <option value="transport" data-i18n="publish.job_sector_logistics">Transport &amp; Logistique</option>
+                  <option value="hotellerie" data-i18n="publish.job_sector_hospitality">Hôtellerie, Restauration &amp; Tourisme</option>
+                  <option value="marketing" data-i18n="publish.job_sector_marketing">Marketing &amp; Communication</option>
+                  <option value="juridique" data-i18n="publish.job_sector_legal">Juridique</option>
+                  <option value="rh" data-i18n="publish.job_sector_hr">Ressources humaines</option>
+                  <option value="agriculture" data-i18n="publish.job_sector_agriculture">Agriculture &amp; Agroalimentaire</option>
+                  <option value="artisanat" data-i18n="publish.job_sector_crafts">Artisanat</option>
+                  <option value="arts" data-i18n="publish.job_sector_arts">Arts, Culture &amp; Médias</option>
+                  <option value="administration" data-i18n="publish.job_sector_public">Administration publique</option>
+                  <option value="autre" data-i18n="publish.job_sector_other">Autre</option>
+                </select>
               </label>
             </div>
             <div class="form-row" id="jobCvRow" hidden>
