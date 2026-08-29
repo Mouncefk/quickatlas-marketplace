@@ -3054,6 +3054,21 @@ async function handleRequest(req, res) {
     // pour masquer temporairement le concept lors d'une présentation, sans
     // toucher au reste de la page (titre, recherche restent visibles).
     // Activée par défaut si jamais réglée (absence de ligne = activée).
+    // Informations de marque du site actuellement visité (nom, logo) —
+    // route publique (aucune authentification requise), puisqu'elle sert
+    // à afficher le bon nom dès le tout premier chargement de la page,
+    // avant même qu'un visiteur ne se connecte. Le nom de marque provient
+    // du registre central (siteInfoContext), pas de la base du site
+    // elle-même, puisque c'est une information de configuration du
+    // réseau multi-site, pas une donnée métier du site.
+    if (pathname === '/api/site-info' && method === 'GET') {
+      const currentSite = siteInfoContext.getStore();
+      const logoRow = db.prepare("SELECT value FROM site_settings WHERE key = 'logo_url'").get();
+      return sendJSON(res, 200, {
+        brand_name: (currentSite && currentSite.brand_name) || 'QuickAtlas',
+        logo_url: logoRow ? logoRow.value : null,
+      });
+    }
     if (pathname === '/api/settings/map-enabled' && method === 'GET') {
       const row = db.prepare("SELECT value FROM site_settings WHERE key = 'map_enabled'").get();
       return sendJSON(res, 200, { enabled: row ? row.value === 'true' : true });
