@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db, DATA_DIR, masterDb, mainDb, getTenantDatabase, tenantContext, siteInfoContext, initializeDatabase, copyReferenceData } from './db.js';
+import { db, DATA_DIR, masterDb, mainDb, getTenantDatabase, closeTenantDatabase, tenantContext, siteInfoContext, initializeDatabase, copyReferenceData } from './db.js';
 import { hashPassword, verifyPassword, signToken, verifyToken, generateRawToken, hashRawToken, passwordIssues, encryptApiKey, decryptApiKey } from './auth.js';
 import { sendMail } from './mailer.js';
 import { translateListing, draftListing, analyzeFraudRisk, translateText } from './ai.js';
@@ -2264,6 +2264,40 @@ async function handleRequest(req, res) {
       if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
       if (targetSite.slug === 'main') return sendJSON(res, 400, { error: 'Impossible de suspendre le site principal.' });
       masterDb.prepare('UPDATE sites SET status = ? WHERE id = ?').run(status, Number(m[1]));
+      return sendJSON(res, 200, { ok: true });
+    }
+    // Suppression définitive d'un site — action irréversible (base de
+    // données entière, avec tous ses utilisateurs et annonces, effacée).
+    // Exige de retaper l'identifiant technique exact du site en
+    // confirmation, en plus du verbe DELETE lui-même — double
+    // protection contre une suppression accidentelle.
+    if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)$/)) && method === 'DELETE') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const targetSite = masterDb.prepare('SELECT id, slug, db_filename FROM sites WHERE id = ?').get(Number(m[1]));
+      if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
+      if (targetSite.slug === 'main') return sendJSON(res, 400, { error: 'Impossible de supprimer le site principal.' });
+      if ((body.confirm_slug || '').trim().toLowerCase() !== targetSite.slug) {
+        return sendJSON(res, 400, { error: "L'identifiant technique saisi ne correspond pas — suppression annulée." });
+      }
+      closeTenantDatabase(targetSite.db_filename);
+      try {
+        fs.unlinkSync(path.join(DATA_DIR, targetSite.db_filename));
+      } catch (err) {
+        if (err.code !== 'ENOENT') console.error('[super-admin] échec de la suppression du fichier de base :', err.message);
+      }
+      // Les fichiers annexes de node:sqlite (mode WAL) — supprimés eux
+      // aussi si présents, sans faire échouer l'opération s'ils sont
+      // absents (mode non-WAL, ou déjà nettoyés automatiquement).
+      for (const suffix of ['-wal', '-shm']) {
+        try {
+          fs.unlinkSync(path.join(DATA_DIR, targetSite.db_filename + suffix));
+        } catch {
+          // Absence normale la plupart du temps — rien à signaler.
+        }
+      }
+      masterDb.prepare('DELETE FROM sites WHERE id = ?').run(Number(m[1]));
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/admin/stats' && method === 'GET') {
