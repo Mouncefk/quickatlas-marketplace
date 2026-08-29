@@ -4226,6 +4226,24 @@ async function loadSuperAdminSites() {
               }
             },
           }, i18n.t(s.status === 'active' ? 'admin.super_admin_suspend' : 'admin.super_admin_reactivate'))),
+          el('td', {}, isMain ? null : el('button', {
+            class: 'btn btn--danger btn--small',
+            onclick: async () => {
+              const typed = prompt(i18n.t('admin.super_admin_delete_confirm_prompt', { slug: s.slug }));
+              if (typed === null) return;
+              if (typed.trim().toLowerCase() !== s.slug) {
+                showToast(i18n.t('admin.super_admin_delete_mismatch'));
+                return;
+              }
+              try {
+                await api(`/super-admin/sites/${s.id}`, { method: 'DELETE', body: JSON.stringify({ confirm_slug: typed.trim().toLowerCase() }) });
+                showToast(i18n.t('toast.super_admin_site_deleted'));
+                loadSuperAdminSites();
+              } catch (err) {
+                showToast(err.message);
+              }
+            },
+          }, i18n.t('admin.super_admin_delete'))),
         ])
       );
     }
@@ -4236,7 +4254,24 @@ async function loadSuperAdminSites() {
 document.getElementById('superAdminNewSiteBtn')?.addEventListener('click', () => {
   document.getElementById('newSiteForm').reset();
   document.getElementById('newSiteError').hidden = true;
+  newSiteSubdomainManuallyEdited = false;
   document.getElementById('newSiteModal').hidden = false;
+});
+// Pré-remplit automatiquement le sous-domaine à partir de l'identifiant
+// technique au fur et à mesure de la saisie — évite d'avoir à taper deux
+// fois quasiment la même chose. S'arrête dès que l'utilisateur modifie
+// lui-même le champ sous-domaine, pour ne jamais écraser une valeur
+// volontairement différente (ex. identifiant technique et sous-domaine
+// souhaité différents).
+let newSiteSubdomainManuallyEdited = false;
+document.getElementById('newSiteSlugInput')?.addEventListener('input', (e) => {
+  if (newSiteSubdomainManuallyEdited) return;
+  const slugValue = e.target.value.trim().toLowerCase();
+  const subdomainInput = document.getElementById('newSiteSubdomainInput');
+  if (subdomainInput) subdomainInput.value = slugValue ? `${slugValue}.quickatlas.net` : '';
+});
+document.getElementById('newSiteSubdomainInput')?.addEventListener('input', () => {
+  newSiteSubdomainManuallyEdited = true;
 });
 document.getElementById('newSiteForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
