@@ -4508,20 +4508,36 @@ async function loadAdminLogoPreview() {
 }
 /** Applique le logo (personnalisé ou par défaut) dans l'en-tête, pour tous
  * les visiteurs — appelée au démarrage du site. */
-async function applyBrandLogo() {
+/** Applique le logo ET le nom de marque du site actuellement visité — un
+ * seul appel réseau pour les deux, via /api/site-info. window.currentSiteName
+ * est renseigné en premier (avant tout rendu de texte traduit), pour que
+ * les mentions {siteName} dans les traductions (voir i18n.t()) affichent
+ * immédiatement le bon nom, sans clignotement visible passant d'abord
+ * par "QuickAtlas" par défaut. Met aussi à jour le titre de l'onglet du
+ * navigateur et les balises meta (partage sur les réseaux sociaux),
+ * puisque ces éléments ne passent pas par le mécanisme i18n habituel.
+ */
+async function applySiteBranding() {
   try {
-    const res = await api('/settings/logo');
+    const res = await api('/site-info');
+    window.currentSiteName = res.brand_name || 'QuickAtlas';
     const defaultMark = document.getElementById('brandMarkDefault');
     const customMark = document.getElementById('brandMarkCustom');
-    if (res.url) {
-      customMark.src = res.url;
+    if (res.logo_url) {
+      customMark.src = res.logo_url;
       customMark.removeAttribute('hidden');
       defaultMark.setAttribute('hidden', '');
     } else {
       customMark.setAttribute('hidden', '');
       defaultMark.removeAttribute('hidden');
     }
-  } catch { /* pas grave, le logo par défaut reste affiché */ }
+    document.title = document.title.replace('QuickAtlas', window.currentSiteName);
+    document.querySelectorAll('meta[name="description"], meta[property="og:title"], meta[name="twitter:title"]').forEach((m) => {
+      m.setAttribute('content', m.getAttribute('content').replace('QuickAtlas', window.currentSiteName));
+    });
+    const ticker = document.getElementById('activityTicker');
+    if (ticker) ticker.setAttribute('aria-label', ticker.getAttribute('aria-label').replace('QuickAtlas', window.currentSiteName));
+  } catch { /* pas grave, "QuickAtlas" et le logo par défaut restent affichés */ }
 }
 document.getElementById('adminLogoFile')?.addEventListener('change', async (e) => {
   const file = e.target.files[0];
@@ -4545,7 +4561,7 @@ document.getElementById('adminLogoFile')?.addEventListener('change', async (e) =
     e.target.value = '';
     showToast(i18n.t('admin.logo_updated'));
     loadAdminLogoPreview();
-    applyBrandLogo();
+    applySiteBranding();
   } catch (err) {
     showToast(err.message);
     progress.hidden = true;
@@ -4557,7 +4573,7 @@ document.getElementById('adminLogoResetBtn')?.addEventListener('click', async ()
     await api('/admin/settings/logo', { method: 'DELETE' });
     showToast(i18n.t('admin.logo_reset_toast'));
     loadAdminLogoPreview();
-    applyBrandLogo();
+    applySiteBranding();
   } catch (e) {
     showToast(e.message);
   }
@@ -5074,9 +5090,9 @@ document.getElementById('cityRequestForm')?.addEventListener('submit', async (e)
   }
 });
 async function boot() {
+  await applySiteBranding();
   initLanguagePicker();
   trackSiteVisit();
-  applyBrandLogo();
   renderAuthZone();
   if (state.token) {
     try {
