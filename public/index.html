@@ -839,6 +839,38 @@
           <input type="checkbox" id="adminMapEnabledCheckbox" checked />
           <span data-i18n="admin.map_enabled_label">Afficher la carte sur l'accueil</span>
         </label>
+        <hr class="admin-section-divider" />
+        <h3 data-i18n="admin.email_settings_title">Email de ce site</h3>
+        <p class="form-hint" data-i18n="admin.email_settings_intro">Optionnel — sans configuration, ce site utilise le compte email par défaut. Renseignez vos propres identifiants pour envoyer et recevoir vos emails sous votre propre adresse (généralement un compte Gmail avec mot de passe d'application).</p>
+        <form id="siteEmailSettingsForm" class="atlas-form">
+          <div class="form-row form-row--split">
+            <label><span data-i18n="admin.email_smtp_host">Serveur SMTP</span>
+              <input type="text" name="smtp_host" placeholder="smtp.gmail.com" />
+            </label>
+            <label><span data-i18n="admin.email_smtp_port">Port</span>
+              <input type="text" name="smtp_port" placeholder="465" />
+            </label>
+          </div>
+          <div class="form-row">
+            <label><span data-i18n="admin.email_smtp_user">Adresse email (nom d'utilisateur)</span>
+              <input type="email" name="smtp_user" placeholder="contact@votredomaine.com" />
+            </label>
+          </div>
+          <div class="form-row">
+            <label><span data-i18n="admin.email_smtp_pass">Mot de passe d'application</span>
+              <input type="password" name="smtp_pass" autocomplete="new-password" />
+            </label>
+            <p class="form-hint" id="emailPassStatusHint"></p>
+          </div>
+          <div class="form-row">
+            <label><span data-i18n="admin.email_mail_from">Adresse d'expédition affichée (optionnel)</span>
+              <input type="email" name="mail_from" placeholder="contact@votredomaine.com" />
+            </label>
+          </div>
+          <p class="form-error" id="siteEmailSettingsError" hidden></p>
+          <button type="submit" class="btn btn--primary btn--small" data-i18n="admin.email_save">Enregistrer</button>
+          <button type="button" id="siteEmailSettingsClearBtn" class="btn btn--ghost btn--small" data-i18n="admin.email_clear">Retirer la configuration</button>
+        </form>
       </div>
       <div id="adminInboxPanel" class="admin-panel" hidden>
         <div class="inbox-toolbar">
@@ -873,7 +905,9 @@
               <th data-i18n="admin.super_admin_col_domain">Domaine</th>
               <th data-i18n="admin.super_admin_col_owner">Administrateur</th>
               <th data-i18n="admin.super_admin_col_status">Statut</th>
+              <th data-i18n="admin.super_admin_col_billing">Facturation</th>
               <th data-i18n="admin.super_admin_col_created">Créé le</th>
+              <th></th>
               <th></th>
               <th></th>
             </tr>
@@ -938,6 +972,39 @@
         </div>
         <p class="form-error" id="newSiteError" hidden></p>
         <button type="submit" class="btn btn--primary" data-i18n="admin.new_site_submit">Créer le site</button>
+      </form>
+    </div>
+  </div>
+  <!-- ===== Modale : suivi de facturation d'un site ===== -->
+  <div class="modal-overlay" id="siteBillingModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="siteBillingModal" aria-label="Fermer">&times;</button>
+      <h2 data-i18n="admin.billing_modal_title">Suivi de facturation</h2>
+      <p class="form-hint" data-i18n="admin.billing_modal_hint">Suivi manuel — aucun paiement n'est traité automatiquement ici, c'est un simple aide-mémoire.</p>
+      <form id="siteBillingForm" class="atlas-form">
+        <input type="hidden" name="site_id" />
+        <div class="form-row">
+          <label><span data-i18n="admin.billing_status_label">Statut</span>
+            <select name="billing_status" required>
+              <option value="trial" data-i18n="admin.billing_status_trial">Essai</option>
+              <option value="active" data-i18n="admin.billing_status_active">Payé / Actif</option>
+              <option value="overdue" data-i18n="admin.billing_status_overdue">En retard</option>
+              <option value="cancelled" data-i18n="admin.billing_status_cancelled">Annulé</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.billing_plan_label">Formule (libre)</span>
+            <input type="text" name="billing_plan_label" placeholder="Ex. 49€/mois" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.billing_notes_label">Notes</span>
+            <textarea name="billing_notes" rows="3" placeholder="Ex. Payé par virement le 15/03"></textarea>
+          </label>
+        </div>
+        <p class="form-error" id="siteBillingError" hidden></p>
+        <button type="submit" class="btn btn--primary" data-i18n="admin.billing_save">Enregistrer</button>
       </form>
     </div>
   </div>
