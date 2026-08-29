@@ -2377,7 +2377,54 @@ async function handleRequest(req, res) {
     // annonces — un aller-retour disque par site, acceptable pour un
     // réseau de taille raisonnable (dizaines de sites) ; à revoir avec
     // une mise en cache si le réseau grandissait considérablement.
-    if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
+    /** Calcule les compteurs (utilisateurs, annonces) d'un site précis —
+ * factorisé pour être utilisé à la fois par la route de statistiques
+ * globales et par l'enregistrement quotidien de l'historique (voir
+ * recordDailySiteStats). Retourne null si la base du site est
+ * inaccessible, plutôt que de faire échouer tout l'appelant. */
+function computeSiteStats(site) {
+  let siteDb;
+  try {
+    siteDb = getTenantDatabase(site.db_filename);
+  } catch {
+    return null;
+  }
+  return {
+    userCount: siteDb.prepare('SELECT COUNT(*) AS c FROM users').get().c,
+    listingCount: siteDb.prepare('SELECT COUNT(*) AS c FROM listings').get().c,
+    activeListingCount: siteDb.prepare("SELECT COUNT(*) AS c FROM listings WHERE status = 'active'").get().c,
+  };
+}
+/** Enregistre, une fois par jour, un instantané des compteurs de chaque
+ * site actif — la table daily_site_stats accumule ainsi un historique
+ * dans le temps, que le panneau Super Admin n'exploite pas encore
+ * aujourd'hui (seul l'instantané du jour même est actuellement affiché),
+ * mais qui existera déjà le jour où un tableau de bord avec graphiques
+ * d'évolution sera construit. La contrainte UNIQUE(site_id, date) rend
+ * l'opération idempotente : un redémarrage du serveur plusieurs fois
+ * dans la même journée met à jour la ligne du jour plutôt que d'en créer
+ * une nouvelle. */
+function recordDailySiteStats() {
+  const today = new Date().toISOString().slice(0, 10);
+  const sites = masterDb.prepare('SELECT * FROM sites').all();
+  for (const site of sites) {
+    const stats = computeSiteStats(site);
+    if (!stats) continue;
+    masterDb
+      .prepare(
+        `INSERT INTO daily_site_stats (site_id, date, user_count, listing_count, active_listing_count)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(site_id, date) DO UPDATE SET
+           user_count = excluded.user_count,
+           listing_count = excluded.listing_count,
+           active_listing_count = excluded.active_listing_count,
+           recorded_at = datetime('now')`
+      )
+      .run(site.id, today, stats.userCount, stats.listingCount, stats.activeListingCount);
+  }
+  console.log(`[daily-stats] instantané enregistré pour ${sites.length} site(s), date ${today}.`);
+}
+if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const sites = masterDb.prepare('SELECT * FROM sites ORDER BY created_at ASC').all();
@@ -2386,27 +2433,22 @@ async function handleRequest(req, res) {
       let totalListings = 0;
       let totalActiveListings = 0;
       for (const site of sites) {
-        let siteDb;
-        try {
-          siteDb = getTenantDatabase(site.db_filename);
-        } catch (err) {
+        const stats = computeSiteStats(site);
+        if (!stats) {
           perSite.push({ slug: site.slug, brand_name: site.brand_name, status: site.status, error: true });
           continue;
         }
-        const userCount = siteDb.prepare('SELECT COUNT(*) AS c FROM users').get().c;
-        const listingCount = siteDb.prepare('SELECT COUNT(*) AS c FROM listings').get().c;
-        const activeListingCount = siteDb.prepare("SELECT COUNT(*) AS c FROM listings WHERE status = 'active'").get().c;
-        totalUsers += userCount;
-        totalListings += listingCount;
-        totalActiveListings += activeListingCount;
+        totalUsers += stats.userCount;
+        totalListings += stats.listingCount;
+        totalActiveListings += stats.activeListingCount;
         perSite.push({
           slug: site.slug,
           brand_name: site.brand_name,
           status: site.status,
           billing_status: site.billing_status,
-          user_count: userCount,
-          listing_count: listingCount,
-          active_listing_count: activeListingCount,
+          user_count: stats.userCount,
+          listing_count: stats.listingCount,
+          active_listing_count: stats.activeListingCount,
         });
       }
       return sendJSON(res, 200, {
@@ -3612,4 +3654,19 @@ server.listen(PORT, () => {
   setInterval(() => {
     runOnAllActiveSites(() => checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation périodique :', err.message)));
   }, 10 * 60 * 1000);
+  // Instantané quotidien des statistiques — n'a besoin d'aucun contexte
+  // de site actif (computeSiteStats ouvre directement chaque base par
+  // son nom de fichier), donc appelé sans passer par runOnAllActiveSites.
+  try {
+    recordDailySiteStats();
+  } catch (err) {
+    console.error('[daily-stats] échec de l\'enregistrement initial :', err.message);
+  }
+  setInterval(() => {
+    try {
+      recordDailySiteStats();
+    } catch (err) {
+      console.error('[daily-stats] échec de l\'enregistrement périodique :', err.message);
+    }
+  }, 24 * 60 * 60 * 1000);
 });
