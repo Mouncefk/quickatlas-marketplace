@@ -169,6 +169,36 @@ function currentSiteName() {
   const site = siteInfoContext.getStore();
   return (site && site.brand_name) || 'QuickAtlas';
 }
+/** Lit la configuration email propre au site actuellement concerné par
+ * la requête en cours (identifiants SMTP/IMAP saisis par l'administrateur
+ * de CE site précis, dans Administration → Apparence → Email) — retourne
+ * null si ce site n'a rien configuré, auquel cas sendMail() et
+ * checkInboxEmails() retombent sur les variables d'environnement globales
+ * (site principal) ou, pour la boîte de réception, ignorent simplement ce
+ * site. Jamais de repli d'un site vers les identifiants d'un AUTRE site —
+ * cela mélangerait les emails de plusieurs clients entre eux. */
+function getSiteMailConfig() {
+  const rows = db
+    .prepare("SELECT key, value FROM site_settings WHERE key IN ('smtp_host','smtp_port','smtp_user','smtp_pass_encrypted','mail_from')")
+    .all();
+  const settings = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  if (!settings.smtp_host || !settings.smtp_user || !settings.smtp_pass_encrypted) return null;
+  let pass;
+  try {
+    pass = decryptApiKey(settings.smtp_pass_encrypted);
+  } catch (err) {
+    console.error('[mail-config] échec du déchiffrement du mot de passe SMTP :', err.message);
+    return null;
+  }
+  return {
+    host: settings.smtp_host,
+    port: settings.smtp_port || null,
+    user: settings.smtp_user,
+    pass,
+    mailFrom: settings.mail_from || null,
+    fromName: currentSiteName(),
+  };
+}
 function requireSuperAdmin(req, res) {
   const user = requireAuth(req, res);
   if (!user) return null;
@@ -506,16 +536,27 @@ async function syncImapFolder(client, { mailboxPath, settingsKey, fromSpam }) {
   }
 }
 async function checkInboxEmails() {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log('[inbox] synchronisation ignorée : SMTP_USER ou SMTP_PASS absent(e) des variables d\'environnement.');
+  // Utilise la configuration propre au site actuel si elle existe (voir
+  // getSiteMailConfig). Le repli sur les variables d'environnement
+  // globales est réservé au SEUL site principal — un site client sans
+  // configuration propre est simplement ignoré pour ce cycle, plutôt que
+  // de lire par erreur la boîte du site principal et de mélanger les
+  // emails de deux sites différents (ce serait une vraie fuite de
+  // données entre clients).
+  const siteMailConfig = getSiteMailConfig();
+  const isMainSite = siteInfoContext.getStore()?.slug === 'main';
+  const imapUser = siteMailConfig?.user || (isMainSite ? process.env.SMTP_USER : null);
+  const imapPass = siteMailConfig?.pass || (isMainSite ? process.env.SMTP_PASS : null);
+  if (!imapUser || !imapPass) {
+    console.log(`[inbox] synchronisation ignorée pour ${currentSiteName()} : aucun identifiant email configuré pour ce site.`);
     return;
   }
-  console.log(`[inbox] début de synchronisation (compte : ${process.env.SMTP_USER})`);
+  console.log(`[inbox] début de synchronisation (site : ${currentSiteName()}, compte : ${imapUser})`);
   const client = new ImapFlow({
     host: 'imap.gmail.com',
     port: 993,
     secure: true,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    auth: { user: imapUser, pass: imapPass },
     logger: false,
   });
   // Essentiel : sans ce gestionnaire, une simple coupure réseau avec Gmail
@@ -569,6 +610,7 @@ async function checkCityRequestFulfillments() {
     db.prepare("UPDATE city_requests SET status = 'fulfilled', notified_at = datetime('now') WHERE id = ?").run(reqRow.id);
     try {
       await sendMail({
+        smtpConfig: getSiteMailConfig(),
         to: reqRow.email,
         purpose: 'city_request_fulfilled',
         subject: `${reqRow.city_name} est maintenant disponible sur ${currentSiteName()}`,
@@ -638,6 +680,7 @@ async function checkListingExpirations() {
   for (const l of soon) {
     const link = `${SITE_URL}/?listing=${l.id}`;
     await sendMail({
+        smtpConfig: getSiteMailConfig(),
       to: l.email,
       purpose: 'expiry_reminder',
       subject: `Votre annonce « ${l.title} » expire bientôt`,
@@ -656,6 +699,7 @@ async function checkListingExpirations() {
   for (const l of expired) {
     const link = `${SITE_URL}/?listing=${l.id}`;
     await sendMail({
+        smtpConfig: getSiteMailConfig(),
       to: l.email,
       purpose: 'expired_notice',
       subject: `Votre annonce « ${l.title} » a expiré`,
@@ -698,6 +742,7 @@ async function notifySavedSearchMatches(listing) {
     if (search.email_alerts) {
       const link = `${SITE_URL}/?listing=${listing.id}`;
       await sendMail({
+        smtpConfig: getSiteMailConfig(),
         to: search.user_email,
         purpose: 'saved_search_alert',
         subject: `Nouvelle annonce pour votre alerte « ${search.label} »`,
@@ -918,6 +963,7 @@ Das ${currentSiteName()}-Team`,
 async function sendWelcomeEmail(name, email, language) {
   const template = WELCOME_EMAIL_TEMPLATES[language] || WELCOME_EMAIL_TEMPLATES.fr;
   await sendMail({
+        smtpConfig: getSiteMailConfig(),
     to: email,
     purpose: 'welcome',
     subject: template.subject(name),
@@ -932,6 +978,7 @@ async function sendVerificationEmail(userId, name, email) {
   ).run(userId, hashRawToken(raw));
   const link = `${SITE_URL}/?verify=${raw}`;
   await sendMail({
+        smtpConfig: getSiteMailConfig(),
     to: email,
     purpose: 'verify_email',
     subject: `Vérifiez votre adresse email — ${currentSiteName()}`,
@@ -1384,6 +1431,7 @@ async function handleRequest(req, res) {
         ).run(user.id, hashRawToken(raw));
         const link = `${SITE_URL}/?reset=${raw}`;
         await sendMail({
+        smtpConfig: getSiteMailConfig(),
           to: user.email,
           purpose: 'reset_password',
           subject: `Réinitialisez votre mot de passe ${currentSiteName()}`,
@@ -2283,9 +2331,32 @@ async function handleRequest(req, res) {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const sites = masterDb
-        .prepare('SELECT id, slug, subdomain, custom_domain, brand_name, status, owner_email, created_at FROM sites ORDER BY created_at DESC')
+        .prepare('SELECT id, slug, subdomain, custom_domain, brand_name, status, owner_email, created_at, billing_status, billing_plan_label, billing_notes FROM sites ORDER BY created_at DESC')
         .all();
       return sendJSON(res, 200, sites);
+    }
+    // Met à jour le suivi de facturation d'un site (statut, formule,
+    // notes) — suivi manuel pour l'instant, indépendant de tout
+    // prestataire de paiement. N'affecte jamais automatiquement
+    // l'accessibilité du site (status actif/suspendu reste une décision
+    // séparée, volontaire, via la route dédiée) — un statut de
+    // facturation "en retard" est une information, pas une sanction
+    // automatique.
+    if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)\/billing$/)) && method === 'PUT') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const billingStatus = body.billing_status;
+      if (!['trial', 'active', 'overdue', 'cancelled'].includes(billingStatus)) {
+        return sendJSON(res, 400, { error: 'Statut de facturation invalide.' });
+      }
+      const targetSite = masterDb.prepare('SELECT id, slug FROM sites WHERE id = ?').get(Number(m[1]));
+      if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
+      masterDb
+        .prepare('UPDATE sites SET billing_status = ?, billing_plan_label = ?, billing_notes = ? WHERE id = ?')
+        .run(billingStatus, (body.billing_plan_label || '').trim() || null, (body.billing_notes || '').trim() || null, Number(m[1]));
+      logAdminAction(masterDb, admin, 'site_billing_updated', 'site', targetSite.slug, { billing_status: billingStatus });
+      return sendJSON(res, 200, { ok: true });
     }
     // Journal d'audit des actions Super Admin (création/suspension/
     // réactivation/suppression de site) — les 100 entrées les plus
@@ -3061,6 +3132,66 @@ async function handleRequest(req, res) {
       db.prepare("DELETE FROM site_settings WHERE key = 'logo_url'").run();
       return sendJSON(res, 200, { ok: true });
     }
+    // Configuration email propre à ce site (identifiants SMTP/IMAP —
+    // généralement un compte Gmail avec mot de passe d'application,
+    // exactement comme pour le site principal). Permet à un site du
+    // réseau d'envoyer et de recevoir ses emails sous sa propre identité,
+    // plutôt que de dépendre du compte du site principal. Le mot de passe
+    // n'est jamais renvoyé au navigateur, ni en clair ni chiffré — seule
+    // sa présence (has_password) est indiquée.
+    if (pathname === '/api/admin/settings/email' && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const rows = db
+        .prepare("SELECT key, value FROM site_settings WHERE key IN ('smtp_host','smtp_port','smtp_user','smtp_pass_encrypted','mail_from')")
+        .all();
+      const settings = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+      return sendJSON(res, 200, {
+        smtp_host: settings.smtp_host || '',
+        smtp_port: settings.smtp_port || '',
+        smtp_user: settings.smtp_user || '',
+        mail_from: settings.mail_from || '',
+        has_password: !!settings.smtp_pass_encrypted,
+      });
+    }
+    if (pathname === '/api/admin/settings/email' && method === 'PUT') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const smtpHost = (body.smtp_host || '').trim();
+      const smtpPort = (body.smtp_port || '').trim();
+      const smtpUser = (body.smtp_user || '').trim();
+      const mailFrom = (body.mail_from || '').trim();
+      const smtpPass = (body.smtp_pass || '').trim();
+      if (!smtpHost || !smtpUser) {
+        return sendJSON(res, 400, { error: 'Serveur SMTP et nom d\'utilisateur sont requis.' });
+      }
+      const upsert = (key, value) => {
+        if (value) {
+          db.prepare("INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+        } else {
+          db.prepare('DELETE FROM site_settings WHERE key = ?').run(key);
+        }
+      };
+      upsert('smtp_host', smtpHost);
+      upsert('smtp_port', smtpPort);
+      upsert('smtp_user', smtpUser);
+      upsert('mail_from', mailFrom);
+      // Le mot de passe n'est mis à jour QUE si un nouveau a été saisi —
+      // laisser le champ vide dans le formulaire permet de modifier les
+      // autres réglages (serveur, port...) sans avoir à ressaisir un mot
+      // de passe déjà enregistré.
+      if (smtpPass) {
+        db.prepare("INSERT INTO site_settings (key, value) VALUES ('smtp_pass_encrypted', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(encryptApiKey(smtpPass));
+      }
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (pathname === '/api/admin/settings/email' && method === 'DELETE') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      db.prepare("DELETE FROM site_settings WHERE key IN ('smtp_host','smtp_port','smtp_user','smtp_pass_encrypted','mail_from')").run();
+      return sendJSON(res, 200, { ok: true });
+    }
     // Activation/désactivation de la carte du monde sur l'accueil — utile
     // pour masquer temporairement le concept lors d'une présentation, sans
     // toucher au reste de la page (titre, recherche restent visibles).
@@ -3108,7 +3239,8 @@ async function handleRequest(req, res) {
         return sendJSON(res, 400, { error: 'Destinataire, sujet et message sont requis.' });
       }
       const attachments = readAttachmentFromUrl(body.attachment_url, body.attachment_filename, body.attachment_mime);
-      await sendMail({ to, purpose: 'admin_compose', subject, text, link: SITE_URL, attachments });
+      await sendMail({
+        smtpConfig: getSiteMailConfig(), to, purpose: 'admin_compose', subject, text, link: SITE_URL, attachments });
       db.prepare(
         "INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read) VALUES (?, ?, ?, ?, ?, ?, 'sent', 1)"
       ).run(-Date.now() - Math.floor(Math.random() * 1000), admin.email || 'contact@quickatlas.net', to, subject, text, new Date().toISOString());
@@ -3176,6 +3308,7 @@ async function handleRequest(req, res) {
       if (!replyText) return sendJSON(res, 400, { error: 'Message vide.' });
       const attachments = readAttachmentFromUrl(body.attachment_url, body.attachment_filename, body.attachment_mime);
       await sendMail({
+        smtpConfig: getSiteMailConfig(),
         to: email.from_address,
         purpose: 'admin_reply',
         subject: email.subject && email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
@@ -3256,6 +3389,7 @@ async function handleRequest(req, res) {
       db.prepare("UPDATE city_requests SET status = 'fulfilled', notified_at = datetime('now') WHERE id = ?").run(requestId);
       try {
         await sendMail({
+        smtpConfig: getSiteMailConfig(),
           to: reqRow.email,
           purpose: 'city_request_fulfilled',
           subject: `${reqRow.city_name} est maintenant disponible sur ${currentSiteName()}`,
@@ -3396,24 +3530,30 @@ async function handleRequest(req, res) {
 }
 server.listen(PORT, () => {
   console.log(`QuickAtlas Marketplace en écoute sur http://localhost:${PORT}`);
-  // Les tâches périodiques (expiration des annonces, demandes de villes,
-  // boîte de réception) tournent en dehors du cycle de requête HTTP —
-  // elles n'ont donc aucun contexte de site actif par défaut. En Phase 1
-  // du réseau multi-site, on les rattache explicitement au site
-  // principal, pour préserver leur comportement actuel à l'identique.
-  // Étendre ces tâches à chaque site du réseau est une amélioration
-  // possible pour une phase ultérieure.
-  const runOnMainSite = (fn) => tenantContext.run(mainDb, fn);
-  runOnMainSite(() => checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification initiale :', err.message)));
+  // Les tâches périodiques tournent en dehors du cycle de requête HTTP —
+  // elles n'ont donc aucun contexte de site actif par défaut. Exécutées
+  // pour CHAQUE site actif du réseau (pas seulement le principal), l'une
+  // après l'autre, chacune dans le contexte de sa propre base.
+  function runOnAllActiveSites(taskFn) {
+    const activeSites = masterDb.prepare("SELECT * FROM sites WHERE status = 'active'").all();
+    for (const site of activeSites) {
+      tenantContext.run(getTenantDatabase(site.db_filename), () => siteInfoContext.run(site, taskFn));
+    }
+  }
+  runOnAllActiveSites(() => checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification initiale :', err.message)));
   setInterval(() => {
-    runOnMainSite(() => checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification périodique :', err.message)));
+    runOnAllActiveSites(() => checkListingExpirations().catch((err) => console.error('[expiration] échec de la vérification périodique :', err.message)));
   }, 60 * 60 * 1000);
-  runOnMainSite(() => checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification initiale :', err.message)));
+  runOnAllActiveSites(() => checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification initiale :', err.message)));
   setInterval(() => {
-    runOnMainSite(() => checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification périodique :', err.message)));
+    runOnAllActiveSites(() => checkCityRequestFulfillments().catch((err) => console.error('[city-request] échec de la vérification périodique :', err.message)));
   }, 60 * 60 * 1000);
-  runOnMainSite(() => checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation initiale :', err.message)));
+  // La boîte de réception est différente : elle ne tourne que pour les
+  // sites ayant configuré LEURS PROPRES identifiants email (voir
+  // getSiteMailConfig) — jamais de repli sur les identifiants d'un autre
+  // site, ce qui mélangerait les emails de plusieurs clients entre eux.
+  runOnAllActiveSites(() => checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation initiale :', err.message)));
   setInterval(() => {
-    runOnMainSite(() => checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation périodique :', err.message)));
+    runOnAllActiveSites(() => checkInboxEmails().catch((err) => console.error('[inbox] échec de la synchronisation périodique :', err.message)));
   }, 10 * 60 * 1000);
 });
