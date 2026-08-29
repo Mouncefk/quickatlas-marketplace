@@ -700,7 +700,12 @@ function initializeMasterDatabase(dbPath) {
       brand_name TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
       owner_email TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      billing_status TEXT NOT NULL DEFAULT 'trial' CHECK (billing_status IN ('trial','active','overdue','cancelled')),
+      billing_plan_label TEXT,
+      billing_notes TEXT,
+      stripe_customer_id TEXT,
+      stripe_subscription_id TEXT
     );
     CREATE TABLE IF NOT EXISTS admin_audit_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -712,7 +717,38 @@ function initializeMasterDatabase(dbPath) {
       details TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS daily_site_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      user_count INTEGER NOT NULL,
+      listing_count INTEGER NOT NULL,
+      active_listing_count INTEGER NOT NULL,
+      recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(site_id, date)
+    );
   `);
+  // Migration : ajoute les colonnes de suivi de facturation (statut,
+  // formule, notes, identifiants Stripe réservés pour une intégration
+  // future) sur un registre déjà existant — CREATE TABLE IF NOT EXISTS
+  // ne les ajoute qu'aux tout nouveaux registres, pas à celui déjà en
+  // place. Simples colonnes nullables ajoutées une par une, sans risque
+  // pour les données déjà présentes.
+  {
+    const sitesColumns = db.prepare("PRAGMA table_info(sites)").all().map((c) => c.name);
+    const billingColumns = [
+      ["billing_status", "TEXT NOT NULL DEFAULT 'trial'"],
+      ['billing_plan_label', 'TEXT'],
+      ['billing_notes', 'TEXT'],
+      ['stripe_customer_id', 'TEXT'],
+      ['stripe_subscription_id', 'TEXT'],
+    ];
+    for (const [name, type] of billingColumns) {
+      if (!sitesColumns.includes(name)) {
+        db.exec(`ALTER TABLE sites ADD COLUMN ${name} ${type}`);
+      }
+    }
+  }
   // Le site principal (celui déjà en place) figure lui-même comme
   // première entrée du registre, avec quickatlas.net comme domaine
   // personnalisé — ainsi, le mécanisme de résolution par domaine (voir
