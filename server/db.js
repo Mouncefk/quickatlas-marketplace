@@ -661,6 +661,23 @@ db.exec(`
   );
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(listing_id);`);
+  // Journal des actions administrateur sensibles (changement de rôle,
+  // suppression d'utilisateur...) — trace qui a fait quoi et quand, utile
+  // en cas de problème pour comprendre ce qui s'est passé. Alimenté via
+  // logAdminAction() dans server.js, uniquement sur les actions les plus
+  // sensibles pour l'instant.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_user_id INTEGER,
+      admin_email TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      details TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
   return db;
 }
 
@@ -683,6 +700,16 @@ function initializeMasterDatabase(dbPath) {
       brand_name TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
       owner_email TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_user_id INTEGER,
+      admin_email TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      details TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
