@@ -158,6 +158,17 @@ function requireAdmin(req, res) {
  * rôle de l'utilisateur ET le fait d'être actuellement sur le site
  * principal (le panneau Super Admin n'a pas de sens depuis un site
  * client, même si un utilisateur y avait par erreur ce rôle). */
+/** Nom de marque du site actuellement concerné par la requête en cours
+ * (via siteInfoContext, déjà rempli au tout début de chaque requête —
+ * voir resolveSiteForRequest) — utilisé dans les emails automatiques et
+ * les balises SEO, pour qu'un site du réseau affiche bien SA propre
+ * marque plutôt que "QuickAtlas" partout. Retombe sur "QuickAtlas" par
+ * défaut si l'information n'est pour une raison quelconque pas
+ * disponible (ne devrait jamais arriver en pratique). */
+function currentSiteName() {
+  const site = siteInfoContext.getStore();
+  return (site && site.brand_name) || 'QuickAtlas';
+}
 function requireSuperAdmin(req, res) {
   const user = requireAuth(req, res);
   if (!user) return null;
@@ -560,8 +571,8 @@ async function checkCityRequestFulfillments() {
       await sendMail({
         to: reqRow.email,
         purpose: 'city_request_fulfilled',
-        subject: `${reqRow.city_name} est maintenant disponible sur QuickAtlas`,
-        text: `Bonjour,\n\nVous nous aviez signalé l'absence de ${reqRow.city_name}. Bonne nouvelle : cette ville est désormais disponible sur QuickAtlas !\n\nÀ bientôt,\nL'équipe QuickAtlas`,
+        subject: `${reqRow.city_name} est maintenant disponible sur ${currentSiteName()}`,
+        text: `Bonjour,\n\nVous nous aviez signalé l'absence de ${reqRow.city_name}. Bonne nouvelle : cette ville est désormais disponible sur ${currentSiteName()} !\n\nÀ bientôt,\nL'équipe ${currentSiteName()}`,
         link: SITE_URL,
       });
     } catch (err) {
@@ -630,7 +641,7 @@ async function checkListingExpirations() {
       to: l.email,
       purpose: 'expiry_reminder',
       subject: `Votre annonce « ${l.title} » expire bientôt`,
-      text: `Bonjour ${l.name},\n\nVotre annonce « ${l.title} » expirera le ${l.expires_at} (heure serveur).\n\nPour qu'elle reste visible, renouvelez-la depuis « Mes annonces » sur QuickAtlas, ou directement ici :\n${link}\n\nSans renouvellement, elle sera automatiquement masquée des résultats.`,
+      text: `Bonjour ${l.name},\n\nVotre annonce « ${l.title} » expirera le ${l.expires_at} (heure serveur).\n\nPour qu'elle reste visible, renouvelez-la depuis « Mes annonces » sur ${currentSiteName()}, ou directement ici :\n${link}\n\nSans renouvellement, elle sera automatiquement masquée des résultats.`,
       link,
     });
     db.prepare('UPDATE listings SET expiry_reminder_sent = 1 WHERE id = ?').run(l.id);
@@ -648,7 +659,7 @@ async function checkListingExpirations() {
       to: l.email,
       purpose: 'expired_notice',
       subject: `Votre annonce « ${l.title} » a expiré`,
-      text: `Bonjour ${l.name},\n\nVotre annonce « ${l.title} » a expiré et n'est plus visible dans les résultats.\n\nVous pouvez la renouveler à tout moment depuis « Mes annonces » sur QuickAtlas, ou directement ici :\n${link}`,
+      text: `Bonjour ${l.name},\n\nVotre annonce « ${l.title} » a expiré et n'est plus visible dans les résultats.\n\nVous pouvez la renouveler à tout moment depuis « Mes annonces » sur ${currentSiteName()}, ou directement ici :\n${link}`,
       link,
     });
     db.prepare('UPDATE listings SET expired_notice_sent = 1 WHERE id = ?').run(l.id);
@@ -690,7 +701,7 @@ async function notifySavedSearchMatches(listing) {
         to: search.user_email,
         purpose: 'saved_search_alert',
         subject: `Nouvelle annonce pour votre alerte « ${search.label} »`,
-        text: `Bonjour ${search.user_name},\n\nUne nouvelle annonce correspond à votre alerte « ${search.label} » :\n\n${listing.title}\n\nVoir l'annonce : ${link}\n\nVous recevez cet email car vous avez enregistré cette recherche sur QuickAtlas. Vous pouvez la gérer ou la supprimer depuis « Mes alertes ».`,
+        text: `Bonjour ${search.user_name},\n\nUne nouvelle annonce correspond à votre alerte « ${search.label} » :\n\n${listing.title}\n\nVoir l'annonce : ${link}\n\nVous recevez cet email car vous avez enregistré cette recherche sur ${currentSiteName()}. Vous pouvez la gérer ou la supprimer depuis « Mes alertes ».`,
         link,
       });
     }
@@ -701,10 +712,10 @@ async function notifySavedSearchMatches(listing) {
  * Explique brièvement les fonctionnalités principales du site. */
 const WELCOME_EMAIL_TEMPLATES = {
   fr: {
-    subject: (name) => `Bienvenue sur QuickAtlas, ${name} !`,
+    subject: (name) => `Bienvenue sur ${currentSiteName()}, ${name} !`,
     text: (name) => `Bonjour ${name},
 
-Bienvenue sur QuickAtlas ! Votre compte est créé, voici un guide complet pour bien démarrer :
+Bienvenue sur ${currentSiteName()} ! Votre compte est créé, voici un guide complet pour bien démarrer :
 
 🗺️ EXPLORER
 Cliquez un pays sur la carte du monde, puis une ville, pour découvrir les annonces locales. La recherche globale et l'onglet "Toutes les annonces" permettent aussi de chercher dans le monde entier sans passer par la carte. Ajoutez vos destinations favorites en un clic pour y revenir directement depuis l'accueil.
@@ -727,13 +738,13 @@ Marquez votre annonce comme "Vendue" ou "Louée" depuis "Mes annonces" — un ca
 Besoin d'aide ? Le bouton "🧭 Mode d'emploi" en haut de chaque page reprend toutes ces explications à tout moment.
 
 Bonne exploration !
-L'équipe QuickAtlas`,
+L'équipe ${currentSiteName()}`,
   },
   en: {
-    subject: (name) => `Welcome to QuickAtlas, ${name}!`,
+    subject: (name) => `Welcome to ${currentSiteName()}, ${name}!`,
     text: (name) => `Hello ${name},
 
-Welcome to QuickAtlas! Your account is ready — here is a full guide to get you started:
+Welcome to ${currentSiteName()}! Your account is ready — here is a full guide to get you started:
 
 🗺️ EXPLORE
 Click a country on the world map, then a city, to discover local listings. The global search and the "All listings" tab also let you search the whole world without using the map. Add your favorite destinations with one click to access them directly from the home page.
@@ -756,13 +767,13 @@ Mark your listing as "Sold" or "Rented" from "My listings" — a stamp will appe
 Need help? The "🧭 Guide" button at the top of every page has all these explanations at any time.
 
 Happy exploring!
-The QuickAtlas team`,
+The ${currentSiteName()} team`,
   },
   it: {
-    subject: (name) => `Benvenuto/a su QuickAtlas, ${name}!`,
+    subject: (name) => `Benvenuto/a su ${currentSiteName()}, ${name}!`,
     text: (name) => `Ciao ${name},
 
-Benvenuto/a su QuickAtlas! Il tuo account è pronto, ecco una guida completa per iniziare:
+Benvenuto/a su ${currentSiteName()}! Il tuo account è pronto, ecco una guida completa per iniziare:
 
 🗺️ ESPLORA
 Clicca su un paese sulla mappa del mondo, poi su una città, per scoprire gli annunci locali. La ricerca globale e la scheda "Tutti gli annunci" permettono anche di cercare in tutto il mondo senza passare dalla mappa. Aggiungi le tue destinazioni preferite con un clic per ritrovarle direttamente dalla home.
@@ -785,13 +796,13 @@ Segna il tuo annuncio come "Venduto" o "Affittato" da "I miei annunci" — un ti
 Hai bisogno di aiuto? Il pulsante "🧭 Guida" in alto in ogni pagina riprende tutte queste spiegazioni in qualsiasi momento.
 
 Buona esplorazione!
-Il team QuickAtlas`,
+Il team ${currentSiteName()}`,
   },
   ar: {
-    subject: (name) => `مرحبًا بك في QuickAtlas يا ${name}!`,
+    subject: (name) => `مرحبًا بك في ${currentSiteName()} يا ${name}!`,
     text: (name) => `مرحبًا ${name}،
 
-مرحبًا بك في QuickAtlas! تم إنشاء حسابك، إليك دليل كامل للبدء:
+مرحبًا بك في ${currentSiteName()}! تم إنشاء حسابك، إليك دليل كامل للبدء:
 
 🗺️ الاستكشاف
 انقر على بلد في خريطة العالم، ثم على مدينة، لاكتشاف الإعلانات المحلية. يتيح لك البحث الشامل وتبويب "جميع الإعلانات" أيضًا البحث في العالم كله دون المرور بالخريطة. أضف وجهاتك المفضلة بنقرة واحدة للوصول إليها مباشرة من الصفحة الرئيسية.
@@ -814,13 +825,13 @@ Il team QuickAtlas`,
 بحاجة إلى مساعدة؟ زر "🧭 دليل الاستخدام" أعلى كل صفحة يعرض كل هذه الشروحات في أي وقت.
 
 استكشافًا سعيدًا!
-فريق QuickAtlas`,
+فريق ${currentSiteName()}`,
   },
   es: {
-    subject: (name) => `¡Bienvenido/a a QuickAtlas, ${name}!`,
+    subject: (name) => `¡Bienvenido/a a ${currentSiteName()}, ${name}!`,
     text: (name) => `Hola ${name},
 
-¡Bienvenido/a a QuickAtlas! Su cuenta está creada, aquí tiene una guía completa para empezar:
+¡Bienvenido/a a ${currentSiteName()}! Su cuenta está creada, aquí tiene una guía completa para empezar:
 
 🗺️ EXPLORAR
 Haga clic en un país en el mapa del mundo, luego en una ciudad, para descubrir los anuncios locales. La búsqueda global y la pestaña "Todos los anuncios" también permiten buscar en todo el mundo sin pasar por el mapa. Añada sus destinos favoritos con un clic para volver a ellos directamente desde el inicio.
@@ -843,13 +854,13 @@ Marque su anuncio como "Vendido" o "Alquilado" desde "Mis anuncios" — aparecer
 ¿Necesita ayuda? El botón "🧭 Guía" en la parte superior de cada página recoge todas estas explicaciones en cualquier momento.
 
 ¡Feliz exploración!
-El equipo de QuickAtlas`,
+El equipo de ${currentSiteName()}`,
   },
   pt: {
-    subject: (name) => `Bem-vindo(a) ao QuickAtlas, ${name}!`,
+    subject: (name) => `Bem-vindo(a) ao ${currentSiteName()}, ${name}!`,
     text: (name) => `Olá ${name},
 
-Bem-vindo(a) ao QuickAtlas! A sua conta está criada, aqui tem um guia completo para começar:
+Bem-vindo(a) ao ${currentSiteName()}! A sua conta está criada, aqui tem um guia completo para começar:
 
 🗺️ EXPLORAR
 Clique num país no mapa-múndi, depois numa cidade, para descobrir os anúncios locais. A pesquisa global e o separador "Todos os anúncios" também permitem pesquisar no mundo inteiro sem passar pelo mapa. Adicione os seus destinos favoritos com um clique para voltar a eles diretamente a partir do início.
@@ -872,13 +883,13 @@ Marque o seu anúncio como "Vendido" ou "Alugado" a partir de "Meus anúncios" �
 Precisa de ajuda? O botão "🧭 Guia" no topo de cada página reúne todas estas explicações a qualquer momento.
 
 Boas explorações!
-A equipa QuickAtlas`,
+A equipa ${currentSiteName()}`,
   },
   de: {
-    subject: (name) => `Willkommen bei QuickAtlas, ${name}!`,
+    subject: (name) => `Willkommen bei ${currentSiteName()}, ${name}!`,
     text: (name) => `Hallo ${name},
 
-Willkommen bei QuickAtlas! Ihr Konto ist erstellt, hier ist ein vollständiger Leitfaden für den Einstieg:
+Willkommen bei ${currentSiteName()}! Ihr Konto ist erstellt, hier ist ein vollständiger Leitfaden für den Einstieg:
 
 🗺️ ENTDECKEN
 Klicken Sie auf ein Land auf der Weltkarte, dann auf eine Stadt, um lokale Anzeigen zu entdecken. Die globale Suche und der Reiter "Alle Anzeigen" ermöglichen es auch, weltweit zu suchen, ohne die Karte zu nutzen. Fügen Sie Ihre Lieblingsziele mit einem Klick hinzu, um direkt von der Startseite aus darauf zuzugreifen.
@@ -901,7 +912,7 @@ Markieren Sie Ihre Anzeige unter "Meine Anzeigen" als "Verkauft" oder "Vermietet
 Brauchen Sie Hilfe? Die Schaltfläche "🧭 Anleitung" oben auf jeder Seite enthält all diese Erklärungen jederzeit.
 
 Viel Spaß beim Entdecken!
-Das QuickAtlas-Team`,
+Das ${currentSiteName()}-Team`,
   },
 };
 async function sendWelcomeEmail(name, email, language) {
@@ -923,7 +934,7 @@ async function sendVerificationEmail(userId, name, email) {
   await sendMail({
     to: email,
     purpose: 'verify_email',
-    subject: 'Vérifiez votre adresse email — QuickAtlas',
+    subject: `Vérifiez votre adresse email — ${currentSiteName()}`,
     text: `Bonjour ${name},\n\nMerci de confirmer votre adresse email en cliquant sur ce lien (valable 48 heures) :\n${link}\n\nTant que votre email n'est pas vérifié, vous ne pouvez pas publier d'annonce ni contacter d'autres utilisateurs.`,
     link,
   });
@@ -1076,8 +1087,8 @@ async function handleRequest(req, res) {
         return sendHtml(
           res,
           renderHtmlWithMeta({
-            title: `Achetez, vendez, louez au ${country.name} — QuickAtlas`,
-            description: `Parcourez ${stats.listings || 0} annonce(s) au ${country.name} sur QuickAtlas : immobilier, véhicules, emploi et objets, ville par ville.`,
+            title: `Achetez, vendez, louez au ${country.name} — ${currentSiteName()}`,
+            description: `Parcourez ${stats.listings || 0} annonce(s) au ${country.name} sur ${currentSiteName()} : immobilier, véhicules, emploi et objets, ville par ville.`,
             canonicalPath: `/pays/${m[1]}`,
             jsonLd: [breadcrumbJsonLd([
               { name: 'Accueil', path: '/' },
@@ -1103,8 +1114,8 @@ async function handleRequest(req, res) {
           return sendHtml(
             res,
             renderHtmlWithMeta({
-              title: `Annonces à ${city.name}, ${country.name} — QuickAtlas`,
-              description: `Parcourez ${cityStats.listings || 0} annonce(s) à ${city.name}, ${country.name} sur QuickAtlas : immobilier, véhicules, emploi et objets à vendre, louer ou pourvoir.`,
+              title: `Annonces à ${city.name}, ${country.name} — ${currentSiteName()}`,
+              description: `Parcourez ${cityStats.listings || 0} annonce(s) à ${city.name}, ${country.name} sur ${currentSiteName()} : immobilier, véhicules, emploi et objets à vendre, louer ou pourvoir.`,
               canonicalPath: `/pays/${m[1]}/${m[2]}`,
               jsonLd: [breadcrumbJsonLd([
                 { name: 'Accueil', path: '/' },
@@ -1122,8 +1133,8 @@ async function handleRequest(req, res) {
         return sendHtml(
           res,
           renderHtmlWithMeta({
-            title: `${category.name} — Annonces dans le monde entier | QuickAtlas`,
-            description: `Découvrez toutes les annonces "${category.name}" sur QuickAtlas, la place de marché mondiale — achat, vente, location, ville par ville.`,
+            title: `${category.name} — Annonces dans le monde entier | ${currentSiteName()}`,
+            description: `Découvrez toutes les annonces "${category.name}" sur ${currentSiteName()}, la place de marché mondiale — achat, vente, location, ville par ville.`,
             canonicalPath: `/categorie/${m[1]}`,
             jsonLd: [breadcrumbJsonLd([
               { name: 'Accueil', path: '/' },
@@ -1170,7 +1181,7 @@ async function handleRequest(req, res) {
         return sendHtml(
           res,
           renderHtmlWithMeta({
-            title: `${listing.title} — ${listing.city_name}, ${listing.country_name} | QuickAtlas`,
+            title: `${listing.title} — ${listing.city_name}, ${listing.country_name} | ${currentSiteName()}`,
             description: (listing.description || `${listing.title} à ${listing.city_name}, ${listing.country_name}.`).slice(0, 155),
             canonicalPath: `/annonce/${m[1]}-${slugify(listing.title)}`,
             image: images[0] || null,
@@ -1375,7 +1386,7 @@ async function handleRequest(req, res) {
         await sendMail({
           to: user.email,
           purpose: 'reset_password',
-          subject: 'Réinitialisez votre mot de passe QuickAtlas',
+          subject: `Réinitialisez votre mot de passe ${currentSiteName()}`,
           text: `Bonjour ${user.name},\n\nPour réinitialiser votre mot de passe, cliquez sur ce lien (valable 1 heure) :\n${link}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
           link,
         });
@@ -3247,8 +3258,8 @@ async function handleRequest(req, res) {
         await sendMail({
           to: reqRow.email,
           purpose: 'city_request_fulfilled',
-          subject: `${reqRow.city_name} est maintenant disponible sur QuickAtlas`,
-          text: `Bonjour,\n\nVous nous aviez signalé l'absence de ${reqRow.city_name}. Bonne nouvelle : cette ville est désormais disponible sur QuickAtlas !\n\nÀ bientôt,\nL'équipe QuickAtlas`,
+          subject: `${reqRow.city_name} est maintenant disponible sur ${currentSiteName()}`,
+          text: `Bonjour,\n\nVous nous aviez signalé l'absence de ${reqRow.city_name}. Bonne nouvelle : cette ville est désormais disponible sur ${currentSiteName()} !\n\nÀ bientôt,\nL'équipe ${currentSiteName()}`,
           link: SITE_URL,
         });
       } catch { /* la demande reste marquée traitée même si l'email échoue */ }
