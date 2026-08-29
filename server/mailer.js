@@ -3,8 +3,14 @@
 // l'envoi échoue), l'email est simplement consigné dans la table
 // `email_outbox`, consultable depuis le panneau Administration → Emails.
 //
-// Configuration (variables d'environnement, toutes optionnelles) :
-//   SMTP_HOST, SMTP_PORT (défaut 465), SMTP_USER, SMTP_PASS, MAIL_FROM
+// Réseau multi-site : sendMail() accepte un paramètre optionnel smtpConfig
+// { host, port, user, pass, mailFrom, fromName } — quand un site a
+// configuré ses propres identifiants email (voir getSiteMailConfig() dans
+// server.js), ils sont utilisés à la place des variables d'environnement
+// globales. Sans smtpConfig fourni, comportement inchangé : lecture des
+// variables d'environnement globales (SMTP_HOST, SMTP_PORT, SMTP_USER,
+// SMTP_PASS, MAIL_FROM), exactement comme avant l'existence du réseau
+// multi-site — c'est ce qui alimente le site principal.
 //
 // Important : ce client SMTP est volontairement simple (connexion TLS
 // directe, type "SMTPS" sur le port 465, comme Gmail/la plupart des
@@ -50,9 +56,12 @@ function dotStuff(body) {
 
 /** Construit le corps MIME complet du message — texte simple si aucune
  * pièce jointe, ou multipart/mixed (texte + pièces jointes en base64)
- * sinon. `attachments` : [{ filename, mimeType, content (Buffer) }]. */
-function buildMimeMessage({ from, to, subject, text, attachments }) {
-  const headersCommon = [`From: QuickAtlas <${from}>`, `To: <${to}>`, `Subject: ${subject}`];
+ * sinon. `attachments` : [{ filename, mimeType, content (Buffer) }].
+ * `fromName` : nom affiché dans l'en-tête From (le nom de marque du site
+ * qui envoie, plutôt que "QuickAtlas" en dur — chaque site du réseau
+ * envoie sous son propre nom). */
+function buildMimeMessage({ from, fromName, to, subject, text, attachments }) {
+  const headersCommon = [`From: ${fromName} <${from}>`, `To: <${to}>`, `Subject: ${subject}`];
   if (!attachments || attachments.length === 0) {
     return [...headersCommon, 'Content-Type: text/plain; charset=utf-8', '', text].join('\r\n');
   }
@@ -82,11 +91,8 @@ function buildMimeMessage({ from, to, subject, text, attachments }) {
   return [...headersCommon, `Content-Type: multipart/mixed; boundary="${boundary}"`, '', ...parts].join('\r\n');
 }
 
-async function sendViaSmtp({ to, subject, text, attachments }) {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM } = process.env;
-  const from = MAIL_FROM || SMTP_USER;
-
-  const socket = tls.connect({ host: SMTP_HOST, port: Number(SMTP_PORT) || 465, servername: SMTP_HOST });
+async function sendViaSmtp({ to, subject, text, attachments, host, port, user, pass, from, fromName }) {
+  const socket = tls.connect({ host, port: Number(port) || 465, servername: host });
   await new Promise((resolve, reject) => {
     socket.once('secureConnect', resolve);
     socket.once('error', reject);
@@ -96,12 +102,12 @@ async function sendViaSmtp({ to, subject, text, attachments }) {
     await smtpCommand(socket, null); // bannière du serveur
     await smtpCommand(socket, `EHLO atlas.local`);
     await smtpCommand(socket, 'AUTH LOGIN');
-    await smtpCommand(socket, b64(SMTP_USER));
-    await smtpCommand(socket, b64(SMTP_PASS));
+    await smtpCommand(socket, b64(user));
+    await smtpCommand(socket, b64(pass));
     await smtpCommand(socket, `MAIL FROM:<${from}>`);
     await smtpCommand(socket, `RCPT TO:<${to}>`);
     await smtpCommand(socket, 'DATA', ['3']);
-    const message = dotStuff(buildMimeMessage({ from, to, subject, text, attachments })) + '\r\n.';
+    const message = dotStuff(buildMimeMessage({ from, fromName, to, subject, text, attachments })) + '\r\n.';
     await smtpCommand(socket, message);
     await smtpCommand(socket, 'QUIT', ['2', '3', '5']);
   } finally {
@@ -115,22 +121,32 @@ async function sendViaSmtp({ to, subject, text, attachments }) {
  * manuellement un lien tant que le SMTP n'est pas configuré/vérifié).
  *
  * `attachments` (optionnel) : [{ filename, mimeType, content: Buffer }]
+ * `smtpConfig` (optionnel) : { host, port, user, pass, mailFrom, fromName }
+ *   — identifiants propres à un site du réseau multi-site. Sans cet
+ *   argument, repli sur les variables d'environnement globales
+ *   (comportement du site principal, inchangé).
  */
-export async function sendMail({ to, subject, text, link, purpose, attachments }) {
-  const configured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+export async function sendMail({ to, subject, text, link, purpose, attachments, smtpConfig }) {
+  const host = smtpConfig?.host || process.env.SMTP_HOST;
+  const port = smtpConfig?.port || process.env.SMTP_PORT;
+  const user = smtpConfig?.user || process.env.SMTP_USER;
+  const pass = smtpConfig?.pass || process.env.SMTP_PASS;
+  const from = smtpConfig?.mailFrom || process.env.MAIL_FROM || user;
+  const fromName = smtpConfig?.fromName || 'QuickAtlas';
+  const configured = !!(host && user && pass);
   let sentOk = 0;
   let sendError = null;
 
   if (configured) {
     try {
-      await sendViaSmtp({ to, subject, text, attachments });
+      await sendViaSmtp({ to, subject, text, attachments, host, port, user, pass, from, fromName });
       sentOk = 1;
     } catch (err) {
       sendError = err.message;
       console.error('[mailer] Échec envoi SMTP :', err.message);
     }
   } else {
-    sendError = 'SMTP non configuré (variables SMTP_HOST/SMTP_USER/SMTP_PASS absentes)';
+    sendError = 'SMTP non configuré (identifiants absents pour ce site)';
   }
 
   db.prepare(
