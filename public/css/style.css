@@ -3100,3 +3100,35 @@ textarea { resize: vertical; }
 .conversation-item-checkbox {
   flex-shrink: 0;
 }
+/* ---------- Sous-titre pays à côté du nom de marque (en-tête) ---------- */
+.brand-country-tag {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.8rem;
+  color: rgba(241, 233, 216, 0.55);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  margin-left: -4px;
+  order: 1;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+.brand-country-tag:hover { color: var(--brass-300); text-decoration: underline; }
+.brand-country-tag[hidden] { display: none; }
+.brand-country-select {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.8rem;
+  background: var(--ink-700);
+  color: var(--parchment-100);
+  border: 1px solid var(--brass-500);
+  border-radius: 4px;
+  padding: 2px 4px;
+  order: 1;
+  flex-shrink: 0;
+  max-width: 140px;
+}
+.brand-country-select[hidden] { display: none; }
+[dir="rtl"] .brand-country-tag { margin-left: 0; margin-right: -4px; }
