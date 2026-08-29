@@ -4035,7 +4035,7 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
     if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
-    if (btn.dataset.adminTab === 'super-admin') loadSuperAdminSites();
+    if (btn.dataset.adminTab === 'super-admin') { loadSuperAdminSites(); loadSuperAdminAuditLog(); }
   })
 );
 /** Charge la liste des emails reçus dans l'onglet admin "Boîte de
@@ -4198,6 +4198,44 @@ document.getElementById('adminInboxBulkDeleteBtn')?.addEventListener('click', as
 });
 let adminInboxSelectedIds = new Set();
 // ---------- Super Administrateur (réseau multi-site) ----------
+function auditActionLabel(action) {
+  const map = {
+    user_role_changed: 'admin.audit_action_role_changed',
+    user_deleted: 'admin.audit_action_user_deleted',
+    site_created: 'admin.audit_action_site_created',
+    site_suspended: 'admin.audit_action_site_suspended',
+    site_reactivated: 'admin.audit_action_site_reactivated',
+    site_deleted: 'admin.audit_action_site_deleted',
+  };
+  return map[action] ? i18n.t(map[action]) : action;
+}
+async function loadSuperAdminAuditLog() {
+  const tbody = document.getElementById('superAdminAuditBody');
+  if (!tbody) return;
+  try {
+    const entries = await api('/super-admin/audit-log');
+    tbody.innerHTML = '';
+    if (entries.length === 0) {
+      tbody.append(el('tr', {}, el('td', { colspan: '4' }, el('p', { class: 'empty-state' }, i18n.t('admin.super_admin_audit_empty')))));
+      return;
+    }
+    for (const entry of entries) {
+      let details = null;
+      try { details = entry.details ? JSON.parse(entry.details) : null; } catch { details = null; }
+      const targetLabel = [entry.target_type, entry.target_id].filter(Boolean).join(' #');
+      tbody.append(
+        el('tr', {}, [
+          el('td', {}, new Date(entry.created_at + 'Z').toLocaleString()),
+          el('td', {}, entry.admin_email || '—'),
+          el('td', {}, auditActionLabel(entry.action)),
+          el('td', {}, [targetLabel, details ? JSON.stringify(details) : ''].filter(Boolean).join(' — ')),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
 async function loadSuperAdminSites() {
   const tbody = document.getElementById('superAdminSitesBody');
   if (!tbody) return;
@@ -4220,7 +4258,7 @@ async function loadSuperAdminSites() {
               try {
                 await api(`/super-admin/sites/${s.id}`, { method: 'PUT', body: JSON.stringify({ status: s.status === 'active' ? 'suspended' : 'active' }) });
                 showToast(i18n.t('toast.super_admin_status_updated'));
-                loadSuperAdminSites();
+                loadSuperAdminSites(); loadSuperAdminAuditLog();
               } catch (err) {
                 showToast(err.message);
               }
@@ -4238,7 +4276,7 @@ async function loadSuperAdminSites() {
               try {
                 await api(`/super-admin/sites/${s.id}`, { method: 'DELETE', body: JSON.stringify({ confirm_slug: typed.trim().toLowerCase() }) });
                 showToast(i18n.t('toast.super_admin_site_deleted'));
-                loadSuperAdminSites();
+                loadSuperAdminSites(); loadSuperAdminAuditLog();
               } catch (err) {
                 showToast(err.message);
               }
@@ -4293,7 +4331,7 @@ document.getElementById('newSiteForm')?.addEventListener('submit', async (e) => 
     });
     showToast(i18n.t('toast.super_admin_site_created'));
     document.getElementById('newSiteModal').hidden = true;
-    loadSuperAdminSites();
+    loadSuperAdminSites(); loadSuperAdminAuditLog();
   } catch (err) {
     errEl.textContent = friendlyErrorMessage(err);
     errEl.hidden = false;
