@@ -4543,6 +4543,61 @@ async function applySiteBranding() {
     if (brandWordFooter) brandWordFooter.textContent = window.currentSiteName.toUpperCase();
   } catch { /* pas grave, "QuickAtlas" et le logo par défaut restent affichés */ }
 }
+const BRAND_COUNTRY_TAG_KEY = 'atlas_brand_country_id';
+/** Affiche un petit sous-titre pays (ex. "France", en italique) à côté du
+ * nom de marque dans l'en-tête — deviné automatiquement via le même
+ * mécanisme de détection déjà utilisé pour pré-sélectionner un pays au
+ * moment de publier une annonce (fuseau horaire + langue du navigateur,
+ * jamais l'adresse IP), sans jamais imposer de redirection. Le
+ * visiteur peut le corriger lui-même en cliquant dessus ; son choix
+ * manuel est alors mémorisé et prime sur la détection automatique lors
+ * de ses prochaines visites. Appelée depuis boot(), une fois
+ * state.countries chargé. */
+function initCountryTag() {
+  const tagBtn = document.getElementById('brandCountryTag');
+  const select = document.getElementById('brandCountrySelect');
+  if (!tagBtn || !select || !state.countries.length) return;
+
+  function showCountry(countryId) {
+    const country = state.countries.find((c) => c.id === Number(countryId));
+    if (!country) { tagBtn.hidden = true; return; }
+    tagBtn.textContent = countryLabel(country);
+    tagBtn.dataset.countryId = country.id;
+    tagBtn.hidden = false;
+  }
+
+  function enterEditMode() {
+    select.innerHTML = '';
+    select.append(el('option', { value: '' }, i18n.t('brand.country_tag_none')));
+    for (const c of state.countries) {
+      select.append(el('option', { value: c.id, selected: String(c.id) === tagBtn.dataset.countryId ? 'selected' : null }, countryLabel(c)));
+    }
+    tagBtn.hidden = true;
+    select.hidden = false;
+    select.focus();
+  }
+
+  tagBtn.addEventListener('click', enterEditMode);
+  select.addEventListener('change', () => {
+    const chosenId = select.value;
+    select.hidden = true;
+    if (chosenId) {
+      localStorage.setItem(BRAND_COUNTRY_TAG_KEY, chosenId);
+      showCountry(chosenId);
+    } else {
+      localStorage.removeItem(BRAND_COUNTRY_TAG_KEY);
+      tagBtn.hidden = true;
+    }
+  });
+  select.addEventListener('blur', () => { select.hidden = true; if (tagBtn.dataset.countryId) tagBtn.hidden = false; });
+
+  const savedId = localStorage.getItem(BRAND_COUNTRY_TAG_KEY);
+  if (savedId) {
+    showCountry(savedId);
+    return;
+  }
+  guessUserCountryId().then((guessedId) => { if (guessedId) showCountry(guessedId); });
+}
 document.getElementById('adminLogoFile')?.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -5116,6 +5171,7 @@ async function boot() {
   renderRecentPlaces();
   try {
     await Promise.all([loadCategories(), loadCountries()]);
+    initCountryTag();
     loadFeatured();
     loadPromoBanner();
     loadActivityTicker();
