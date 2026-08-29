@@ -4033,7 +4033,7 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     const superAdminPanelEl = document.getElementById('superAdminPanel');
     if (superAdminPanelEl) superAdminPanelEl.hidden = btn.dataset.adminTab !== 'super-admin';
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
-    if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); }
+    if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); loadSiteEmailSettings(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
     if (btn.dataset.adminTab === 'super-admin') { loadSuperAdminSites(); loadSuperAdminAuditLog(); }
   })
@@ -4206,6 +4206,7 @@ function auditActionLabel(action) {
     site_suspended: 'admin.audit_action_site_suspended',
     site_reactivated: 'admin.audit_action_site_reactivated',
     site_deleted: 'admin.audit_action_site_deleted',
+    site_billing_updated: 'admin.audit_action_site_billing_updated',
   };
   return map[action] ? i18n.t(map[action]) : action;
 }
@@ -4236,6 +4237,13 @@ async function loadSuperAdminAuditLog() {
     showToast(e.message);
   }
 }
+function billingStatusLabel(status) {
+  const map = {
+    trial: 'admin.billing_status_trial', active: 'admin.billing_status_active',
+    overdue: 'admin.billing_status_overdue', cancelled: 'admin.billing_status_cancelled',
+  };
+  return map[status] ? i18n.t(map[status]) : status;
+}
 async function loadSuperAdminSites() {
   const tbody = document.getElementById('superAdminSitesBody');
   if (!tbody) return;
@@ -4251,7 +4259,15 @@ async function loadSuperAdminSites() {
           el('td', {}, domain),
           el('td', {}, s.owner_email || '—'),
           el('td', {}, el('span', { class: `role-badge ${s.status === 'active' ? '' : 'role-badge--admin'}` }, i18n.t(s.status === 'active' ? 'admin.super_admin_status_active' : 'admin.super_admin_status_suspended'))),
+          el('td', {}, [
+            el('span', { class: `role-badge ${s.billing_status === 'active' ? '' : s.billing_status === 'overdue' || s.billing_status === 'cancelled' ? 'role-badge--admin' : ''}` }, billingStatusLabel(s.billing_status)),
+            s.billing_plan_label ? el('span', { class: 'form-hint', style: 'display:block;' }, s.billing_plan_label) : null,
+          ]),
           el('td', {}, new Date(s.created_at).toLocaleDateString()),
+          el('td', {}, el('button', {
+            class: 'btn btn--ghost btn--small',
+            onclick: () => openSiteBillingModal(s),
+          }, i18n.t('admin.billing_edit'))),
           el('td', {}, isMain ? null : el('button', {
             class: 'btn btn--ghost btn--small',
             onclick: async () => {
@@ -4310,6 +4326,38 @@ document.getElementById('newSiteSlugInput')?.addEventListener('input', (e) => {
 });
 document.getElementById('newSiteSubdomainInput')?.addEventListener('input', () => {
   newSiteSubdomainManuallyEdited = true;
+});
+function openSiteBillingModal(site) {
+  const form = document.getElementById('siteBillingForm');
+  form.reset();
+  form.site_id.value = site.id;
+  form.billing_status.value = site.billing_status || 'trial';
+  form.billing_plan_label.value = site.billing_plan_label || '';
+  form.billing_notes.value = site.billing_notes || '';
+  document.getElementById('siteBillingError').hidden = true;
+  document.getElementById('siteBillingModal').hidden = false;
+}
+document.getElementById('siteBillingForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('siteBillingError');
+  errEl.hidden = true;
+  try {
+    await api(`/super-admin/sites/${fd.get('site_id')}/billing`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        billing_status: fd.get('billing_status'),
+        billing_plan_label: fd.get('billing_plan_label'),
+        billing_notes: fd.get('billing_notes'),
+      }),
+    });
+    showToast(i18n.t('toast.billing_updated'));
+    document.getElementById('siteBillingModal').hidden = true;
+    loadSuperAdminSites(); loadSuperAdminAuditLog();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
 });
 document.getElementById('newSiteForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -4489,6 +4537,57 @@ document.getElementById('adminMapEnabledCheckbox')?.addEventListener('change', a
     }
   } catch (err) {
     e.target.checked = !e.target.checked;
+    showToast(err.message);
+  }
+});
+async function loadSiteEmailSettings() {
+  const form = document.getElementById('siteEmailSettingsForm');
+  if (!form) return;
+  try {
+    const settings = await api('/admin/settings/email');
+    form.smtp_host.value = settings.smtp_host;
+    form.smtp_port.value = settings.smtp_port;
+    form.smtp_user.value = settings.smtp_user;
+    form.mail_from.value = settings.mail_from;
+    form.smtp_pass.value = '';
+    document.getElementById('emailPassStatusHint').textContent = settings.has_password
+      ? i18n.t('admin.email_pass_configured')
+      : i18n.t('admin.email_pass_not_configured');
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+document.getElementById('siteEmailSettingsForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('siteEmailSettingsError');
+  errEl.hidden = true;
+  try {
+    await api('/admin/settings/email', {
+      method: 'PUT',
+      body: JSON.stringify({
+        smtp_host: fd.get('smtp_host'),
+        smtp_port: fd.get('smtp_port'),
+        smtp_user: fd.get('smtp_user'),
+        smtp_pass: fd.get('smtp_pass'),
+        mail_from: fd.get('mail_from'),
+      }),
+    });
+    showToast(i18n.t('toast.email_settings_saved'));
+    loadSiteEmailSettings();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
+document.getElementById('siteEmailSettingsClearBtn')?.addEventListener('click', async () => {
+  if (!confirm(i18n.t('admin.email_clear_confirm'))) return;
+  try {
+    await api('/admin/settings/email', { method: 'DELETE' });
+    showToast(i18n.t('toast.email_settings_cleared'));
+    document.getElementById('siteEmailSettingsForm').reset();
+    loadSiteEmailSettings();
+  } catch (err) {
     showToast(err.message);
   }
 });
