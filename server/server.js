@@ -2370,6 +2370,56 @@ async function handleRequest(req, res) {
         .all();
       return sendJSON(res, 200, entries);
     }
+    // Statistiques agrégées sur l'ensemble du réseau — un aperçu global
+    // que le super administrateur ne peut obtenir autrement, chaque site
+    // ayant sa propre base isolée. Ouvre (ou réutilise depuis le cache)
+    // la base de chaque site actif pour y compter utilisateurs et
+    // annonces — un aller-retour disque par site, acceptable pour un
+    // réseau de taille raisonnable (dizaines de sites) ; à revoir avec
+    // une mise en cache si le réseau grandissait considérablement.
+    if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const sites = masterDb.prepare('SELECT * FROM sites ORDER BY created_at ASC').all();
+      const perSite = [];
+      let totalUsers = 0;
+      let totalListings = 0;
+      let totalActiveListings = 0;
+      for (const site of sites) {
+        let siteDb;
+        try {
+          siteDb = getTenantDatabase(site.db_filename);
+        } catch (err) {
+          perSite.push({ slug: site.slug, brand_name: site.brand_name, status: site.status, error: true });
+          continue;
+        }
+        const userCount = siteDb.prepare('SELECT COUNT(*) AS c FROM users').get().c;
+        const listingCount = siteDb.prepare('SELECT COUNT(*) AS c FROM listings').get().c;
+        const activeListingCount = siteDb.prepare("SELECT COUNT(*) AS c FROM listings WHERE status = 'active'").get().c;
+        totalUsers += userCount;
+        totalListings += listingCount;
+        totalActiveListings += activeListingCount;
+        perSite.push({
+          slug: site.slug,
+          brand_name: site.brand_name,
+          status: site.status,
+          billing_status: site.billing_status,
+          user_count: userCount,
+          listing_count: listingCount,
+          active_listing_count: activeListingCount,
+        });
+      }
+      return sendJSON(res, 200, {
+        totals: {
+          site_count: sites.length,
+          active_site_count: sites.filter((s) => s.status === 'active').length,
+          user_count: totalUsers,
+          listing_count: totalListings,
+          active_listing_count: totalActiveListings,
+        },
+        sites: perSite,
+      });
+    }
     if (pathname === '/api/super-admin/sites' && method === 'POST') {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
@@ -2904,7 +2954,13 @@ async function handleRequest(req, res) {
           )
           .get(tz);
       }
-      if (!country && locale) {
+      // N'exploite le repli par langue QUE si la locale précise
+      // effectivement une région (ex. "fr-MA", "en-US") — une locale
+      // "nue" comme "fr" ou "en" est un code de LANGUE, pas de pays : le
+      // confondre avec un code pays a précédemment fait deviner "France"
+      // à des visiteurs marocains, algériens, belges... dont le
+      // navigateur ne précise pas de région (bug réel, corrigé ici).
+      if (!country && locale && /[-_]/.test(locale)) {
         const region = locale.split(/[-_]/).pop().toUpperCase();
         country = db.prepare('SELECT * FROM countries WHERE iso2 = ?').get(region);
       }
