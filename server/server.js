@@ -81,6 +81,20 @@ function sendHtml(res, html) {
   res.end(html);
 }
 const loginAttempts = new Map();
+// Limitation par adresse IP, en complément de la limitation par email
+// déjà existante (const loginAttempts ci-dessus) — celle-ci protège un
+// compte précis contre le bourrage de mots de passe, mais pas contre un
+// attaquant qui teste rapidement de nombreuses adresses email
+// différentes depuis une même IP. Seuil plus généreux qu'au niveau
+// email, puisqu'une même IP peut légitimement représenter plusieurs
+// utilisateurs (réseau d'entreprise, opérateur mobile...).
+const loginAttemptsByIp = new Map();
+const MAX_LOGIN_ATTEMPTS_PER_IP = 20;
+const IP_LOCKOUT_MS = 15 * 60 * 1000;
+function getClientIp(req) {
+  const forwarded = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket.remoteAddress || '';
+}
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 function sendJSON(res, status, data) {
@@ -153,6 +167,25 @@ function requireSuperAdmin(req, res) {
     return null;
   }
   return user;
+}
+/** Consigne une action administrateur sensible dans le journal d'audit
+ * (table admin_audit_log) de la base indiquée — targetDb est
+ * explicitement passée plutôt que d'utiliser le proxy `db` ambiant, pour
+ * pouvoir journaliser aussi bien dans la base d'un site (actions admin
+ * classiques) que dans le registre central masterDb (actions Super
+ * Admin sur les sites eux-mêmes). N'interrompt jamais l'action en cours
+ * en cas d'échec d'écriture du journal — une trace manquante ne doit
+ * jamais bloquer une action légitime. */
+function logAdminAction(targetDb, adminUser, action, targetType, targetId, details) {
+  try {
+    targetDb
+      .prepare(
+        'INSERT INTO admin_audit_log (admin_user_id, admin_email, action, target_type, target_id, details) VALUES (?, ?, ?, ?, ?, ?)'
+      )
+      .run(adminUser.id, adminUser.email, action, targetType || null, targetId ? String(targetId) : null, details ? JSON.stringify(details) : null);
+  } catch (err) {
+    console.error('[audit] échec de l\'écriture du journal :', err.message);
+  }
 }
 function requireVerifiedEmail(user, res) {
   if (!user.email_verified_at) {
@@ -943,6 +976,32 @@ const server = http.createServer(async (req, res) => {
   return tenantContext.run(activeDb, () => siteInfoContext.run(site, () => handleRequest(req, res)));
 });
 async function handleRequest(req, res) {
+  // ---------- En-têtes de sécurité HTTP, appliqués à toutes les réponses ----------
+  // Politique de sécurité du contenu (CSP) construite à partir d'un
+  // inventaire exact des ressources externes réellement utilisées par le
+  // site (police Google Fonts, D3.js et données géographiques via
+  // jsdelivr, connexion Google, taux de change) — aucune autorisation
+  // superflue au-delà de ce qui est effectivement chargé. Si un nouvel
+  // ajout futur charge une ressource externe non listée ici, le
+  // navigateur la bloquera silencieusement : vérifier la console du
+  // navigateur (erreur explicite "Content-Security-Policy") en cas de
+  // fonctionnalité qui semble ne plus marcher après ce déploiement.
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' https://cdn.jsdelivr.net https://accounts.google.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https:",
+    "connect-src 'self' https://cdn.jsdelivr.net https://open.er-api.com https://accounts.google.com",
+    "frame-src https://accounts.google.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+  ].join('; '));
   const url = new URL(req.url, `http://${req.headers.host}`);
   const { pathname } = url;
   const method = req.method;
@@ -1166,6 +1225,12 @@ async function handleRequest(req, res) {
     if (pathname === '/api/auth/login' && method === 'POST') {
       const { email, password } = await readBody(req);
       const emailKey = (email || '').toLowerCase();
+      const clientIp = getClientIp(req);
+      const ipAttempt = loginAttemptsByIp.get(clientIp);
+      if (ipAttempt && ipAttempt.lockedUntil && ipAttempt.lockedUntil > Date.now()) {
+        const waitMin = Math.ceil((ipAttempt.lockedUntil - Date.now()) / 60000);
+        return sendJSON(res, 429, { error: `Trop de tentatives échouées depuis cette connexion. Réessayez dans ${waitMin} minute(s).` });
+      }
       const attempt = loginAttempts.get(emailKey);
       if (attempt && attempt.lockedUntil && attempt.lockedUntil > Date.now()) {
         const waitMin = Math.ceil((attempt.lockedUntil - Date.now()) / 60000);
@@ -1177,12 +1242,20 @@ async function handleRequest(req, res) {
         const count = prev.count + 1;
         const lockedUntil = count >= MAX_LOGIN_ATTEMPTS ? Date.now() + LOCKOUT_MS : null;
         loginAttempts.set(emailKey, { count, lockedUntil });
+        const prevIp = loginAttemptsByIp.get(clientIp) || { count: 0 };
+        const ipCount = prevIp.count + 1;
+        const ipLockedUntil = ipCount >= MAX_LOGIN_ATTEMPTS_PER_IP ? Date.now() + IP_LOCKOUT_MS : null;
+        loginAttemptsByIp.set(clientIp, { count: ipCount, lockedUntil: ipLockedUntil });
+        if (ipLockedUntil) {
+          return sendJSON(res, 429, { error: `Trop de tentatives échouées depuis cette connexion. Réessayez dans 15 minutes.` });
+        }
         if (lockedUntil) {
           return sendJSON(res, 429, { error: `Trop de tentatives échouées. Compte temporairement bloqué 15 minutes.` });
         }
         return sendJSON(res, 401, { error: 'Email ou mot de passe incorrect.' });
       }
       loginAttempts.delete(emailKey);
+      loginAttemptsByIp.delete(clientIp);
       const token = signToken({ sub: user.id });
       return sendJSON(res, 200, {
         token,
@@ -2157,13 +2230,14 @@ async function handleRequest(req, res) {
         if (adminCount <= 1) return sendJSON(res, 400, { error: "Impossible : c'est le dernier compte administrateur." });
       }
       db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, targetId);
+      logAdminAction(db, admin, 'user_role_changed', 'user', targetId, { from: target.role, to: role });
       return sendJSON(res, 200, { ok: true });
     }
     if ((m = pathname.match(/^\/api\/admin\/users\/(\d+)$/)) && method === 'DELETE') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
       const targetId = Number(m[1]);
-      const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(targetId);
+      const target = db.prepare('SELECT id, role, email FROM users WHERE id = ?').get(targetId);
       if (!target) return sendJSON(res, 404, { error: 'Utilisateur introuvable.' });
       if (targetId === admin.id) return sendJSON(res, 400, { error: 'Vous ne pouvez pas supprimer votre propre compte depuis ce panneau.' });
       if (target.role === 'admin') {
@@ -2171,6 +2245,7 @@ async function handleRequest(req, res) {
         if (adminCount <= 1) return sendJSON(res, 400, { error: "Impossible : c'est le dernier compte administrateur." });
       }
       db.prepare('DELETE FROM users WHERE id = ?').run(targetId);
+      logAdminAction(db, admin, 'user_deleted', 'user', targetId, { email: target.email });
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/admin/listings' && method === 'GET') {
@@ -2200,6 +2275,18 @@ async function handleRequest(req, res) {
         .prepare('SELECT id, slug, subdomain, custom_domain, brand_name, status, owner_email, created_at FROM sites ORDER BY created_at DESC')
         .all();
       return sendJSON(res, 200, sites);
+    }
+    // Journal d'audit des actions Super Admin (création/suspension/
+    // réactivation/suppression de site) — les 100 entrées les plus
+    // récentes, les plus anciennes n'étant généralement plus pertinentes
+    // à consulter au quotidien.
+    if (pathname === '/api/super-admin/audit-log' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const entries = masterDb
+        .prepare('SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT 100')
+        .all();
+      return sendJSON(res, 200, entries);
     }
     if (pathname === '/api/super-admin/sites' && method === 'POST') {
       const admin = requireSuperAdmin(req, res);
@@ -2252,6 +2339,7 @@ async function handleRequest(req, res) {
           `INSERT INTO sites (slug, subdomain, custom_domain, db_filename, brand_name, owner_email, status) VALUES (?, ?, ?, ?, ?, ?, 'active')`
         )
         .run(slug, subdomain, customDomain, dbFilename, brandName, ownerEmail);
+      logAdminAction(masterDb, admin, 'site_created', 'site', slug, { brand_name: brandName, subdomain, custom_domain: customDomain, owner_email: ownerEmail });
       return sendJSON(res, 201, { ok: true, slug, db_filename: dbFilename });
     }
     if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)$/)) && method === 'PUT') {
@@ -2264,6 +2352,7 @@ async function handleRequest(req, res) {
       if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
       if (targetSite.slug === 'main') return sendJSON(res, 400, { error: 'Impossible de suspendre le site principal.' });
       masterDb.prepare('UPDATE sites SET status = ? WHERE id = ?').run(status, Number(m[1]));
+      logAdminAction(masterDb, admin, status === 'suspended' ? 'site_suspended' : 'site_reactivated', 'site', targetSite.slug, null);
       return sendJSON(res, 200, { ok: true });
     }
     // Suppression définitive d'un site — action irréversible (base de
@@ -2275,7 +2364,7 @@ async function handleRequest(req, res) {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const body = await readBody(req);
-      const targetSite = masterDb.prepare('SELECT id, slug, db_filename FROM sites WHERE id = ?').get(Number(m[1]));
+      const targetSite = masterDb.prepare('SELECT id, slug, db_filename, brand_name FROM sites WHERE id = ?').get(Number(m[1]));
       if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
       if (targetSite.slug === 'main') return sendJSON(res, 400, { error: 'Impossible de supprimer le site principal.' });
       if ((body.confirm_slug || '').trim().toLowerCase() !== targetSite.slug) {
@@ -2298,6 +2387,7 @@ async function handleRequest(req, res) {
         }
       }
       masterDb.prepare('DELETE FROM sites WHERE id = ?').run(Number(m[1]));
+      logAdminAction(masterDb, admin, 'site_deleted', 'site', targetSite.slug, { brand_name: targetSite.brand_name });
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/admin/stats' && method === 'GET') {
