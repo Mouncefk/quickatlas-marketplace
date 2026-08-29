@@ -873,6 +873,7 @@
               <th data-i18n="admin.super_admin_col_status">Statut</th>
               <th data-i18n="admin.super_admin_col_created">Créé le</th>
               <th></th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="superAdminSitesBody"></tbody>
@@ -893,13 +894,13 @@
         </div>
         <div class="form-row">
           <label><span data-i18n="admin.new_site_slug">Identifiant technique</span>
-            <input type="text" name="slug" required placeholder="ex. monsite-immo" pattern="[a-z0-9-]{2,40}" />
+            <input type="text" name="slug" id="newSiteSlugInput" required placeholder="ex. monsite-immo" pattern="[a-z0-9-]{2,40}" />
           </label>
           <p class="form-hint" data-i18n="admin.new_site_slug_hint">Lettres minuscules, chiffres et tirets uniquement. Ne peut plus être modifié après création.</p>
         </div>
         <div class="form-row form-row--split">
           <label><span data-i18n="admin.new_site_subdomain">Sous-domaine (optionnel)</span>
-            <input type="text" name="subdomain" placeholder="monsite.quickatlas.net" />
+            <input type="text" name="subdomain" id="newSiteSubdomainInput" placeholder="monsite.quickatlas.net" />
           </label>
           <label><span data-i18n="admin.new_site_custom_domain">Domaine personnalisé (optionnel)</span>
             <input type="text" name="custom_domain" placeholder="www.monsite.com" />
