@@ -711,6 +711,18 @@ export function getTenantDatabase(dbFilename) {
   openTenantDatabases.set(dbFilename, opened);
   return opened;
 }
+/** Ferme proprement la connexion à la base d'un site et la retire du
+ * cache — étape indispensable avant de supprimer le fichier physique
+ * (suppression définitive d'un site), pour éviter toute connexion
+ * orpheline vers un fichier qui n'existe plus. Sans effet si la base
+ * n'était pas ouverte (site jamais visité depuis le démarrage). */
+export function closeTenantDatabase(dbFilename) {
+  const opened = openTenantDatabases.get(dbFilename);
+  if (opened) {
+    opened.close();
+    openTenantDatabases.delete(dbFilename);
+  }
+}
 /** Contexte actif pour la durée d'une requête HTTP : quelle base de
  * données (quel site) est concernée. Rempli tout au début du traitement
  * de chaque requête, dans server.js — voir resolveSiteForRequest(). */
