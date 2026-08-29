@@ -2128,7 +2128,7 @@ async function shareListingAsPostcard(listing) {
     ctx.font = '13px monospace';
     ctx.fillStyle = '#B5482E';
     ctx.textAlign = 'center';
-    ctx.fillText('QUICKATLAS', 880, 495);
+    ctx.fillText(window.currentSiteName.toUpperCase(), 880, 495);
     ctx.fillText((listing.city_name || '').toUpperCase(), 880, 517);
     ctx.textAlign = 'left';
     const blob = await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
@@ -4537,6 +4537,10 @@ async function applySiteBranding() {
     });
     const ticker = document.getElementById('activityTicker');
     if (ticker) ticker.setAttribute('aria-label', ticker.getAttribute('aria-label').replace('QuickAtlas', window.currentSiteName));
+    const brandWordHeader = document.getElementById('brandWordHeader');
+    if (brandWordHeader) brandWordHeader.textContent = window.currentSiteName.toUpperCase();
+    const brandWordFooter = document.getElementById('brandWordFooter');
+    if (brandWordFooter) brandWordFooter.textContent = window.currentSiteName.toUpperCase();
   } catch { /* pas grave, "QuickAtlas" et le logo par défaut restent affichés */ }
 }
 document.getElementById('adminLogoFile')?.addEventListener('change', async (e) => {
