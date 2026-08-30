@@ -47,6 +47,7 @@
       <button class="nav-link" data-nav="alerts" id="alertsNavLink" hidden>🔔 <span data-i18n="nav.alerts">Alertes</span><span class="nav-badge" id="alertsBadge" hidden>0</span></button>
       <button class="nav-link" data-nav="passport" data-i18n="nav.passport" id="passportNavLink" hidden>Passeport</button>
       <button class="nav-link" data-nav="admin" data-i18n="nav.admin" id="adminNavLink" hidden>Administration</button>
+      <button class="nav-link" data-nav="super-admin" data-i18n="nav.super_admin" id="superAdminNavLink" hidden>🌐 Réseau de sites</button>
     </nav>
     <div class="lang-picker">
       <select id="langSelect" aria-label="Langue / Language"></select>
@@ -712,7 +713,6 @@
         <button class="auth-tab" data-admin-tab="city-requests" data-i18n="admin.tab_city_requests">Villes demandées</button>
         <button class="auth-tab" data-admin-tab="appearance" data-i18n="admin.tab_appearance">Apparence</button>
         <button class="auth-tab" data-admin-tab="inbox" data-i18n="admin.tab_inbox">Boîte de réception</button>
-        <button class="auth-tab" data-admin-tab="super-admin" id="superAdminTabBtn" hidden data-i18n="admin.tab_super_admin">🌐 Réseau de sites</button>
       </div>
       <div id="adminDashboardPanel" class="admin-panel">
         <div class="dashboard-cards" id="dashboardCards"></div>
@@ -895,25 +895,25 @@
           </div>
         </div>
       </div>
-      <div id="superAdminPanel" class="admin-panel" hidden>
+    </div>
+  </section>
+  <!-- ===== Vue dédiée : Réseau de sites (Super Admin) ===== -->
+  <!-- ===== Vue dédiée : Réseau de sites (Super Admin) ===== -->
+  <section id="view-super-admin" class="view" hidden>
+    <div class="form-page">
+      <h2 data-i18n="nav.super_admin">🌐 Réseau de sites</h2>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-super-admin-tab="overview" data-i18n="admin.tab_overview">Vue d'ensemble</button>
+        <button class="auth-tab" data-super-admin-tab="sites" data-i18n="admin.tab_sites">Sites</button>
+        <button class="auth-tab" data-super-admin-tab="plans" data-i18n="admin.tab_plans">Formules</button>
+        <button class="auth-tab" data-super-admin-tab="audit" data-i18n="admin.tab_audit">Journal d'audit</button>
+      </div>
+      <div id="superAdminOverviewPanel" class="admin-panel">
         <p class="form-hint" data-i18n="admin.super_admin_intro">Créez et gérez les sites du réseau QuickAtlas. Chaque site dispose de sa propre base de données, totalement indépendante des autres — ses utilisateurs, ses annonces, son administrateur.</p>
         <h3 class="publish-side-panel-title" data-i18n="admin.global_stats_title">Aperçu global du réseau</h3>
         <div class="global-stats-grid" id="globalStatsGrid"></div>
-        <h3 class="publish-side-panel-title" data-i18n="admin.plans_title">Formules d'abonnement</h3>
-        <p class="form-hint" data-i18n="admin.plans_intro">Base du calcul tarifaire — associez une formule à chaque site selon l'accord commercial passé.</p>
-        <button type="button" id="superAdminNewPlanBtn" class="btn btn--primary btn--small" data-i18n="admin.plans_new">+ Nouvelle formule</button>
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th data-i18n="admin.plans_col_name">Nom</th>
-              <th data-i18n="admin.plans_col_price">Prix</th>
-              <th data-i18n="admin.plans_col_max_categories">Catégories max.</th>
-              <th data-i18n="admin.plans_col_active">Active</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="superAdminPlansBody"></tbody>
-        </table>
+      </div>
+      <div id="superAdminSitesPanel" class="admin-panel" hidden>
         <button type="button" id="superAdminNewSiteBtn" class="btn btn--primary btn--small" data-i18n="admin.super_admin_new_site">+ Nouveau site</button>
         <table class="admin-table">
           <thead>
@@ -929,7 +929,24 @@
           </thead>
           <tbody id="superAdminSitesBody"></tbody>
         </table>
-        <h3 class="publish-side-panel-title" data-i18n="admin.super_admin_audit_title">Journal d'audit</h3>
+      </div>
+      <div id="superAdminPlansPanel" class="admin-panel" hidden>
+        <p class="form-hint" data-i18n="admin.plans_intro">Base du calcul tarifaire — associez une formule à chaque site selon l'accord commercial passé.</p>
+        <button type="button" id="superAdminNewPlanBtn" class="btn btn--primary btn--small" data-i18n="admin.plans_new">+ Nouvelle formule</button>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th data-i18n="admin.plans_col_name">Nom</th>
+              <th data-i18n="admin.plans_col_price">Prix</th>
+              <th data-i18n="admin.plans_col_max_categories">Catégories max.</th>
+              <th data-i18n="admin.plans_col_active">Active</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="superAdminPlansBody"></tbody>
+        </table>
+      </div>
+      <div id="superAdminAuditPanel" class="admin-panel" hidden>
         <p class="form-hint" data-i18n="admin.super_admin_audit_hint">Les 100 actions les plus récentes effectuées sur le réseau de sites.</p>
         <table class="admin-table">
           <thead>
