@@ -4035,7 +4035,7 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
     if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); loadSiteEmailSettings(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
-    if (btn.dataset.adminTab === 'super-admin') { loadSuperAdminSites(); loadSuperAdminAuditLog(); }
+    if (btn.dataset.adminTab === 'super-admin') { loadSuperAdminSites(); loadSuperAdminAuditLog(); loadGlobalStats(); }
   })
 );
 /** Charge la liste des emails reçus dans l'onglet admin "Boîte de
@@ -4207,6 +4207,7 @@ function auditActionLabel(action) {
     site_reactivated: 'admin.audit_action_site_reactivated',
     site_deleted: 'admin.audit_action_site_deleted',
     site_billing_updated: 'admin.audit_action_site_billing_updated',
+    site_categories_updated: 'admin.audit_action_site_categories_updated',
   };
   return map[action] ? i18n.t(map[action]) : action;
 }
@@ -4230,6 +4231,31 @@ async function loadSuperAdminAuditLog() {
           el('td', {}, entry.admin_email || '—'),
           el('td', {}, auditActionLabel(entry.action)),
           el('td', {}, [targetLabel, details ? JSON.stringify(details) : ''].filter(Boolean).join(' — ')),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+async function loadGlobalStats() {
+  const grid = document.getElementById('globalStatsGrid');
+  if (!grid) return;
+  try {
+    const { totals } = await api('/super-admin/global-stats');
+    grid.innerHTML = '';
+    const cards = [
+      [totals.site_count, 'admin.global_stats_sites'],
+      [totals.active_site_count, 'admin.global_stats_active_sites'],
+      [totals.user_count, 'admin.global_stats_users'],
+      [totals.listing_count, 'admin.global_stats_listings'],
+      [totals.active_listing_count, 'admin.global_stats_active_listings'],
+    ];
+    for (const [value, labelKey] of cards) {
+      grid.append(
+        el('div', { class: 'global-stats-card' }, [
+          el('div', { class: 'global-stats-card-value' }, String(value)),
+          el('div', { class: 'global-stats-card-label' }, i18n.t(labelKey)),
         ])
       );
     }
@@ -4268,6 +4294,10 @@ async function loadSuperAdminSites() {
             class: 'btn btn--ghost btn--small',
             onclick: () => openSiteBillingModal(s),
           }, i18n.t('admin.billing_edit'))),
+          el('td', {}, el('button', {
+            class: 'btn btn--ghost btn--small',
+            onclick: () => openSiteCategoriesModal(s),
+          }, i18n.t('admin.categories_edit'))),
           el('td', {}, isMain ? null : el('button', {
             class: 'btn btn--ghost btn--small',
             onclick: async () => {
@@ -4354,6 +4384,51 @@ document.getElementById('siteBillingForm')?.addEventListener('submit', async (e)
     showToast(i18n.t('toast.billing_updated'));
     document.getElementById('siteBillingModal').hidden = true;
     loadSuperAdminSites(); loadSuperAdminAuditLog();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
+let currentCategoriesModalSiteId = null;
+async function openSiteCategoriesModal(site) {
+  currentCategoriesModalSiteId = site.id;
+  const list = document.getElementById('siteCategoriesList');
+  const errEl = document.getElementById('siteCategoriesError');
+  errEl.hidden = true;
+  list.innerHTML = '';
+  list.append(el('p', { class: 'empty-state' }, i18n.t('admin.categories_loading')));
+  document.getElementById('siteCategoriesModal').hidden = false;
+  try {
+    const categories = await api(`/super-admin/sites/${site.id}/categories`);
+    list.innerHTML = '';
+    for (const c of categories) {
+      list.append(
+        el('label', { class: 'terms-checkbox site-category-item' }, [
+          el('input', { type: 'checkbox', 'data-category-id': c.id, checked: c.enabled ? 'checked' : null }),
+          el('span', {}, `${c.icon} ${c.name}`),
+        ])
+      );
+    }
+  } catch (e) {
+    list.innerHTML = '';
+    errEl.textContent = e.message;
+    errEl.hidden = false;
+  }
+}
+document.getElementById('siteCategoriesSaveBtn')?.addEventListener('click', async () => {
+  if (!currentCategoriesModalSiteId) return;
+  const errEl = document.getElementById('siteCategoriesError');
+  errEl.hidden = true;
+  const checkboxes = document.querySelectorAll('#siteCategoriesList input[type="checkbox"]');
+  const disabledIds = [...checkboxes].filter((cb) => !cb.checked).map((cb) => Number(cb.dataset.categoryId));
+  try {
+    await api(`/super-admin/sites/${currentCategoriesModalSiteId}/categories`, {
+      method: 'PUT',
+      body: JSON.stringify({ disabled_category_ids: disabledIds }),
+    });
+    showToast(i18n.t('toast.categories_updated'));
+    document.getElementById('siteCategoriesModal').hidden = true;
+    loadSuperAdminAuditLog();
   } catch (err) {
     errEl.textContent = friendlyErrorMessage(err);
     errEl.hidden = false;
