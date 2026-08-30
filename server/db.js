@@ -678,6 +678,19 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  // Catégories DÉSACTIVÉES pour ce site (réseau multisite) — une table
+  // vide signifie "tout activé", le filet de sécurité voulu : un
+  // nouveau site fonctionne pleinement tant que le Super Admin n'a pas
+  // volontairement restreint son périmètre selon l'accord commercial
+  // passé avec le loueur. Gérée exclusivement depuis le panneau Super
+  // Admin (voir server.js) — jamais modifiable par l'administrateur du
+  // site lui-même, puisque le périmètre activé correspond à ce que le
+  // client paie, pas à une préférence d'affichage.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS disabled_categories (
+      category_id INTEGER PRIMARY KEY REFERENCES categories(id) ON DELETE CASCADE
+    );
+  `);
   return db;
 }
 
