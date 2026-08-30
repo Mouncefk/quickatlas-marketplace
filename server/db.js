@@ -701,6 +701,26 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
       country_id INTEGER PRIMARY KEY REFERENCES countries(id) ON DELETE CASCADE
     );
   `);
+  // Migration : nouvelles sous-catégories immobilier (retour utilisateurs
+  // de l'entourage du propriétaire — plus de détail que la liste
+  // d'origine). INSERT OR IGNORE s'appuie sur la contrainte
+  // UNIQUE(category_id, slug) pour rester idempotent : sans effet si déjà
+  // présentes (site déjà migré, ou nouveau site les recevant directement
+  // via copyReferenceData).
+  {
+    const immoCategory = db.prepare("SELECT id FROM categories WHERE slug = 'immobilier'").get();
+    if (immoCategory) {
+      const newSubcategories = [
+        ['studio', 'Studio'],
+        ['riad', 'Riad'],
+        ['terrain-agricole', 'Terrain agricole'],
+      ];
+      const insertSub = db.prepare('INSERT OR IGNORE INTO subcategories (category_id, slug, name) VALUES (?, ?, ?)');
+      for (const [slug, name] of newSubcategories) {
+        insertSub.run(immoCategory.id, slug, name);
+      }
+    }
+  }
   return db;
 }
 
