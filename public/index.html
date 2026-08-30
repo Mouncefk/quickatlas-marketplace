@@ -899,6 +899,21 @@
         <p class="form-hint" data-i18n="admin.super_admin_intro">Créez et gérez les sites du réseau QuickAtlas. Chaque site dispose de sa propre base de données, totalement indépendante des autres — ses utilisateurs, ses annonces, son administrateur.</p>
         <h3 class="publish-side-panel-title" data-i18n="admin.global_stats_title">Aperçu global du réseau</h3>
         <div class="global-stats-grid" id="globalStatsGrid"></div>
+        <h3 class="publish-side-panel-title" data-i18n="admin.plans_title">Formules d'abonnement</h3>
+        <p class="form-hint" data-i18n="admin.plans_intro">Base du calcul tarifaire — associez une formule à chaque site selon l'accord commercial passé.</p>
+        <button type="button" id="superAdminNewPlanBtn" class="btn btn--primary btn--small" data-i18n="admin.plans_new">+ Nouvelle formule</button>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th data-i18n="admin.plans_col_name">Nom</th>
+              <th data-i18n="admin.plans_col_price">Prix</th>
+              <th data-i18n="admin.plans_col_max_categories">Catégories max.</th>
+              <th data-i18n="admin.plans_col_active">Active</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="superAdminPlansBody"></tbody>
+        </table>
         <button type="button" id="superAdminNewSiteBtn" class="btn btn--primary btn--small" data-i18n="admin.super_admin_new_site">+ Nouveau site</button>
         <table class="admin-table">
           <thead>
@@ -970,6 +985,17 @@
             <input type="password" name="owner_password" required minlength="8" />
           </label>
         </div>
+        <h3 class="publish-side-panel-title" data-i18n="admin.new_site_billing_title">Facturation</h3>
+        <div class="form-row form-row--split">
+          <label><span data-i18n="admin.new_site_plan">Formule (optionnel)</span>
+            <select name="plan_id" id="newSitePlanSelect">
+              <option value="" data-i18n="admin.new_site_plan_none">— Aucune —</option>
+            </select>
+          </label>
+          <label><span data-i18n="admin.new_site_grace_period">Période de grâce (jours)</span>
+            <input type="number" name="grace_period_days" min="0" value="14" />
+          </label>
+        </div>
         <p class="form-error" id="newSiteError" hidden></p>
         <button type="submit" class="btn btn--primary" data-i18n="admin.new_site_submit">Créer le site</button>
       </form>
@@ -990,6 +1016,13 @@
               <option value="active" data-i18n="admin.billing_status_active">Payé / Actif</option>
               <option value="overdue" data-i18n="admin.billing_status_overdue">En retard</option>
               <option value="cancelled" data-i18n="admin.billing_status_cancelled">Annulé</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.new_site_plan">Formule (optionnel)</span>
+            <select name="plan_id" id="billingPlanSelect">
+              <option value="" data-i18n="admin.new_site_plan_none">— Aucune —</option>
             </select>
           </label>
         </div>
@@ -1033,6 +1066,53 @@
       <div id="siteCountriesList" class="site-categories-list site-categories-list--tall"></div>
       <p class="form-error" id="siteCountriesError" hidden></p>
       <button type="button" id="siteCountriesSaveBtn" class="btn btn--primary" data-i18n="admin.countries_save">Enregistrer</button>
+    </div>
+  </div>
+  <!-- ===== Modale : formule d'abonnement (plan) ===== -->
+  <div class="modal-overlay" id="planModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="planModal" aria-label="Fermer">&times;</button>
+      <h2 id="planModalTitle" data-i18n="admin.plans_new">+ Nouvelle formule</h2>
+      <form id="planForm" class="atlas-form">
+        <input type="hidden" name="plan_id" />
+        <div class="form-row">
+          <label><span data-i18n="admin.plans_field_name">Nom</span>
+            <input type="text" name="name" required placeholder="Ex. Automobile" />
+          </label>
+        </div>
+        <div class="form-row form-row--split">
+          <label><span data-i18n="admin.plans_field_price">Prix</span>
+            <input type="number" name="price_amount" step="0.01" min="0" placeholder="299" />
+          </label>
+          <label><span data-i18n="admin.plans_field_currency">Devise</span>
+            <input type="text" name="price_currency" value="MAD" maxlength="3" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.plans_field_interval">Périodicité</span>
+            <select name="billing_interval">
+              <option value="monthly" data-i18n="admin.plans_interval_monthly">Mensuelle</option>
+              <option value="yearly" data-i18n="admin.plans_interval_yearly">Annuelle</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.plans_field_max_categories">Nombre max. de catégories (vide = illimité)</span>
+            <input type="number" name="max_categories" min="1" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.plans_field_description">Description (optionnel)</span>
+            <textarea name="description" rows="2"></textarea>
+          </label>
+        </div>
+        <label class="terms-checkbox">
+          <input type="checkbox" name="is_active" checked />
+          <span data-i18n="admin.plans_field_active">Proposer cette formule pour de nouveaux sites</span>
+        </label>
+        <p class="form-error" id="planError" hidden></p>
+        <button type="submit" class="btn btn--primary" data-i18n="admin.plans_save">Enregistrer</button>
+      </form>
     </div>
   </div>
   <!-- ===== TERMS ===== -->
