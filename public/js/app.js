@@ -4212,6 +4212,36 @@ function auditActionLabel(action) {
   };
   return map[action] ? i18n.t(map[action]) : action;
 }
+/** Formule un résumé lisible des détails d'une entrée du journal
+ * d'audit, plutôt que d'afficher le JSON technique brut (identifiants
+ * numériques compris de personne d'autre que le code lui-même). Les
+ * actions sans détails particuliers (suspension, réactivation...)
+ * retournent une chaîne vide, sans rien afficher de superflu. */
+function formatAuditDetails(action, details) {
+  if (!details) return '';
+  switch (action) {
+    case 'user_role_changed':
+      return i18n.t('admin.audit_detail_role_change', { from: details.from, to: details.to });
+    case 'user_deleted':
+      return details.email || '';
+    case 'site_created':
+      return [details.brand_name, details.custom_domain || details.subdomain, details.owner_email].filter(Boolean).join(' — ');
+    case 'site_billing_updated':
+      return billingStatusLabel(details.billing_status);
+    case 'site_deleted':
+      return details.brand_name || '';
+    case 'site_categories_updated': {
+      const count = (details.disabled_category_ids || []).length;
+      return count === 0 ? i18n.t('admin.audit_detail_all_categories_enabled') : i18n.t('admin.audit_detail_categories_count', { count });
+    }
+    case 'site_countries_updated': {
+      const count = (details.disabled_country_ids || []).length;
+      return count === 0 ? i18n.t('admin.audit_detail_all_countries_enabled') : i18n.t('admin.audit_detail_countries_count', { count });
+    }
+    default:
+      return '';
+  }
+}
 async function loadSuperAdminAuditLog() {
   const tbody = document.getElementById('superAdminAuditBody');
   if (!tbody) return;
@@ -4231,7 +4261,7 @@ async function loadSuperAdminAuditLog() {
           el('td', {}, new Date(entry.created_at + 'Z').toLocaleString()),
           el('td', {}, entry.admin_email || '—'),
           el('td', {}, auditActionLabel(entry.action)),
-          el('td', {}, [targetLabel, details ? JSON.stringify(details) : ''].filter(Boolean).join(' — ')),
+          el('td', {}, [targetLabel, formatAuditDetails(entry.action, details)].filter(Boolean).join(' — ')),
         ])
       );
     }
