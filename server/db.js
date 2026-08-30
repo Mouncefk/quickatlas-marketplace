@@ -728,7 +728,20 @@ function initializeMasterDatabase(dbPath) {
       billing_plan_label TEXT,
       billing_notes TEXT,
       stripe_customer_id TEXT,
-      stripe_subscription_id TEXT
+      stripe_subscription_id TEXT,
+      plan_id INTEGER REFERENCES plans(id),
+      grace_period_ends_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      price_amount REAL,
+      price_currency TEXT NOT NULL DEFAULT 'EUR',
+      billing_interval TEXT NOT NULL DEFAULT 'monthly' CHECK (billing_interval IN ('monthly','yearly')),
+      max_categories INTEGER,
+      description TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS admin_audit_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -765,12 +778,30 @@ function initializeMasterDatabase(dbPath) {
       ['billing_notes', 'TEXT'],
       ['stripe_customer_id', 'TEXT'],
       ['stripe_subscription_id', 'TEXT'],
+      ['plan_id', 'INTEGER'],
+      ['grace_period_ends_at', 'TEXT'],
     ];
     for (const [name, type] of billingColumns) {
       if (!sitesColumns.includes(name)) {
         db.exec(`ALTER TABLE sites ADD COLUMN ${name} ${type}`);
       }
     }
+    // La table plans elle-même (CREATE TABLE IF NOT EXISTS ci-dessus ne
+    // s'applique qu'à un registre tout neuf) — même logique de migration
+    // que pour les colonnes.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        price_amount REAL,
+        price_currency TEXT NOT NULL DEFAULT 'EUR',
+        billing_interval TEXT NOT NULL DEFAULT 'monthly' CHECK (billing_interval IN ('monthly','yearly')),
+        max_categories INTEGER,
+        description TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
   }
   // Le site principal (celui déjà en place) figure lui-même comme
   // première entrée du registre, avec quickatlas.net comme domaine
