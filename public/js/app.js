@@ -4035,7 +4035,7 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
     if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); loadSiteEmailSettings(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
-    if (btn.dataset.adminTab === 'super-admin') { loadSuperAdminSites(); loadSuperAdminAuditLog(); loadGlobalStats(); }
+    if (btn.dataset.adminTab === 'super-admin') { loadSuperAdminSites(); loadSuperAdminAuditLog(); loadGlobalStats(); loadSuperAdminPlans(); }
   })
 );
 /** Charge la liste des emails reçus dans l'onglet admin "Boîte de
@@ -4294,6 +4294,108 @@ async function loadGlobalStats() {
     showToast(e.message);
   }
 }
+let currentPlansData = [];
+function formatPlanPrice(plan) {
+  if (plan.price_amount === null || plan.price_amount === undefined) return '—';
+  const intervalLabel = i18n.t(plan.billing_interval === 'yearly' ? 'admin.plans_interval_yearly_short' : 'admin.plans_interval_monthly_short');
+  return `${plan.price_amount} ${plan.price_currency} / ${intervalLabel}`;
+}
+/** Nombre de jours restants avant la fin de la période de grâce d'un
+ * site — purement informatif dans le tableau, la bascule réelle
+ * "essai" → "en retard" est gérée côté serveur par la tâche
+ * automatique quotidienne (voir checkGracePeriodExpirations). */
+function graceRemainingLabel(graceEndsAt) {
+  const endDate = new Date(graceEndsAt.replace(' ', 'T') + 'Z');
+  const daysLeft = Math.ceil((endDate - new Date()) / (24 * 60 * 60 * 1000));
+  return daysLeft > 0 ? i18n.t('admin.grace_days_left', { count: daysLeft }) : i18n.t('admin.grace_expired');
+}
+/** Remplit un menu déroulant de choix de formule — réutilisé à la fois
+ * pour le formulaire de création de site et pour la modale de
+ * facturation, avec la valeur actuellement sélectionnée préservée si
+ * fournie. */
+function populatePlanDropdown(selectEl, currentValue) {
+  if (!selectEl) return;
+  const noneLabel = selectEl.querySelector('option[value=""]');
+  selectEl.innerHTML = '';
+  if (noneLabel) selectEl.append(noneLabel);
+  else selectEl.append(el('option', { value: '' }, i18n.t('admin.new_site_plan_none')));
+  for (const p of currentPlansData) {
+    if (!p.is_active && String(p.id) !== String(currentValue)) continue; // formule retirée : masquée sauf si déjà en cours d'utilisation par ce site
+    selectEl.append(el('option', { value: p.id, selected: String(p.id) === String(currentValue) ? 'selected' : null }, `${p.name} — ${formatPlanPrice(p)}`));
+  }
+}
+async function loadSuperAdminPlans() {
+  const tbody = document.getElementById('superAdminPlansBody');
+  if (!tbody) return;
+  try {
+    currentPlansData = await api('/super-admin/plans');
+    tbody.innerHTML = '';
+    for (const p of currentPlansData) {
+      tbody.append(
+        el('tr', {}, [
+          el('td', {}, p.name),
+          el('td', {}, formatPlanPrice(p)),
+          el('td', {}, p.max_categories ? String(p.max_categories) : i18n.t('admin.plans_unlimited')),
+          el('td', {}, p.is_active ? '✓' : '—'),
+          el('td', {}, el('button', { class: 'btn btn--ghost btn--small', onclick: () => openPlanModal(p) }, i18n.t('admin.plans_edit'))),
+        ])
+      );
+    }
+    populatePlanDropdown(document.getElementById('newSitePlanSelect'), '');
+    populatePlanDropdown(document.getElementById('billingPlanSelect'), document.getElementById('billingPlanSelect')?.value);
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+function openPlanModal(plan) {
+  const form = document.getElementById('planForm');
+  form.reset();
+  document.getElementById('planError').hidden = true;
+  document.getElementById('planModalTitle').textContent = plan ? i18n.t('admin.plans_edit_title') : i18n.t('admin.plans_new');
+  if (plan) {
+    form.plan_id.value = plan.id;
+    form.name.value = plan.name;
+    form.price_amount.value = plan.price_amount ?? '';
+    form.price_currency.value = plan.price_currency;
+    form.billing_interval.value = plan.billing_interval;
+    form.max_categories.value = plan.max_categories ?? '';
+    form.description.value = plan.description || '';
+    form.is_active.checked = !!plan.is_active;
+  } else {
+    form.plan_id.value = '';
+  }
+  document.getElementById('planModal').hidden = false;
+}
+document.getElementById('superAdminNewPlanBtn')?.addEventListener('click', () => openPlanModal(null));
+document.getElementById('planForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('planError');
+  errEl.hidden = true;
+  const planId = fd.get('plan_id');
+  const payload = {
+    name: fd.get('name'),
+    price_amount: fd.get('price_amount'),
+    price_currency: fd.get('price_currency'),
+    billing_interval: fd.get('billing_interval'),
+    max_categories: fd.get('max_categories'),
+    description: fd.get('description'),
+    is_active: fd.get('is_active') === 'on',
+  };
+  try {
+    if (planId) {
+      await api(`/super-admin/plans/${planId}`, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      await api('/super-admin/plans', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    showToast(i18n.t('toast.plan_saved'));
+    document.getElementById('planModal').hidden = true;
+    loadSuperAdminPlans();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
 function billingStatusLabel(status) {
   const map = {
     trial: 'admin.billing_status_trial', active: 'admin.billing_status_active',
@@ -4366,7 +4468,9 @@ async function loadSuperAdminSites() {
           el('td', {}, el('span', { class: `role-badge ${s.status === 'active' ? '' : 'role-badge--admin'}` }, i18n.t(s.status === 'active' ? 'admin.super_admin_status_active' : 'admin.super_admin_status_suspended'))),
           el('td', {}, [
             el('span', { class: `role-badge ${s.billing_status === 'active' ? '' : s.billing_status === 'overdue' || s.billing_status === 'cancelled' ? 'role-badge--admin' : ''}` }, billingStatusLabel(s.billing_status)),
+            s.plan_name ? el('span', { class: 'form-hint', style: 'display:block;' }, s.plan_name) : null,
             s.billing_plan_label ? el('span', { class: 'form-hint', style: 'display:block;' }, s.billing_plan_label) : null,
+            s.billing_status === 'trial' && s.grace_period_ends_at ? el('span', { class: 'form-hint', style: 'display:block;' }, graceRemainingLabel(s.grace_period_ends_at)) : null,
           ]),
           el('td', {}, new Date(s.created_at).toLocaleDateString()),
           el('td', { class: 'admin-actions-cell' }, [
@@ -4409,6 +4513,7 @@ function openSiteBillingModal(site) {
   form.billing_status.value = site.billing_status || 'trial';
   form.billing_plan_label.value = site.billing_plan_label || '';
   form.billing_notes.value = site.billing_notes || '';
+  populatePlanDropdown(document.getElementById('billingPlanSelect'), site.plan_id || '');
   document.getElementById('siteBillingError').hidden = true;
   document.getElementById('siteBillingModal').hidden = false;
 }
@@ -4424,6 +4529,7 @@ document.getElementById('siteBillingForm')?.addEventListener('submit', async (e)
         billing_status: fd.get('billing_status'),
         billing_plan_label: fd.get('billing_plan_label'),
         billing_notes: fd.get('billing_notes'),
+        plan_id: fd.get('plan_id'),
       }),
     });
     showToast(i18n.t('toast.billing_updated'));
@@ -4584,6 +4690,8 @@ document.getElementById('newSiteForm')?.addEventListener('submit', async (e) => 
         owner_name: fd.get('owner_name'),
         owner_email: fd.get('owner_email'),
         owner_password: fd.get('owner_password'),
+        plan_id: fd.get('plan_id'),
+        grace_period_days: fd.get('grace_period_days'),
       }),
     });
     showToast(i18n.t('toast.super_admin_site_created'));
