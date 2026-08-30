@@ -257,6 +257,14 @@
           </label>
         </div>
         <p class="form-notice form-notice--warning" id="categoryMismatchWarning" hidden></p>
+        <div class="form-row">
+          <label id="publishTypeLabel"><span data-i18n="publish.label_type">Type d'annonce</span>
+            <select name="listing_type" id="publishListingType" required>
+              <option value="vente" data-i18n="type.vente">Vente</option>
+              <option value="location" data-i18n="type.location">Location</option>
+            </select>
+          </label>
+        </div>
         <div class="form-row form-row--split" id="tourismDatesRow">
           <label><span data-i18n="publish.label_date_start">Date de début</span>
             <input type="date" name="date_start" id="publishDateStart" />
@@ -287,14 +295,6 @@
           <textarea id="aiDraftNotes" rows="2" data-i18n-placeholder="ai.draft_placeholder" placeholder="Notez quelques infos en vrac (état, surface, marque, prix habituel…)"></textarea>
           <button type="button" class="btn btn--ghost btn--small" id="aiDraftGenerateBtn" data-i18n="ai.draft_generate">Générer le titre et la description</button>
           <p class="form-error" id="aiDraftError" hidden></p>
-        </div>
-        <div class="form-row">
-          <label id="publishTypeLabel"><span data-i18n="publish.label_type">Type d'annonce</span>
-            <select name="listing_type" id="publishListingType" required>
-              <option value="vente" data-i18n="type.vente">Vente</option>
-              <option value="location" data-i18n="type.location">Location</option>
-            </select>
-          </label>
         </div>
         <div class="form-row form-row--split">
           <label><span data-i18n="publish.label_country">Pays</span>
