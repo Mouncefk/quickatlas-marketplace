@@ -231,8 +231,8 @@ function renderAuthZone() {
   const zone = document.getElementById('authZone');
   zone.innerHTML = '';
   document.getElementById('adminNavLink').hidden = !(state.user && (state.user.role === 'admin' || state.user.role === 'super_admin'));
-  const superAdminTabBtnEl = document.getElementById('superAdminTabBtn');
-  if (superAdminTabBtnEl) superAdminTabBtnEl.hidden = !(state.user && state.user.role === 'super_admin');
+  const superAdminNavLinkEl = document.getElementById('superAdminNavLink');
+  if (superAdminNavLinkEl) superAdminNavLinkEl.hidden = !(state.user && state.user.role === 'super_admin');
   document.getElementById('messagesNavLink').hidden = !state.user;
   document.getElementById('favoritesNavLink').hidden = !state.user;
   document.getElementById('alertsNavLink').hidden = !state.user;
@@ -714,6 +714,10 @@ function navigate(view) {
     loadAdminEmails();
     initAdminCategoryCountrySelector();
     loadCategoryStatusList();
+  }
+  if (view === 'super-admin') {
+    if (!state.user || state.user.role !== 'super_admin') { showToast(i18n.t('toast.admin_denied')); navigate('explore'); return; }
+    loadGlobalStats();
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -4030,12 +4034,22 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminCityRequestsPanel').hidden = btn.dataset.adminTab !== 'city-requests';
     document.getElementById('adminAppearancePanel').hidden = btn.dataset.adminTab !== 'appearance';
     document.getElementById('adminInboxPanel').hidden = btn.dataset.adminTab !== 'inbox';
-    const superAdminPanelEl = document.getElementById('superAdminPanel');
-    if (superAdminPanelEl) superAdminPanelEl.hidden = btn.dataset.adminTab !== 'super-admin';
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
     if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); loadSiteEmailSettings(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
-    if (btn.dataset.adminTab === 'super-admin') { loadSuperAdminSites(); loadSuperAdminAuditLog(); loadGlobalStats(); loadSuperAdminPlans(); }
+  })
+);
+document.querySelectorAll('[data-super-admin-tab]').forEach((btn) =>
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-super-admin-tab]').forEach((b) => b.classList.toggle('active', b === btn));
+    document.getElementById('superAdminOverviewPanel').hidden = btn.dataset.superAdminTab !== 'overview';
+    document.getElementById('superAdminSitesPanel').hidden = btn.dataset.superAdminTab !== 'sites';
+    document.getElementById('superAdminPlansPanel').hidden = btn.dataset.superAdminTab !== 'plans';
+    document.getElementById('superAdminAuditPanel').hidden = btn.dataset.superAdminTab !== 'audit';
+    if (btn.dataset.superAdminTab === 'overview') loadGlobalStats();
+    if (btn.dataset.superAdminTab === 'sites') loadSuperAdminSites();
+    if (btn.dataset.superAdminTab === 'plans') loadSuperAdminPlans();
+    if (btn.dataset.superAdminTab === 'audit') loadSuperAdminAuditLog();
   })
 );
 /** Charge la liste des emails reçus dans l'onglet admin "Boîte de
