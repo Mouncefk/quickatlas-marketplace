@@ -3168,3 +3168,26 @@ textarea { resize: vertical; }
   padding: 4px;
 }
 .site-category-item { padding: 6px 4px; }
+/* ---------- Modale pays par site (recherche, regroupement par continent) ---------- */
+.site-countries-search {
+  width: 100%;
+  padding: 8px 10px;
+  margin: 10px 0;
+  background: rgba(241, 233, 216, 0.06);
+  border: 1px solid rgba(198, 161, 91, 0.3);
+  border-radius: 6px;
+  color: var(--parchment-100);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+}
+.site-categories-toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
+.site-categories-list--tall { max-height: 420px; }
+.site-countries-continent-title {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  color: var(--brass-300);
+  margin: 14px 0 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(198, 161, 91, 0.2);
+}
+.site-countries-continent-title:first-child { border-top: none; margin-top: 0; }
