@@ -913,6 +913,7 @@
               <th></th>
               <th></th>
               <th></th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="superAdminSitesBody"></tbody>
@@ -1020,6 +1021,22 @@
       <div id="siteCategoriesList" class="site-categories-list"></div>
       <p class="form-error" id="siteCategoriesError" hidden></p>
       <button type="button" id="siteCategoriesSaveBtn" class="btn btn--primary" data-i18n="admin.categories_save">Enregistrer</button>
+    </div>
+  </div>
+  <!-- ===== Modale : pays activés pour un site ===== -->
+  <div class="modal-overlay" id="siteCountriesModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="siteCountriesModal" aria-label="Fermer">&times;</button>
+      <h2 data-i18n="admin.countries_modal_title">Pays activés</h2>
+      <p class="form-hint" data-i18n="admin.countries_modal_hint">Selon l'accord commercial passé avec ce site — un pays désactivé retire l'annonce de la vue publique, sans jamais supprimer aucune donnée.</p>
+      <input type="search" id="siteCountriesSearch" class="site-countries-search" data-i18n-placeholder="admin.countries_search_placeholder" placeholder="Rechercher un pays…" />
+      <div class="site-categories-toolbar">
+        <button type="button" id="siteCountriesSelectAllBtn" class="btn btn--ghost btn--small" data-i18n="admin.countries_select_all">Tout activer</button>
+        <button type="button" id="siteCountriesDeselectAllBtn" class="btn btn--ghost btn--small" data-i18n="admin.countries_deselect_all">Tout désactiver</button>
+      </div>
+      <div id="siteCountriesList" class="site-categories-list site-categories-list--tall"></div>
+      <p class="form-error" id="siteCountriesError" hidden></p>
+      <button type="button" id="siteCountriesSaveBtn" class="btn btn--primary" data-i18n="admin.countries_save">Enregistrer</button>
     </div>
   </div>
   <!-- ===== TERMS ===== -->
