@@ -3132,3 +3132,39 @@ textarea { resize: vertical; }
 }
 .brand-country-select[hidden] { display: none; }
 [dir="rtl"] .brand-country-tag { margin-left: 0; margin-right: -4px; }
+/* ---------- Grille de statistiques globales (Super Admin) ---------- */
+.global-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 12px 0 20px;
+}
+.global-stats-card {
+  background: rgba(241, 233, 216, 0.06);
+  border: 1px solid rgba(198, 161, 91, 0.3);
+  border-radius: 8px;
+  padding: 14px 10px;
+  text-align: center;
+}
+.global-stats-card-value {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--brass-300);
+  line-height: 1.1;
+}
+.global-stats-card-label {
+  font-size: 0.75rem;
+  color: rgba(241, 233, 216, 0.65);
+  margin-top: 4px;
+}
+/* ---------- Liste de catégories par site (Super Admin) ---------- */
+.site-categories-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 4px;
+}
+.site-category-item { padding: 6px 4px; }
