@@ -4208,6 +4208,7 @@ function auditActionLabel(action) {
     site_deleted: 'admin.audit_action_site_deleted',
     site_billing_updated: 'admin.audit_action_site_billing_updated',
     site_categories_updated: 'admin.audit_action_site_categories_updated',
+    site_countries_updated: 'admin.audit_action_site_countries_updated',
   };
   return map[action] ? i18n.t(map[action]) : action;
 }
@@ -4298,6 +4299,10 @@ async function loadSuperAdminSites() {
             class: 'btn btn--ghost btn--small',
             onclick: () => openSiteCategoriesModal(s),
           }, i18n.t('admin.categories_edit'))),
+          el('td', {}, el('button', {
+            class: 'btn btn--ghost btn--small',
+            onclick: () => openSiteCountriesModal(s),
+          }, i18n.t('admin.countries_edit'))),
           el('td', {}, isMain ? null : el('button', {
             class: 'btn btn--ghost btn--small',
             onclick: async () => {
@@ -4428,6 +4433,95 @@ document.getElementById('siteCategoriesSaveBtn')?.addEventListener('click', asyn
     });
     showToast(i18n.t('toast.categories_updated'));
     document.getElementById('siteCategoriesModal').hidden = true;
+    loadSuperAdminAuditLog();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
+let currentCountriesModalSiteId = null;
+let currentSiteCountriesData = [];
+/** Synchronise l'état coché des cases actuellement affichées vers
+ * currentSiteCountriesData — indispensable avant tout nouvel affichage
+ * filtré (recherche) ou avant l'enregistrement, sans quoi un pays
+ * coché/décoché puis masqué par un filtre de recherche perdrait son
+ * état au prochain rendu. */
+function syncSiteCountriesCheckedState() {
+  document.querySelectorAll('#siteCountriesList input[type="checkbox"]').forEach((cb) => {
+    const country = currentSiteCountriesData.find((c) => c.id === Number(cb.dataset.countryId));
+    if (country) country.enabled = cb.checked;
+  });
+}
+/** Regroupe et affiche la liste des pays par continent — contrairement
+ * aux catégories (une quinzaine), un site peut avoir jusqu'à ~195 pays à
+ * parcourir, d'où le regroupement et la recherche, absents pour les
+ * catégories où une simple liste suffit. */
+function renderSiteCountriesList(filterText) {
+  syncSiteCountriesCheckedState();
+  const list = document.getElementById('siteCountriesList');
+  const query = (filterText || '').trim().toLowerCase();
+  const filtered = query ? currentSiteCountriesData.filter((c) => c.name.toLowerCase().includes(query)) : currentSiteCountriesData;
+  list.innerHTML = '';
+  if (filtered.length === 0) {
+    list.append(el('p', { class: 'empty-state' }, i18n.t('admin.countries_no_match')));
+    return;
+  }
+  const byContinent = new Map();
+  for (const c of filtered) {
+    const key = c.continent || i18n.t('admin.countries_other_continent');
+    if (!byContinent.has(key)) byContinent.set(key, []);
+    byContinent.get(key).push(c);
+  }
+  for (const [continent, countries] of [...byContinent.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    list.append(el('h4', { class: 'site-countries-continent-title' }, continent));
+    for (const c of countries) {
+      list.append(
+        el('label', { class: 'terms-checkbox site-category-item' }, [
+          el('input', { type: 'checkbox', 'data-country-id': c.id, checked: c.enabled ? 'checked' : null }),
+          el('span', {}, c.name),
+        ])
+      );
+    }
+  }
+}
+async function openSiteCountriesModal(site) {
+  currentCountriesModalSiteId = site.id;
+  const errEl = document.getElementById('siteCountriesError');
+  errEl.hidden = true;
+  document.getElementById('siteCountriesSearch').value = '';
+  const list = document.getElementById('siteCountriesList');
+  list.innerHTML = '';
+  list.append(el('p', { class: 'empty-state' }, i18n.t('admin.categories_loading')));
+  document.getElementById('siteCountriesModal').hidden = false;
+  try {
+    currentSiteCountriesData = await api(`/super-admin/sites/${site.id}/countries`);
+    renderSiteCountriesList('');
+  } catch (e) {
+    list.innerHTML = '';
+    errEl.textContent = e.message;
+    errEl.hidden = false;
+  }
+}
+document.getElementById('siteCountriesSearch')?.addEventListener('input', (e) => renderSiteCountriesList(e.target.value));
+document.getElementById('siteCountriesSelectAllBtn')?.addEventListener('click', () => {
+  document.querySelectorAll('#siteCountriesList input[type="checkbox"]').forEach((cb) => { cb.checked = true; });
+});
+document.getElementById('siteCountriesDeselectAllBtn')?.addEventListener('click', () => {
+  document.querySelectorAll('#siteCountriesList input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+});
+document.getElementById('siteCountriesSaveBtn')?.addEventListener('click', async () => {
+  if (!currentCountriesModalSiteId) return;
+  const errEl = document.getElementById('siteCountriesError');
+  errEl.hidden = true;
+  syncSiteCountriesCheckedState();
+  const disabledIds = currentSiteCountriesData.filter((c) => !c.enabled).map((c) => c.id);
+  try {
+    await api(`/super-admin/sites/${currentCountriesModalSiteId}/countries`, {
+      method: 'PUT',
+      body: JSON.stringify({ disabled_country_ids: disabledIds }),
+    });
+    showToast(i18n.t('toast.countries_updated'));
+    document.getElementById('siteCountriesModal').hidden = true;
     loadSuperAdminAuditLog();
   } catch (err) {
     errEl.textContent = friendlyErrorMessage(err);
