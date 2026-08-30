@@ -3191,3 +3191,34 @@ textarea { resize: vertical; }
   border-top: 1px solid rgba(198, 161, 91, 0.2);
 }
 .site-countries-continent-title:first-child { border-top: none; margin-top: 0; }
+/* ---------- Menu d'actions déroulant (tableau des sites, Super Admin) ---------- */
+.admin-actions-cell { position: relative; }
+.admin-actions-trigger { font-size: 1.1rem; line-height: 1; padding: 4px 10px; }
+.admin-actions-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 20;
+  min-width: 180px;
+  background: var(--ink-700);
+  border: 1px solid rgba(198, 161, 91, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+.admin-actions-menu[hidden] { display: none; }
+.admin-actions-menu-item {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--parchment-100);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.admin-actions-menu-item:hover { background: rgba(241, 233, 216, 0.08); }
+.admin-actions-menu-item--danger { color: var(--rust-text); }
