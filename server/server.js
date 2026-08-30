@@ -169,6 +169,17 @@ function currentSiteName() {
   const site = siteInfoContext.getStore();
   return (site && site.brand_name) || 'QuickAtlas';
 }
+/** Une catégorie est-elle désactivée pour le site actuel (voir la table
+ * disabled_categories, gérée exclusivement depuis le panneau Super
+ * Admin) ? Mécanisme distinct du champ categories.is_active existant,
+ * qui lui reste sous le contrôle de l'administrateur du site lui-même
+ * pour une pause temporaire — les deux ne doivent jamais être confondus,
+ * au risque qu'un administrateur de site puisse annuler une restriction
+ * commerciale décidée par le Super Admin. */
+function isCategoryDisabled(categoryId) {
+  if (!categoryId) return false;
+  return !!db.prepare('SELECT 1 FROM disabled_categories WHERE category_id = ?').get(categoryId);
+}
 /** Lit la configuration email propre au site actuellement concerné par
  * la requête en cours (identifiants SMTP/IMAP saisis par l'administrateur
  * de CE site précis, dans Administration → Apparence → Email) — retourne
@@ -1095,9 +1106,9 @@ async function handleRequest(req, res) {
     }
     if (pathname === '/sitemap.xml') {
       const countries = db.prepare('SELECT id, name FROM countries').all();
-      const categories = db.prepare('SELECT slug FROM categories').all();
+      const categories = db.prepare('SELECT slug FROM categories WHERE id NOT IN (SELECT category_id FROM disabled_categories)').all();
       const listings = db
-        .prepare("SELECT id, updated_at FROM listings WHERE status = 'active' AND expires_at > datetime('now')")
+        .prepare("SELECT id, updated_at FROM listings WHERE status = 'active' AND expires_at > datetime('now') AND category_id NOT IN (SELECT category_id FROM disabled_categories)")
         .all();
       const cities = db
         .prepare(
@@ -1127,7 +1138,7 @@ async function handleRequest(req, res) {
         const stats = db
           .prepare(
             `SELECT COUNT(DISTINCT ci.id) AS cities, COUNT(l.id) AS listings
-             FROM cities ci LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now')
+             FROM cities ci LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
              WHERE ci.country_id = ?`
           )
           .get(country.id);
@@ -1196,7 +1207,7 @@ async function handleRequest(req, res) {
         .prepare(
           `SELECT l.title, l.description, l.price, l.currency, l.images_json, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM listings l JOIN cities ci ON ci.id = l.city_id JOIN countries co ON co.id = ci.country_id
-           WHERE l.id = ? AND l.status = 'active'`
+           WHERE l.id = ? AND l.status = 'active' AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)`
         )
         .get(Number(m[1]));
       if (listing) {
@@ -1462,7 +1473,7 @@ async function handleRequest(req, res) {
       return sendJSON(res, 200, { google_client_id: process.env.GOOGLE_CLIENT_ID || null });
     }
     if (pathname === '/api/categories' && method === 'GET') {
-      const cats = db.prepare('SELECT id, slug, name, icon FROM categories WHERE is_active = 1 ORDER BY id').all();
+      const cats = db.prepare('SELECT id, slug, name, icon FROM categories WHERE is_active = 1 AND id NOT IN (SELECT category_id FROM disabled_categories) ORDER BY id').all();
       const subs = db.prepare('SELECT id, category_id, slug, name FROM subcategories ORDER BY id').all();
       const rows = cats.map((c) => ({ ...c, subcategories: subs.filter((s) => s.category_id === c.id) }));
       return sendJSON(res, 200, rows);
@@ -1552,7 +1563,7 @@ async function handleRequest(req, res) {
                   COUNT(DISTINCT l.id) AS listing_count
            FROM countries c
            LEFT JOIN cities ci ON ci.country_id = c.id
-           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now')
+           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            GROUP BY c.id
            ORDER BY c.name`
         )
@@ -1567,7 +1578,7 @@ async function handleRequest(req, res) {
           `SELECT ci.id, ci.name, ci.timezone,
                   COUNT(l.id) AS listing_count
            FROM cities ci
-           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now')
+           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            WHERE ci.country_id = ? AND ci.state_id IS NULL
            GROUP BY ci.id
            ORDER BY ci.name`
@@ -1584,7 +1595,7 @@ async function handleRequest(req, res) {
                   COUNT(DISTINCT l.id) AS listing_count
            FROM states s
            LEFT JOIN cities ci ON ci.state_id = s.id
-           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now')
+           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            WHERE s.country_id = ?
            GROUP BY s.id
            ORDER BY s.name`
@@ -1599,7 +1610,7 @@ async function handleRequest(req, res) {
           `SELECT ci.id, ci.name, ci.timezone,
                   COUNT(l.id) AS listing_count
            FROM cities ci
-           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now')
+           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            WHERE ci.state_id = ?
            GROUP BY ci.id
            ORDER BY ci.name`
@@ -1619,7 +1630,7 @@ async function handleRequest(req, res) {
     if (pathname === '/api/listings/random-explore' && method === 'GET') {
       const row = db
         .prepare(
-          'SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, cat.icon AS category_icon, cat.slug AS category_slug, cat.name AS category_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name, co.iso_numeric FROM listings l JOIN categories cat ON cat.id = l.category_id JOIN cities ci ON ci.id = l.city_id JOIN countries co ON co.id = ci.country_id WHERE l.status = \'active\' AND l.expires_at > datetime(\'now\') ORDER BY RANDOM() LIMIT 1'
+          'SELECT l.id, l.title, l.listing_type, l.price, l.currency, l.images_json, cat.icon AS category_icon, cat.slug AS category_slug, cat.name AS category_name, ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name, co.iso_numeric FROM listings l JOIN categories cat ON cat.id = l.category_id JOIN cities ci ON ci.id = l.city_id JOIN countries co ON co.id = ci.country_id WHERE l.status = \'active\' AND l.expires_at > datetime(\'now\') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories) ORDER BY RANDOM() LIMIT 1'
         )
         .get();
       if (!row) return sendJSON(res, 404, { error: 'Aucune annonce disponible' });
@@ -1638,7 +1649,7 @@ async function handleRequest(req, res) {
         LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
         JOIN cities ci ON ci.id = l.city_id
         JOIN countries co ON co.id = ci.country_id
-        WHERE l.status = 'active' AND l.expires_at > datetime('now') ${withCountry ? 'AND co.id = ?' : ''}
+        WHERE l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories) ${withCountry ? 'AND co.id = ?' : ''}
         ORDER BY (l.boosted_until IS NOT NULL AND l.boosted_until > datetime('now')) DESC, RANDOM()
         LIMIT ?`;
       let rows = [];
@@ -1660,7 +1671,7 @@ async function handleRequest(req, res) {
            JOIN categories cat ON cat.id = l.category_id
            JOIN cities ci ON ci.id = l.city_id
            JOIN countries co ON co.id = ci.country_id
-           WHERE l.status = 'active' AND l.expires_at > datetime('now')
+           WHERE l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            ORDER BY l.view_count DESC, l.created_at DESC
            LIMIT 1`
         )
@@ -1678,7 +1689,7 @@ async function handleRequest(req, res) {
            JOIN categories cat ON cat.id = l.category_id
            JOIN cities ci ON ci.id = l.city_id
            JOIN countries co ON co.id = ci.country_id
-           WHERE l.status = 'active'
+           WHERE l.status = 'active' AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            ORDER BY l.created_at DESC
            LIMIT 20`
         )
@@ -1749,7 +1760,7 @@ async function handleRequest(req, res) {
         JOIN cities ci ON ci.id = l.city_id
         JOIN countries co ON co.id = ci.country_id
         JOIN users u ON u.id = l.user_id
-        WHERE l.status = 'active' AND l.expires_at > datetime('now')
+        WHERE l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
       `;
       const params = [];
       if (q) {
@@ -1794,7 +1805,7 @@ async function handleRequest(req, res) {
         JOIN cities ci ON ci.id = l.city_id
         JOIN countries co ON co.id = ci.country_id
         JOIN users u ON u.id = l.user_id
-        WHERE l.city_id = ? AND l.status = 'active' AND l.expires_at > datetime('now')
+        WHERE l.city_id = ? AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
       `;
       const params = [cityId];
       if (category) {
@@ -1842,6 +1853,9 @@ async function handleRequest(req, res) {
       if (!city) return sendJSON(res, 400, { error: 'Ville invalide.' });
       const category = db.prepare('SELECT id, slug FROM categories WHERE id = ?').get(category_id);
       if (!category) return sendJSON(res, 400, { error: 'Catégorie invalide.' });
+      if (isCategoryDisabled(category_id)) {
+        return sendJSON(res, 400, { error: "Cette catégorie n'est pas disponible sur ce site." });
+      }
       const isExcluded = db.prepare('SELECT 1 FROM category_country_exclusions WHERE category_id = ? AND country_id = ?').get(category_id, city.country_id);
       if (isExcluded) return sendJSON(res, 400, { error: "Cette catégorie n'est pas disponible pour le pays sélectionné." });
       let subcategoryId = null;
@@ -1893,6 +1907,14 @@ async function handleRequest(req, res) {
         )
         .get(Number(m[1]));
       if (!row) return sendJSON(res, 404, { error: 'Annonce introuvable' });
+      const currentUser = getAuthUser(req);
+      // Catégorie désactivée pour ce site : l'annonce reste consultable
+      // par son propriétaire (et un admin) pour qu'il garde la main sur
+      // sa gestion, mais devient invisible pour le grand public — traité
+      // comme introuvable plutôt que de révéler son existence.
+      if (isCategoryDisabled(row.category_id) && (!currentUser || (currentUser.id !== row.user_id && currentUser.role !== 'admin'))) {
+        return sendJSON(res, 404, { error: 'Annonce introuvable' });
+      }
       db.prepare('UPDATE listings SET view_count = view_count + 1 WHERE id = ?').run(row.id);
       logListingViewAsync(row.id, req);
       row.view_count = row.view_count + 1;
@@ -1900,7 +1922,6 @@ async function handleRequest(req, res) {
       row.owner_verified = !!row.owner_verified_at;
       row.owner_domain_verified = isDomainVerified(row.owner_email, row.owner_company_website);
       delete row.owner_email;
-      const currentUser = getAuthUser(req);
       row.is_favorited = currentUser
         ? !!db.prepare('SELECT 1 FROM favorites WHERE user_id = ? AND listing_id = ?').get(currentUser.id, row.id)
         : false;
@@ -1961,7 +1982,7 @@ async function handleRequest(req, res) {
            LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
            JOIN cities ci ON ci.id = l.city_id
            JOIN countries co ON co.id = ci.country_id
-           WHERE l.category_id = ? AND l.id != ? AND l.status = 'active' AND l.expires_at > datetime('now')
+           WHERE l.category_id = ? AND l.id != ? AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            ORDER BY (l.city_id = ?) DESC, (l.subcategory_id = ?) DESC, l.created_at DESC
            LIMIT 4`
         )
@@ -1993,7 +2014,7 @@ async function handleRequest(req, res) {
            LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
            JOIN cities ci ON ci.id = l.city_id
            JOIN countries co ON co.id = ci.country_id
-           WHERE l.category_id = ? AND l.id != ? AND ci.country_id = ? AND l.city_id != ? AND l.status = 'active' AND l.expires_at > datetime('now')
+           WHERE l.category_id = ? AND l.id != ? AND ci.country_id = ? AND l.city_id != ? AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            GROUP BY l.city_id
            ORDER BY RANDOM()
            LIMIT 3`
@@ -2047,6 +2068,17 @@ async function handleRequest(req, res) {
         return sendJSON(res, 200, { ok: true });
       }
       const body = await readBody(req);
+      // Catégorie désactivée pour ce site : le propriétaire garde la main
+      // sur sa gestion (modifier le texte, changer de photo, supprimer...),
+      // mais ne peut pas la remettre active/publique tant que la
+      // catégorie reste désactivée — sans quoi la restriction commerciale
+      // décidée par le Super Admin serait contournable.
+      if (body.status === 'active') {
+        const targetCategoryId = body.category_id !== undefined ? body.category_id : listing.category_id;
+        if (isCategoryDisabled(targetCategoryId)) {
+          return sendJSON(res, 400, { error: "Cette catégorie n'est actuellement pas disponible sur ce site — impossible de republier cette annonce." });
+        }
+      }
       const fields = ['title', 'description', 'listing_type', 'price', 'currency', 'city_id', 'category_id', 'subcategory_id', 'status'];
       const updates = [];
       const params = [];
@@ -2070,9 +2102,12 @@ async function handleRequest(req, res) {
     if ((m = pathname.match(/^\/api\/listings\/(\d+)\/renew$/)) && method === 'POST') {
       const user = requireAuth(req, res);
       if (!user) return;
-      const listing = db.prepare('SELECT user_id FROM listings WHERE id = ?').get(Number(m[1]));
+      const listing = db.prepare('SELECT user_id, category_id FROM listings WHERE id = ?').get(Number(m[1]));
       if (!listing) return sendJSON(res, 404, { error: 'Annonce introuvable.' });
       if (listing.user_id !== user.id && user.role !== 'admin') return sendJSON(res, 403, { error: "Vous n'êtes pas propriétaire de cette annonce." });
+      if (isCategoryDisabled(listing.category_id)) {
+        return sendJSON(res, 400, { error: "Cette catégorie n'est actuellement pas disponible sur ce site — impossible de renouveler cette annonce." });
+      }
       db.prepare("UPDATE listings SET expires_at = datetime('now', '+60 days'), status = 'active', expiry_reminder_sent = 0, expired_notice_sent = 0 WHERE id = ?").run(Number(m[1]));
       return sendJSON(res, 200, { ok: true });
     }
@@ -2424,7 +2459,44 @@ function recordDailySiteStats() {
   }
   console.log(`[daily-stats] instantané enregistré pour ${sites.length} site(s), date ${today}.`);
 }
-if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
+// Catégories activées/désactivées pour un site précis du réseau — la
+// liste catégories elle-même (partagée, copiée à la création du site)
+// est lue depuis SA PROPRE base, tandis que disabled_categories
+// détermine lesquelles sont effectivement disponibles. Gestion
+// exclusivement réservée au Super Admin (voir en-tête de
+// disabled_categories dans db.js pour le raisonnement).
+if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)\/categories$/)) && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const targetSite = masterDb.prepare('SELECT id, slug, db_filename FROM sites WHERE id = ?').get(Number(m[1]));
+      if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
+      const targetDb = getTenantDatabase(targetSite.db_filename);
+      const categories = targetDb.prepare('SELECT id, slug, name, icon FROM categories ORDER BY id').all();
+      const disabledIds = new Set(targetDb.prepare('SELECT category_id FROM disabled_categories').all().map((r) => r.category_id));
+      return sendJSON(res, 200, categories.map((c) => ({ ...c, enabled: !disabledIds.has(c.id) })));
+    }
+    if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)\/categories$/)) && method === 'PUT') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const targetSite = masterDb.prepare('SELECT id, slug, db_filename FROM sites WHERE id = ?').get(Number(m[1]));
+      if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
+      const body = await readBody(req);
+      const disabledIds = Array.isArray(body.disabled_category_ids) ? body.disabled_category_ids.map(Number).filter(Boolean) : [];
+      const targetDb = getTenantDatabase(targetSite.db_filename);
+      targetDb.exec('BEGIN IMMEDIATE');
+      try {
+        targetDb.prepare('DELETE FROM disabled_categories').run();
+        const insertStmt = targetDb.prepare('INSERT INTO disabled_categories (category_id) VALUES (?)');
+        for (const id of disabledIds) insertStmt.run(id);
+        targetDb.exec('COMMIT');
+      } catch (err) {
+        targetDb.exec('ROLLBACK');
+        throw err;
+      }
+      logAdminAction(masterDb, admin, 'site_categories_updated', 'site', targetSite.slug, { disabled_category_ids: disabledIds });
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const sites = masterDb.prepare('SELECT * FROM sites ORDER BY created_at ASC').all();
@@ -2588,6 +2660,7 @@ if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
           `SELECT cat.slug, cat.name, cat.icon, COUNT(l.id) AS count
            FROM categories cat
            LEFT JOIN listings l ON l.category_id = cat.id AND l.status = 'active' AND l.expires_at > datetime('now')
+           WHERE cat.id NOT IN (SELECT category_id FROM disabled_categories)
            GROUP BY cat.id ORDER BY count DESC`
         )
         .all();
@@ -2843,7 +2916,7 @@ if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
            LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
            JOIN cities ci ON ci.id = l.city_id
            JOIN countries co ON co.id = ci.country_id
-           WHERE cat.slug = 'opportunites-affaires' AND co.id = ? AND l.status = 'active' AND l.expires_at > datetime('now')
+           WHERE cat.slug = 'opportunites-affaires' AND co.id = ? AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            ORDER BY l.created_at DESC LIMIT 12`
         )
         .all(countryId)
@@ -2862,7 +2935,7 @@ if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
           `SELECT COUNT(*) AS c FROM listings l
            JOIN categories cat ON cat.id = l.category_id
            JOIN cities ci ON ci.id = l.city_id
-           WHERE cat.slug = 'emploi' AND l.listing_type = 'offre_emploi' AND ci.country_id = ? AND l.status = 'active' AND l.expires_at > datetime('now')`
+           WHERE cat.slug = 'emploi' AND l.listing_type = 'offre_emploi' AND ci.country_id = ? AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)`
         )
         .get(countryId).c;
       return sendJSON(res, 200, { listings, events, job_offers_count: jobCount });
@@ -3151,7 +3224,7 @@ if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
            LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
            JOIN cities ci ON ci.id = l.city_id
            JOIN countries co ON co.id = ci.country_id
-           WHERE f.user_id = ? AND l.status = 'active' AND l.expires_at > datetime('now')
+           WHERE f.user_id = ? AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            ORDER BY f.created_at DESC`
         )
         .all(user.id)
@@ -3612,7 +3685,7 @@ if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
            LEFT JOIN subcategories sub ON sub.id = l.subcategory_id
            JOIN cities ci ON ci.id = l.city_id
            JOIN countries co ON co.id = ci.country_id
-           WHERE m.saved_search_id = ? AND l.status = 'active' AND l.expires_at > datetime('now')
+           WHERE m.saved_search_id = ? AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            ORDER BY m.created_at DESC`
         )
         .all(search.id)
