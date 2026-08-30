@@ -4301,6 +4301,17 @@ function billingStatusLabel(status) {
   };
   return map[status] ? i18n.t(map[status]) : status;
 }
+function closeAllActionsMenus() {
+  document.querySelectorAll('.admin-actions-menu').forEach((m) => { m.hidden = true; });
+}
+function toggleActionsMenu(e, id) {
+  e.stopPropagation();
+  const menu = document.getElementById(`actionsMenu-${id}`);
+  const wasHidden = menu.hidden;
+  closeAllActionsMenus();
+  menu.hidden = !wasHidden;
+}
+document.addEventListener('click', closeAllActionsMenus);
 async function loadSuperAdminSites() {
   const tbody = document.getElementById('superAdminSitesBody');
   if (!tbody) return;
@@ -4310,6 +4321,43 @@ async function loadSuperAdminSites() {
     for (const s of sites) {
       const domain = s.custom_domain || s.subdomain || '—';
       const isMain = s.slug === 'main';
+      const menuItems = [
+        el('button', { class: 'admin-actions-menu-item', onclick: () => { closeAllActionsMenus(); openSiteBillingModal(s); } }, i18n.t('admin.billing_edit')),
+        el('button', { class: 'admin-actions-menu-item', onclick: () => { closeAllActionsMenus(); openSiteCategoriesModal(s); } }, i18n.t('admin.categories_edit')),
+        el('button', { class: 'admin-actions-menu-item', onclick: () => { closeAllActionsMenus(); openSiteCountriesModal(s); } }, i18n.t('admin.countries_edit')),
+        isMain ? null : el('button', {
+          class: 'admin-actions-menu-item',
+          onclick: async () => {
+            closeAllActionsMenus();
+            try {
+              await api(`/super-admin/sites/${s.id}`, { method: 'PUT', body: JSON.stringify({ status: s.status === 'active' ? 'suspended' : 'active' }) });
+              showToast(i18n.t('toast.super_admin_status_updated'));
+              loadSuperAdminSites(); loadSuperAdminAuditLog();
+            } catch (err) {
+              showToast(err.message);
+            }
+          },
+        }, i18n.t(s.status === 'active' ? 'admin.super_admin_suspend' : 'admin.super_admin_reactivate')),
+        isMain ? null : el('button', {
+          class: 'admin-actions-menu-item admin-actions-menu-item--danger',
+          onclick: async () => {
+            closeAllActionsMenus();
+            const typed = prompt(i18n.t('admin.super_admin_delete_confirm_prompt', { slug: s.slug }));
+            if (typed === null) return;
+            if (typed.trim().toLowerCase() !== s.slug) {
+              showToast(i18n.t('admin.super_admin_delete_mismatch'));
+              return;
+            }
+            try {
+              await api(`/super-admin/sites/${s.id}`, { method: 'DELETE', body: JSON.stringify({ confirm_slug: typed.trim().toLowerCase() }) });
+              showToast(i18n.t('toast.super_admin_site_deleted'));
+              loadSuperAdminSites(); loadSuperAdminAuditLog();
+            } catch (err) {
+              showToast(err.message);
+            }
+          },
+        }, i18n.t('admin.super_admin_delete')),
+      ];
       tbody.append(
         el('tr', {}, [
           el('td', {}, s.brand_name),
@@ -4321,48 +4369,10 @@ async function loadSuperAdminSites() {
             s.billing_plan_label ? el('span', { class: 'form-hint', style: 'display:block;' }, s.billing_plan_label) : null,
           ]),
           el('td', {}, new Date(s.created_at).toLocaleDateString()),
-          el('td', {}, el('button', {
-            class: 'btn btn--ghost btn--small',
-            onclick: () => openSiteBillingModal(s),
-          }, i18n.t('admin.billing_edit'))),
-          el('td', {}, el('button', {
-            class: 'btn btn--ghost btn--small',
-            onclick: () => openSiteCategoriesModal(s),
-          }, i18n.t('admin.categories_edit'))),
-          el('td', {}, el('button', {
-            class: 'btn btn--ghost btn--small',
-            onclick: () => openSiteCountriesModal(s),
-          }, i18n.t('admin.countries_edit'))),
-          el('td', {}, isMain ? null : el('button', {
-            class: 'btn btn--ghost btn--small',
-            onclick: async () => {
-              try {
-                await api(`/super-admin/sites/${s.id}`, { method: 'PUT', body: JSON.stringify({ status: s.status === 'active' ? 'suspended' : 'active' }) });
-                showToast(i18n.t('toast.super_admin_status_updated'));
-                loadSuperAdminSites(); loadSuperAdminAuditLog();
-              } catch (err) {
-                showToast(err.message);
-              }
-            },
-          }, i18n.t(s.status === 'active' ? 'admin.super_admin_suspend' : 'admin.super_admin_reactivate'))),
-          el('td', {}, isMain ? null : el('button', {
-            class: 'btn btn--danger btn--small',
-            onclick: async () => {
-              const typed = prompt(i18n.t('admin.super_admin_delete_confirm_prompt', { slug: s.slug }));
-              if (typed === null) return;
-              if (typed.trim().toLowerCase() !== s.slug) {
-                showToast(i18n.t('admin.super_admin_delete_mismatch'));
-                return;
-              }
-              try {
-                await api(`/super-admin/sites/${s.id}`, { method: 'DELETE', body: JSON.stringify({ confirm_slug: typed.trim().toLowerCase() }) });
-                showToast(i18n.t('toast.super_admin_site_deleted'));
-                loadSuperAdminSites(); loadSuperAdminAuditLog();
-              } catch (err) {
-                showToast(err.message);
-              }
-            },
-          }, i18n.t('admin.super_admin_delete'))),
+          el('td', { class: 'admin-actions-cell' }, [
+            el('button', { class: 'btn btn--ghost btn--small admin-actions-trigger', 'aria-label': i18n.t('admin.super_admin_actions_menu'), onclick: (e) => toggleActionsMenu(e, s.id) }, '⋯'),
+            el('div', { class: 'admin-actions-menu', id: `actionsMenu-${s.id}`, hidden: 'hidden' }, menuItems),
+          ]),
         ])
       );
     }
