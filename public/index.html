@@ -897,6 +897,8 @@
       </div>
       <div id="superAdminPanel" class="admin-panel" hidden>
         <p class="form-hint" data-i18n="admin.super_admin_intro">Créez et gérez les sites du réseau QuickAtlas. Chaque site dispose de sa propre base de données, totalement indépendante des autres — ses utilisateurs, ses annonces, son administrateur.</p>
+        <h3 class="publish-side-panel-title" data-i18n="admin.global_stats_title">Aperçu global du réseau</h3>
+        <div class="global-stats-grid" id="globalStatsGrid"></div>
         <button type="button" id="superAdminNewSiteBtn" class="btn btn--primary btn--small" data-i18n="admin.super_admin_new_site">+ Nouveau site</button>
         <table class="admin-table">
           <thead>
@@ -907,6 +909,7 @@
               <th data-i18n="admin.super_admin_col_status">Statut</th>
               <th data-i18n="admin.super_admin_col_billing">Facturation</th>
               <th data-i18n="admin.super_admin_col_created">Créé le</th>
+              <th></th>
               <th></th>
               <th></th>
               <th></th>
@@ -1006,6 +1009,17 @@
         <p class="form-error" id="siteBillingError" hidden></p>
         <button type="submit" class="btn btn--primary" data-i18n="admin.billing_save">Enregistrer</button>
       </form>
+    </div>
+  </div>
+  <!-- ===== Modale : catégories activées pour un site ===== -->
+  <div class="modal-overlay" id="siteCategoriesModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="siteCategoriesModal" aria-label="Fermer">&times;</button>
+      <h2 data-i18n="admin.categories_modal_title">Catégories activées</h2>
+      <p class="form-hint" data-i18n="admin.categories_modal_hint">Selon l'accord commercial passé avec ce site — une catégorie désactivée retire l'annonce de la vue publique, sans jamais supprimer aucune donnée.</p>
+      <div id="siteCategoriesList" class="site-categories-list"></div>
+      <p class="form-error" id="siteCategoriesError" hidden></p>
+      <button type="button" id="siteCategoriesSaveBtn" class="btn btn--primary" data-i18n="admin.categories_save">Enregistrer</button>
     </div>
   </div>
   <!-- ===== TERMS ===== -->
