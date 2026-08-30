@@ -487,7 +487,7 @@ state.categoryBrowse = { category: null, subcategory: '', type: '', sort: 'newes
  * façon qu'un objet), Emploi, Opportunités d'affaires et Services (aucun
  * de ces trois n'est un bien physique). Ne fait rien si l'élément
  * n'existe pas sur la page. */
-const SECONDHAND_EXCLUDED_CATEGORIES = ['tourisme-voyages', 'immobilier', 'emploi', 'opportunites-affaires', 'services'];
+const SECONDHAND_EXCLUDED_CATEGORIES = ['tourisme-voyages', 'emploi', 'opportunites-affaires', 'services'];
 function updateSecondhandVisibility(categorySlug, checkboxId) {
   const checkbox = document.getElementById(checkboxId);
   if (!checkbox) return;
@@ -517,15 +517,19 @@ document.getElementById('conditionUsedBtn')?.addEventListener('click', () => set
  * quand on les masque, pour ne jamais envoyer une date orpheline d'une
  * catégorie précédemment sélectionnée. */
 /** Catégories pour lesquelles les dates et le prix promotionnel ont un
- * sens réel (séjours pour le Tourisme, disponibilité pour l'Immobilier).
- * Pour les autres catégories, les champs restent visibles mais grisés
- * plutôt que masqués — pour que leur existence reste prévisible dans le
- * formulaire, sans pour autant inviter à les remplir hors contexte. */
-const DATES_PRICE_EXTRAS_CATEGORIES = ['tourisme-voyages', 'immobilier'];
-function updateTourismDatesVisibility(categorySlug) {
+ * sens réel (séjours pour le Tourisme). Pour l'Immobilier, seule la
+ * sous-catégorie "Location de vacances" est concernée — les autres
+ * (appartement à vendre, bureau à louer...) n'ont pas de date de séjour.
+ * Pour les catégories/sous-catégories non concernées, les champs
+ * restent visibles mais grisés plutôt que masqués — pour que leur
+ * existence reste prévisible dans le formulaire, sans pour autant
+ * inviter à les remplir hors contexte. */
+const DATES_PRICE_EXTRAS_CATEGORIES = ['tourisme-voyages'];
+const DATES_PRICE_EXTRAS_SUBCATEGORIES = ['location-vacances'];
+function updateTourismDatesVisibility(categorySlug, subcategorySlug) {
   const row = document.getElementById('tourismDatesRow');
   if (!row) return;
-  const isRelevant = DATES_PRICE_EXTRAS_CATEGORIES.includes(categorySlug);
+  const isRelevant = DATES_PRICE_EXTRAS_CATEGORIES.includes(categorySlug) || DATES_PRICE_EXTRAS_SUBCATEGORIES.includes(subcategorySlug);
   row.classList.toggle('form-row--disabled', !isRelevant);
   const startInput = document.getElementById('publishDateStart');
   const endInput = document.getElementById('publishDateEnd');
@@ -538,10 +542,10 @@ function updateTourismDatesVisibility(categorySlug) {
 }
 /** Même principe que updateTourismDatesVisibility, pour le bloc
  * "Prix promotionnel / Type de prix". */
-function updateTourismPriceExtrasVisibility(categorySlug) {
+function updateTourismPriceExtrasVisibility(categorySlug, subcategorySlug) {
   const row = document.getElementById('tourismPriceExtrasRow');
   if (!row) return;
-  const isRelevant = DATES_PRICE_EXTRAS_CATEGORIES.includes(categorySlug);
+  const isRelevant = DATES_PRICE_EXTRAS_CATEGORIES.includes(categorySlug) || DATES_PRICE_EXTRAS_SUBCATEGORIES.includes(subcategorySlug);
   row.classList.toggle('form-row--disabled', !isRelevant);
   const promoInput = document.getElementById('publishPricePromo');
   const typeSelect = document.getElementById('publishPriceType');
@@ -777,11 +781,12 @@ async function loadCategories() {
     fillSubcategorySelect(document.getElementById('publishSubcategory'), findCategoryById(pubCat.value), false);
     updatePublishTypeAndPriceUI(findCategoryById(pubCat.value));
     updateSecondhandVisibility(findCategoryById(pubCat.value)?.slug, 'secondhandCheckbox');
-    updateTourismDatesVisibility(findCategoryById(pubCat.value)?.slug);
-    updateTourismPriceExtrasVisibility(findCategoryById(pubCat.value)?.slug);
     updateJobDetailsVisibility(findCategoryById(pubCat.value)?.slug);
     const newSubSlug = findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug;
+    updateTourismDatesVisibility(findCategoryById(pubCat.value)?.slug, newSubSlug);
+    updateTourismPriceExtrasVisibility(findCategoryById(pubCat.value)?.slug, newSubSlug);
     updateTourismLodgingVisibility(newSubSlug);
+    updateBedroomsBathroomsVisibility(newSubSlug);
     updateVehicleDetailsVisibility(newSubSlug);
     updateRealEstateDetailsVisibility(newSubSlug);
   });
@@ -867,11 +872,29 @@ function updateTourismLodgingVisibility(subcategorySlug) {
   const isLodging = ['locations-vacances', 'hotellerie-insolite'].includes(subcategorySlug);
   row.hidden = !isLodging;
   if (!isLodging) {
-    ['publishCapacityGuests', 'publishBedrooms', 'publishBathrooms'].forEach((id) => {
+    const input = document.getElementById('publishCapacityGuests');
+    if (input) input.value = '';
+    row.querySelectorAll('input[name="amenities"]').forEach((cb) => { cb.checked = false; });
+  }
+}
+/** Chambres / salles de bain — extrait du bloc hébergement Tourisme
+ * (voir updateTourismLodgingVisibility) pour être partagé avec
+ * l'Immobilier : ces champs ont du sens aussi bien pour un séjour de
+ * vacances que pour un appartement ou une maison classique, mais pas
+ * pour un terrain, un entrepôt ou un parking — même exclusion que le
+ * reste des détails immobilier (voir updateRealEstateDetailsVisibility). */
+function updateBedroomsBathroomsVisibility(subcategorySlug) {
+  const row = document.getElementById('bedroomsBathroomsRow');
+  if (!row) return;
+  const TOURISM_LODGING_SUBCATEGORIES = ['locations-vacances', 'hotellerie-insolite'];
+  const REAL_ESTATE_ROOMS_SUBCATEGORIES = ['appartement', 'bureau', 'chambre', 'colocation', 'location-vacances', 'maison', 'riad', 'studio'];
+  const isRelevant = TOURISM_LODGING_SUBCATEGORIES.includes(subcategorySlug) || REAL_ESTATE_ROOMS_SUBCATEGORIES.includes(subcategorySlug);
+  row.hidden = !isRelevant;
+  if (!isRelevant) {
+    ['publishBedrooms', 'publishBathrooms'].forEach((id) => {
       const input = document.getElementById(id);
       if (input) input.value = '';
     });
-    row.querySelectorAll('input[name="amenities"]').forEach((cb) => { cb.checked = false; });
   }
 }
 /** Affiche les champs spécifiques Véhicules (marque, modèle, année,
@@ -895,18 +918,54 @@ function updateVehicleDetailsVisibility(subcategorySlug) {
  * pièces, étage, meublé, année de construction) pour toutes les sous-
  * catégories Immobilier sauf Terrain, qui n'a ni pièces, ni étage, ni
  * caractère meublé. */
+/** Affiche les champs spécifiques Immobilier (surface, pièces, étage,
+ * meublé, année de construction) — mais pas tous en bloc : certains
+ * champs n'ont pas de sens pour certaines sous-catégories (un terrain
+ * nu n'a ni pièces ni étage ni statut meublé ; un entrepôt ou un
+ * parking n'ont pas vocation à être "meublés"). Chaque champ est donc
+ * évalué individuellement plutôt que le bloc entier d'un coup. */
 function updateRealEstateDetailsVisibility(subcategorySlug) {
   const row = document.getElementById('realEstateDetailsRow');
   if (!row) return;
-  const REAL_ESTATE_SUBCATEGORIES = ['appartement', 'bureau', 'chambre', 'colocation', 'entrepot', 'immeuble-rapport', 'location-vacances', 'maison', 'parking-garage'];
-  const showFields = REAL_ESTATE_SUBCATEGORIES.includes(subcategorySlug);
-  row.hidden = !showFields;
-  if (!showFields) {
-    ['publishSurfaceM2', 'publishNumRooms', 'publishFloorNumber', 'publishFurnished', 'publishConstructionYear'].forEach((id) => {
+  const REAL_ESTATE_SUBCATEGORIES = ['appartement', 'bureau', 'chambre', 'colocation', 'entrepot', 'immeuble-rapport', 'location-vacances', 'maison', 'parking-garage', 'riad', 'studio', 'terrain', 'terrain-agricole'];
+  const showBlock = REAL_ESTATE_SUBCATEGORIES.includes(subcategorySlug);
+  row.hidden = !showBlock;
+  const fieldIdMap = {
+    surface_m2: 'publishSurfaceM2',
+    num_rooms: 'publishNumRooms',
+    floor_number: 'publishFloorNumber',
+    furnished: 'publishFurnished',
+    construction_year: 'publishConstructionYear',
+  };
+  if (!showBlock) {
+    Object.values(fieldIdMap).forEach((id) => {
       const input = document.getElementById(id);
       if (input) input.value = '';
     });
+    return;
   }
+  const LAND_ONLY = ['terrain', 'terrain-agricole'];
+  const NO_ROOMS_TYPE = ['entrepot', 'immeuble-rapport', 'parking-garage'];
+  const fieldsToShow = {
+    surface_m2: true,
+    num_rooms: !LAND_ONLY.includes(subcategorySlug) && !NO_ROOMS_TYPE.includes(subcategorySlug),
+    floor_number: !LAND_ONLY.includes(subcategorySlug) && !NO_ROOMS_TYPE.includes(subcategorySlug),
+    furnished: !LAND_ONLY.includes(subcategorySlug) && !NO_ROOMS_TYPE.includes(subcategorySlug),
+    construction_year: !LAND_ONLY.includes(subcategorySlug),
+  };
+  for (const [field, show] of Object.entries(fieldsToShow)) {
+    const input = document.getElementById(fieldIdMap[field]);
+    if (!input) continue;
+    const label = input.closest('label');
+    if (label) label.hidden = !show;
+    if (!show) input.value = '';
+  }
+  // Une ligne "form-row--split" dont les deux champs sont masqués
+  // laisserait un vide disgracieux — on masque alors la ligne entière.
+  row.querySelectorAll('.form-row--split').forEach((splitRow) => {
+    const visibleLabels = [...splitRow.querySelectorAll('label')].filter((l) => !l.hidden);
+    splitRow.hidden = visibleLabels.length === 0;
+  });
 }
 let publishedJobCvUrl = null;
 let publishedJobCvFilename = null;
@@ -3028,13 +3087,15 @@ function preparePublishForm() {
   if (state.countries[0]) handlePublishCountryChange(countrySelect.value || state.countries[0].id);
   const cat = findCategoryById(document.getElementById('publishCategory').value);
   fillSubcategorySelect(document.getElementById('publishSubcategory'), cat, false);
-  updateTourismLodgingVisibility(findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug);
-  updateVehicleDetailsVisibility(findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug);
-  updateRealEstateDetailsVisibility(findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug);
+  const initialSubSlug = findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug;
+  updateTourismLodgingVisibility(initialSubSlug);
+  updateBedroomsBathroomsVisibility(initialSubSlug);
+  updateVehicleDetailsVisibility(initialSubSlug);
+  updateRealEstateDetailsVisibility(initialSubSlug);
   updatePublishTypeAndPriceUI(cat);
   updateSecondhandVisibility(cat ? cat.slug : null, 'secondhandCheckbox');
-  updateTourismDatesVisibility(cat ? cat.slug : null);
-  updateTourismPriceExtrasVisibility(cat ? cat.slug : null);
+  updateTourismDatesVisibility(cat ? cat.slug : null, initialSubSlug);
+  updateTourismPriceExtrasVisibility(cat ? cat.slug : null, initialSubSlug);
   updateJobDetailsVisibility(cat ? cat.slug : null);
   const warningEl = document.getElementById('categoryMismatchWarning');
   if (warningEl) warningEl.hidden = true;
@@ -3046,9 +3107,14 @@ document.querySelector('#publishForm input[name=title]').addEventListener('input
 document.querySelector('#publishForm textarea[name=description]').addEventListener('input', debounce(updateCategoryMismatchWarning, 500));
 document.getElementById('publishCategory').addEventListener('change', updateCategoryMismatchWarning);
 document.getElementById('publishSubcategory').addEventListener('change', (e) => {
-  updateTourismLodgingVisibility(findSubcategoryById(e.target.value)?.slug);
-  updateVehicleDetailsVisibility(findSubcategoryById(e.target.value)?.slug);
-  updateRealEstateDetailsVisibility(findSubcategoryById(e.target.value)?.slug);
+  const subSlug = findSubcategoryById(e.target.value)?.slug;
+  updateTourismLodgingVisibility(subSlug);
+  updateBedroomsBathroomsVisibility(subSlug);
+  updateVehicleDetailsVisibility(subSlug);
+  updateRealEstateDetailsVisibility(subSlug);
+  const catSlug = findCategoryById(document.getElementById('publishCategory').value)?.slug;
+  updateTourismDatesVisibility(catSlug, subSlug);
+  updateTourismPriceExtrasVisibility(catSlug, subSlug);
 });
 document.getElementById('publishForm').addEventListener('submit', async (e) => {
   e.preventDefault();
