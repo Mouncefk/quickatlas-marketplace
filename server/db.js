@@ -691,6 +691,16 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
       category_id INTEGER PRIMARY KEY REFERENCES categories(id) ON DELETE CASCADE
     );
   `);
+  // Même principe que disabled_categories ci-dessus, appliqué cette fois
+  // aux pays — permet de restreindre un site à une zone géographique
+  // précise (ex. "véhicules, uniquement au Maroc"), selon exactement la
+  // même logique : table vide = tout activé, gestion exclusivement
+  // réservée au Super Admin.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS disabled_countries (
+      country_id INTEGER PRIMARY KEY REFERENCES countries(id) ON DELETE CASCADE
+    );
+  `);
   return db;
 }
 
