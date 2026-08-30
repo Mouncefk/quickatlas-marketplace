@@ -2384,7 +2384,13 @@ async function handleRequest(req, res) {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const sites = masterDb
-        .prepare('SELECT id, slug, subdomain, custom_domain, brand_name, status, owner_email, created_at, billing_status, billing_plan_label, billing_notes FROM sites ORDER BY created_at DESC')
+        .prepare(`
+          SELECT s.id, s.slug, s.subdomain, s.custom_domain, s.brand_name, s.status, s.owner_email, s.created_at,
+                 s.billing_status, s.billing_plan_label, s.billing_notes, s.plan_id, s.grace_period_ends_at,
+                 p.name AS plan_name
+          FROM sites s LEFT JOIN plans p ON p.id = s.plan_id
+          ORDER BY s.created_at DESC
+        `)
         .all();
       return sendJSON(res, 200, sites);
     }
@@ -2405,9 +2411,10 @@ async function handleRequest(req, res) {
       }
       const targetSite = masterDb.prepare('SELECT id, slug FROM sites WHERE id = ?').get(Number(m[1]));
       if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
+      const planId = body.plan_id !== undefined && body.plan_id !== '' ? Number(body.plan_id) : null;
       masterDb
-        .prepare('UPDATE sites SET billing_status = ?, billing_plan_label = ?, billing_notes = ? WHERE id = ?')
-        .run(billingStatus, (body.billing_plan_label || '').trim() || null, (body.billing_notes || '').trim() || null, Number(m[1]));
+        .prepare('UPDATE sites SET billing_status = ?, billing_plan_label = ?, billing_notes = ?, plan_id = ? WHERE id = ?')
+        .run(billingStatus, (body.billing_plan_label || '').trim() || null, (body.billing_notes || '').trim() || null, planId, Number(m[1]));
       logAdminAction(masterDb, admin, 'site_billing_updated', 'site', targetSite.slug, { billing_status: billingStatus });
       return sendJSON(res, 200, { ok: true });
     }
@@ -2476,6 +2483,27 @@ function recordDailySiteStats() {
       .run(site.id, today, stats.userCount, stats.listingCount, stats.activeListingCount);
   }
   console.log(`[daily-stats] instantané enregistré pour ${sites.length} site(s), date ${today}.`);
+}
+/** Fait automatiquement basculer un site de "essai" à "en retard" une
+ * fois sa période de grâce écoulée — jamais au-delà : contrairement à
+ * la suspension effective (champ status), qui reste une décision
+ * volontaire du Super Admin (voir requireSuperAdmin/route PUT status),
+ * cette tâche ne fait QUE mettre à jour l'étiquette informative
+ * billing_status. Elle ne bloque jamais l'accès au site elle-même —
+ * exactement le principe retenu lors de la conception du suivi de
+ * facturation : un statut "en retard" est une information, pas une
+ * sanction automatique. */
+function checkGracePeriodExpirations() {
+  const expiredTrials = masterDb
+    .prepare("SELECT id, slug FROM sites WHERE billing_status = 'trial' AND grace_period_ends_at IS NOT NULL AND grace_period_ends_at < datetime('now')")
+    .all();
+  for (const site of expiredTrials) {
+    masterDb.prepare("UPDATE sites SET billing_status = 'overdue' WHERE id = ?").run(site.id);
+    logAdminAction(masterDb, { id: null, email: 'tâche automatique' }, 'site_billing_updated', 'site', site.slug, { billing_status: 'overdue', reason: 'grace_period_expired' });
+  }
+  if (expiredTrials.length > 0) {
+    console.log(`[grace-period] ${expiredTrials.length} site(s) passé(s) de "essai" à "en retard" (période de grâce écoulée).`);
+  }
 }
 // Catégories activées/désactivées pour un site précis du réseau — la
 // liste catégories elle-même (partagée, copiée à la création du site)
@@ -2546,6 +2574,49 @@ if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)\/categories$/)) && me
       logAdminAction(masterDb, admin, 'site_countries_updated', 'site', targetSite.slug, { disabled_country_ids: disabledIds });
       return sendJSON(res, 200, { ok: true });
     }
+    // Gestion des formules d'abonnement (plans) — briques du système
+// «Site → Plan → Catégories → Tarif» évoqué par le document de vision.
+// Pas de suppression définitive : un plan déjà associé à un site
+// existant doit rester consultable pour l'historique — on le retire
+// simplement de la liste proposée pour un NOUVEAU site (is_active).
+if (pathname === '/api/super-admin/plans' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const plans = masterDb.prepare('SELECT * FROM plans ORDER BY price_amount ASC').all();
+      return sendJSON(res, 200, plans);
+    }
+    if (pathname === '/api/super-admin/plans' && method === 'POST') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const name = (body.name || '').trim();
+      if (!name) return sendJSON(res, 400, { error: 'Le nom de la formule est requis.' });
+      const priceAmount = body.price_amount !== undefined && body.price_amount !== '' ? Number(body.price_amount) : null;
+      const maxCategories = body.max_categories !== undefined && body.max_categories !== '' ? Number(body.max_categories) : null;
+      const billingInterval = ['monthly', 'yearly'].includes(body.billing_interval) ? body.billing_interval : 'monthly';
+      const result = masterDb
+        .prepare('INSERT INTO plans (name, price_amount, price_currency, billing_interval, max_categories, description) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(name, priceAmount, (body.price_currency || 'EUR').trim(), billingInterval, maxCategories, (body.description || '').trim() || null);
+      logAdminAction(masterDb, admin, 'plan_created', 'plan', name, { price_amount: priceAmount, max_categories: maxCategories });
+      return sendJSON(res, 201, { ok: true, id: result.lastInsertRowid });
+    }
+    if ((m = pathname.match(/^\/api\/super-admin\/plans\/(\d+)$/)) && method === 'PUT') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const plan = masterDb.prepare('SELECT id, name FROM plans WHERE id = ?').get(Number(m[1]));
+      if (!plan) return sendJSON(res, 404, { error: 'Formule introuvable.' });
+      const body = await readBody(req);
+      const name = (body.name || '').trim();
+      if (!name) return sendJSON(res, 400, { error: 'Le nom de la formule est requis.' });
+      const priceAmount = body.price_amount !== undefined && body.price_amount !== '' ? Number(body.price_amount) : null;
+      const maxCategories = body.max_categories !== undefined && body.max_categories !== '' ? Number(body.max_categories) : null;
+      const billingInterval = ['monthly', 'yearly'].includes(body.billing_interval) ? body.billing_interval : 'monthly';
+      masterDb
+        .prepare('UPDATE plans SET name = ?, price_amount = ?, price_currency = ?, billing_interval = ?, max_categories = ?, description = ?, is_active = ? WHERE id = ?')
+        .run(name, priceAmount, (body.price_currency || 'EUR').trim(), billingInterval, maxCategories, (body.description || '').trim() || null, body.is_active ? 1 : 0, Number(m[1]));
+      logAdminAction(masterDb, admin, 'plan_updated', 'plan', name, { price_amount: priceAmount, max_categories: maxCategories });
+      return sendJSON(res, 200, { ok: true });
+    }
     if (pathname === '/api/super-admin/global-stats' && method === 'GET') {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
@@ -2595,6 +2666,13 @@ if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)\/categories$/)) && me
       const ownerName = (body.owner_name || '').trim();
       const ownerEmail = (body.owner_email || '').trim().toLowerCase();
       const ownerPassword = body.owner_password || '';
+      const planId = body.plan_id !== undefined && body.plan_id !== '' ? Number(body.plan_id) : null;
+      // Période de grâce : nombre de jours configurable au moment de la
+      // création (14 par défaut) — le Super Admin ajuste selon l'accord
+      // passé avec ce loueur précis, cohérent avec le principe "les
+      // catégories sont activées selon le besoin du loueur et de
+      // l'accord passé" déjà retenu pour les catégories.
+      const gracePeriodDays = body.grace_period_days !== undefined && body.grace_period_days !== '' ? Number(body.grace_period_days) : 14;
       if (!/^[a-z0-9-]{2,40}$/.test(slug)) {
         return sendJSON(res, 400, { error: 'Identifiant de site invalide (lettres minuscules, chiffres et tirets uniquement, 2 à 40 caractères).' });
       }
@@ -2632,10 +2710,10 @@ if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)\/categories$/)) && me
         .run(ownerName, ownerEmail, hash, salt);
       masterDb
         .prepare(
-          `INSERT INTO sites (slug, subdomain, custom_domain, db_filename, brand_name, owner_email, status) VALUES (?, ?, ?, ?, ?, ?, 'active')`
+          `INSERT INTO sites (slug, subdomain, custom_domain, db_filename, brand_name, owner_email, status, plan_id, grace_period_ends_at) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, datetime('now', ?))`
         )
-        .run(slug, subdomain, customDomain, dbFilename, brandName, ownerEmail);
-      logAdminAction(masterDb, admin, 'site_created', 'site', slug, { brand_name: brandName, subdomain, custom_domain: customDomain, owner_email: ownerEmail });
+        .run(slug, subdomain, customDomain, dbFilename, brandName, ownerEmail, planId, `+${gracePeriodDays} days`);
+      logAdminAction(masterDb, admin, 'site_created', 'site', slug, { brand_name: brandName, subdomain, custom_domain: customDomain, owner_email: ownerEmail, plan_id: planId, grace_period_days: gracePeriodDays });
       return sendJSON(res, 201, { ok: true, slug, db_filename: dbFilename });
     }
     if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)$/)) && method === 'PUT') {
@@ -3790,6 +3868,20 @@ server.listen(PORT, () => {
       recordDailySiteStats();
     } catch (err) {
       console.error('[daily-stats] échec de l\'enregistrement périodique :', err.message);
+    }
+  }, 24 * 60 * 60 * 1000);
+  // Vérification quotidienne des périodes de grâce expirées — même
+  // cadence que les statistiques, aucun contexte de site actif requis.
+  try {
+    checkGracePeriodExpirations();
+  } catch (err) {
+    console.error('[grace-period] échec de la vérification initiale :', err.message);
+  }
+  setInterval(() => {
+    try {
+      checkGracePeriodExpirations();
+    } catch (err) {
+      console.error('[grace-period] échec de la vérification périodique :', err.message);
     }
   }, 24 * 60 * 60 * 1000);
 });
