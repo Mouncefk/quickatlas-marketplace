@@ -1141,6 +1141,7 @@ async function fillPublishCitiesFromStates(stateId) {
   const sel = document.getElementById('publishCity');
   sel.innerHTML = '';
   for (const c of cities) sel.append(el('option', { value: c.id }, c.name));
+  fillPublishExtraCities(cities);
 }
 function renderStatsBar() {
   const bar = document.getElementById('statsBar');
@@ -1175,11 +1176,22 @@ async function loadFeatured() {
     /* section reste masquée si l'appel échoue */
   }
 }
+/** Peuple le multi-select "villes supplémentaires" à partir de la même
+ * liste que le champ ville principal — limitation connue en V1 : pour
+ * un pays fédéral, se limite aux villes du même État que la ville
+ * principale (pas de vue consolidée multi-États pour l'instant). */
+function fillPublishExtraCities(cities) {
+  const sel = document.getElementById('publishExtraCities');
+  if (!sel) return;
+  sel.innerHTML = '';
+  for (const c of cities) sel.append(el('option', { value: c.id }, c.name));
+}
 async function fillPublishCities(countryId) {
   const cities = await api(`/countries/${countryId}/cities`);
   const sel = document.getElementById('publishCity');
   sel.innerHTML = '';
   for (const c of cities) sel.append(el('option', { value: c.id }, c.name));
+  fillPublishExtraCities(cities);
 }
 function renderCountryGrid() {
   setupCountryCombobox();
@@ -3070,6 +3082,7 @@ function updateCategoryMismatchWarning() {
 function preparePublishForm() {
   document.getElementById('publishError').hidden = true;
   document.getElementById('publishForm').reset();
+  updateExtraCitiesVisibility();
   document.getElementById('conditionNewBtn').classList.remove('active');
   document.getElementById('conditionUsedBtn').classList.remove('active');
   document.getElementById('conditionError').hidden = true;
@@ -3105,6 +3118,16 @@ document.getElementById('openToTradeCheckbox').addEventListener('change', (e) =>
 });
 document.querySelector('#publishForm input[name=title]').addEventListener('input', debounce(updateCategoryMismatchWarning, 500));
 document.querySelector('#publishForm textarea[name=description]').addEventListener('input', debounce(updateCategoryMismatchWarning, 500));
+function updateExtraCitiesVisibility() {
+  const row = document.getElementById('publishExtraCitiesRow');
+  const checkbox = document.getElementById('publishVisibleAllCities');
+  if (!row || !checkbox) return;
+  row.hidden = checkbox.checked;
+  if (checkbox.checked) {
+    [...document.getElementById('publishExtraCities').options].forEach((opt) => { opt.selected = false; });
+  }
+}
+document.getElementById('publishVisibleAllCities')?.addEventListener('change', updateExtraCitiesVisibility);
 document.getElementById('publishCategory').addEventListener('change', updateCategoryMismatchWarning);
 document.getElementById('publishSubcategory').addEventListener('change', (e) => {
   const subSlug = findSubcategoryById(e.target.value)?.slug;
@@ -3132,6 +3155,8 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     subcategory_id: Number(fd.get('subcategory_id')),
     listing_type: fd.get('listing_type'),
     city_id: Number(fd.get('city_id')),
+    visible_all_cities: fd.get('visible_all_cities') === 'on',
+    extra_city_ids: document.getElementById('publishVisibleAllCities').checked ? [] : fd.getAll('extra_city_ids').map(Number),
     price: fd.get('price') === '' ? null : Number(fd.get('price')),
     currency: (fd.get('currency') || 'EUR').toUpperCase(),
     description: fd.get('description'),
