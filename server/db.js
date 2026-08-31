@@ -307,6 +307,30 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_site_visits_created ON site_visits(created_at);
 `);
+// Suivi de prospects (mini-CRM) — chaque conversation initiée par un
+// acheteur au sujet d'une annonce devient automatiquement une fiche
+// prospect suivie par le vendeur (voir la route POST /api/conversations
+// dans server.js pour la création automatique). Permet aussi l'ajout
+// manuel d'un prospect contacté hors plateforme (buyer_id alors NULL).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS listing_leads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    buyer_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    contact_name TEXT,
+    contact_phone TEXT,
+    contact_email TEXT,
+    source TEXT NOT NULL DEFAULT 'message' CHECK (source IN ('message','manual')),
+    status TEXT NOT NULL DEFAULT 'nouveau' CHECK (status IN ('nouveau','contacte','visite_programmee','offre_faite','conclu','perdu')),
+    notes TEXT,
+    next_reminder_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_listing_leads_seller ON listing_leads(seller_id);
+  CREATE INDEX IF NOT EXISTS idx_listing_leads_listing ON listing_leads(listing_id);
+`);
 // Migration : ajout de la colonne image_url à la table messages, pour
 // permettre de joindre une photo à un message (façon Vinted/Avito).
 // ALTER TABLE ne peut pas être conditionné par IF NOT EXISTS en SQLite —
