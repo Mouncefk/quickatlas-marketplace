@@ -135,7 +135,7 @@ function getAuthUser(req) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   const payload = verifyToken(token);
   if (!payload) return null;
-  return db.prepare('SELECT id, name, email, role, email_verified_at, phone, referral_code, free_boost_credits, is_professional, company_name, company_logo_url, company_website, social_whatsapp, social_instagram, social_facebook, pro_tier, created_at FROM users WHERE id = ?').get(payload.sub) || null;
+  return db.prepare('SELECT id, name, email, role, email_verified_at, phone, referral_code, free_boost_credits, is_professional, company_name, company_logo_url, company_website, social_whatsapp, social_instagram, social_facebook, social_tiktok, social_linkedin, pro_tier, created_at FROM users WHERE id = ?').get(payload.sub) || null;
 }
 function requireAuth(req, res) {
   const user = getAuthUser(req);
@@ -1368,6 +1368,7 @@ async function handleRequest(req, res) {
           phone: user.phone, referral_code: user.referral_code, free_boost_credits: user.free_boost_credits,
           is_professional: !!user.is_professional, company_name: user.company_name, company_logo_url: user.company_logo_url,
           company_website: user.company_website, social_whatsapp: user.social_whatsapp, social_instagram: user.social_instagram, social_facebook: user.social_facebook,
+          social_tiktok: user.social_tiktok, social_linkedin: user.social_linkedin,
           pro_tier: user.pro_tier, domain_verified: isDomainVerified(user.email, user.company_website),
         },
       });
@@ -1380,12 +1381,12 @@ async function handleRequest(req, res) {
     if (pathname === '/api/me/professional-profile' && method === 'PUT') {
       const user = requireAuth(req, res);
       if (!user) return;
-      const { is_professional, company_name, company_website, company_logo_url, social_whatsapp, social_instagram, social_facebook } = await readBody(req);
+      const { is_professional, company_name, company_website, company_logo_url, social_whatsapp, social_instagram, social_facebook, social_tiktok, social_linkedin } = await readBody(req);
       if (is_professional && (!company_name || !company_name.trim())) {
         return sendJSON(res, 400, { error: "Le nom de l'entreprise est requis." });
       }
       db.prepare(
-        `UPDATE users SET is_professional = ?, company_name = ?, company_website = ?, company_logo_url = ?, social_whatsapp = ?, social_instagram = ?, social_facebook = ? WHERE id = ?`
+        `UPDATE users SET is_professional = ?, company_name = ?, company_website = ?, company_logo_url = ?, social_whatsapp = ?, social_instagram = ?, social_facebook = ?, social_tiktok = ?, social_linkedin = ? WHERE id = ?`
       ).run(
         is_professional ? 1 : 0,
         is_professional ? company_name.trim() : null,
@@ -1394,6 +1395,8 @@ async function handleRequest(req, res) {
         is_professional ? (social_whatsapp || '').trim() || null : null,
         is_professional ? (social_instagram || '').trim() || null : null,
         is_professional ? (social_facebook || '').trim() || null : null,
+        is_professional ? (social_tiktok || '').trim() || null : null,
+        is_professional ? (social_linkedin || '').trim() || null : null,
         user.id
       );
       return sendJSON(res, 200, { ok: true });
@@ -1964,6 +1967,7 @@ async function handleRequest(req, res) {
                   u.is_professional AS owner_is_professional, u.company_name AS owner_company_name,
                   u.company_logo_url AS owner_company_logo_url, u.company_website AS owner_company_website,
                   u.social_whatsapp AS owner_social_whatsapp, u.social_instagram AS owner_social_instagram, u.social_facebook AS owner_social_facebook,
+                  u.social_tiktok AS owner_social_tiktok, u.social_linkedin AS owner_social_linkedin,
                   u.pro_tier AS owner_pro_tier, u.email AS owner_email,
                   (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.seller_id = l.user_id) AS owner_avg_rating,
                   (SELECT COUNT(*) FROM reviews r WHERE r.seller_id = l.user_id) AS owner_review_count
