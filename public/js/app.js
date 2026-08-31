@@ -4740,6 +4740,13 @@ function graceRemainingLabel(graceEndsAt) {
   const daysLeft = Math.ceil((endDate - new Date()) / (24 * 60 * 60 * 1000));
   return daysLeft > 0 ? i18n.t('admin.grace_days_left', { count: daysLeft }) : i18n.t('admin.grace_expired');
 }
+/** Même principe que graceRemainingLabel, pour l'échéance d'un site de
+ * démonstration (auto-provisionné depuis une réservation). */
+function demoRemainingLabel(demoExpiresAt) {
+  const endDate = new Date(demoExpiresAt.replace(' ', 'T') + 'Z');
+  const daysLeft = Math.ceil((endDate - new Date()) / (24 * 60 * 60 * 1000));
+  return daysLeft > 0 ? i18n.t('admin.demo_days_left', { count: daysLeft }) : i18n.t('admin.demo_expired');
+}
 /** Remplit un menu déroulant de choix de formule — réutilisé à la fois
  * pour le formulaire de création de site et pour la modale de
  * facturation, avec la valeur actuellement sélectionnée préservée si
@@ -4918,6 +4925,19 @@ async function loadSuperAdminSites() {
       const domain = s.custom_domain || s.subdomain || '—';
       const isMain = s.slug === 'main';
       const menuItems = [
+        s.demo_expires_at ? el('button', {
+          class: 'admin-actions-menu-item',
+          onclick: async () => {
+            closeAllActionsMenus();
+            try {
+              await api(`/super-admin/sites/${s.id}/extend-demo`, { method: 'PUT' });
+              showToast(i18n.t('toast.demo_extended'));
+              loadSuperAdminSites(); loadSuperAdminAuditLog();
+            } catch (err) {
+              showToast(err.message);
+            }
+          },
+        }, i18n.t('admin.demo_extend')) : null,
         el('button', { class: 'admin-actions-menu-item', onclick: () => { closeAllActionsMenus(); openSiteBillingModal(s); } }, i18n.t('admin.billing_edit')),
         el('button', { class: 'admin-actions-menu-item', onclick: () => { closeAllActionsMenus(); openSiteCategoriesModal(s); } }, i18n.t('admin.categories_edit')),
         el('button', { class: 'admin-actions-menu-item', onclick: () => { closeAllActionsMenus(); openSiteCountriesModal(s); } }, i18n.t('admin.countries_edit')),
@@ -4965,6 +4985,7 @@ async function loadSuperAdminSites() {
             s.plan_name ? el('span', { class: 'form-hint', style: 'display:block;' }, s.plan_name) : null,
             s.billing_plan_label ? el('span', { class: 'form-hint', style: 'display:block;' }, s.billing_plan_label) : null,
             s.billing_status === 'trial' && s.grace_period_ends_at ? el('span', { class: 'form-hint', style: 'display:block;' }, graceRemainingLabel(s.grace_period_ends_at)) : null,
+            s.demo_expires_at ? el('span', { class: 'form-hint form-hint--demo', style: 'display:block;' }, `🧪 ${demoRemainingLabel(s.demo_expires_at)}`) : null,
           ]),
           el('td', {}, new Date(s.created_at).toLocaleDateString()),
           el('td', { class: 'admin-actions-cell' }, [
