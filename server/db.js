@@ -849,7 +849,13 @@ function initializeMasterDatabase(dbPath) {
       stripe_customer_id TEXT,
       stripe_subscription_id TEXT,
       plan_id INTEGER REFERENCES plans(id),
-      grace_period_ends_at TEXT
+      grace_period_ends_at TEXT,
+      -- Site de démonstration auto-provisionné depuis une réservation
+      -- pré-lancement (voir site_reservations) — NULL pour un site
+      -- normal. Supprimé automatiquement à l'échéance par la tâche
+      -- quotidienne checkDemoExpirations(), sauf prolongation manuelle
+      -- depuis le panneau Réservations.
+      demo_expires_at TEXT
     );
     CREATE TABLE IF NOT EXISTS plans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -899,6 +905,7 @@ function initializeMasterDatabase(dbPath) {
       ['stripe_subscription_id', 'TEXT'],
       ['plan_id', 'INTEGER'],
       ['grace_period_ends_at', 'TEXT'],
+      ['demo_expires_at', 'TEXT'],
     ];
     for (const [name, type] of billingColumns) {
       if (!sitesColumns.includes(name)) {
