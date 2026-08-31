@@ -2781,6 +2781,21 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
         text: `Bonjour,\n\nVotre réservation pour ${subdomain}.quickatlas.net (${businessName}) est bien enregistrée — gratuite et sans engagement.\n\nNous vous recontacterons personnellement à l'approche du lancement officiel pour finaliser la mise en route de votre marketplace.\n\nÀ très bientôt,\nL'équipe QuickAtlas`,
         link: SITE_URL,
       }).catch((err) => console.error('[reservation] échec envoi email confirmation :', err.message));
+      // Notifie chaque super admin, pour ne pas dépendre d'une visite
+      // manuelle régulière du panneau Réservations — la liste des
+      // destinataires reste à jour automatiquement si un super admin est
+      // ajouté ou retiré plus tard, sans adresse à coder en dur.
+      const superAdmins = db.prepare("SELECT email FROM users WHERE role = 'super_admin'").all();
+      for (const admin of superAdmins) {
+        sendMail({
+          smtpConfig: getSiteMailConfig(),
+          to: admin.email,
+          purpose: 'reservation_notification',
+          subject: `Nouvelle réservation : ${subdomain}.quickatlas.net`,
+          text: `Nouvelle réservation de sous-domaine reçue.\n\nEntreprise : ${businessName}\nSecteur : ${(body.sector || '').trim() || 'non précisé'}\nSous-domaine souhaité : ${subdomain}.quickatlas.net\nContact : ${contactEmail}${(body.contact_phone || '').trim() ? ` / ${(body.contact_phone || '').trim()}` : ''}\n\nÀ consulter et traiter depuis 🌐 Réseau de sites → Réservations.`,
+          link: SITE_URL,
+        }).catch((err) => console.error('[reservation] échec notification super admin :', err.message));
+      }
       return sendJSON(res, 201, { ok: true });
     }
     if (pathname === '/api/super-admin/reservations' && method === 'GET') {
