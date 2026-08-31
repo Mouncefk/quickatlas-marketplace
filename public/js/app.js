@@ -2293,6 +2293,65 @@ async function shareListingAsPostcard(listing) {
     showToast(i18n.t('toast.link_copied'));
   }
 }
+/** Génère une image promotionnelle pour faire connaître QuickAtlas
+ * lui-même (nouveauté, fonctionnalité) — même esprit visuel que la
+ * carte postale d'annonce, mais sans donnée d'annonce : juste un
+ * titre, une description optionnelle, et la marque du site. */
+document.getElementById('promoGenerateBtn')?.addEventListener('click', () => {
+  const errEl = document.getElementById('promoError');
+  errEl.hidden = true;
+  const title = document.getElementById('promoTitleInput').value.trim();
+  if (!title) {
+    errEl.textContent = i18n.t('admin.promo_title_required');
+    errEl.hidden = false;
+    return;
+  }
+  const description = document.getElementById('promoDescriptionInput').value.trim();
+  const canvas = document.getElementById('promoCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0E1B2E';
+  ctx.fillRect(0, 0, 1000, 600);
+  ctx.strokeStyle = '#C6A15B';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(10, 10, 980, 580);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#C6A15B';
+  ctx.font = 'bold 26px monospace';
+  ctx.fillText((window.currentSiteName || 'QuickAtlas').toUpperCase(), 500, 100);
+  ctx.fillStyle = '#F1E9D8';
+  ctx.font = 'bold 46px Georgia, serif';
+  ctx.textAlign = 'left';
+  wrapCanvasText(ctx, title, 90, 220, 820, 56);
+  if (description) {
+    ctx.fillStyle = '#DDC48C';
+    ctx.font = '24px Georgia, serif';
+    wrapCanvasText(ctx, description, 90, 400, 820, 34);
+  }
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#B5482E';
+  ctx.font = '18px monospace';
+  ctx.fillText('quickatlas.net', 500, 550);
+  document.getElementById('promoPreviewBox').hidden = false;
+});
+document.getElementById('promoShareBtn')?.addEventListener('click', async () => {
+  const canvas = document.getElementById('promoCanvas');
+  const title = document.getElementById('promoTitleInput').value.trim();
+  try {
+    const blob = await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
+    const file = new File([blob], 'quickatlas-promo.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title, text: title });
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'quickatlas-promo.png';
+    link.click();
+    showToast(i18n.t('toast.postcard_downloaded'));
+  } catch {
+    showToast(i18n.t('toast.link_copied'));
+  }
+});
 function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
   const words = text.split(' ');
   let line = '';
@@ -4366,6 +4425,7 @@ document.querySelectorAll('[data-super-admin-tab]').forEach((btn) =>
     document.getElementById('superAdminOverviewPanel').hidden = btn.dataset.superAdminTab !== 'overview';
     document.getElementById('superAdminSitesPanel').hidden = btn.dataset.superAdminTab !== 'sites';
     document.getElementById('superAdminPlansPanel').hidden = btn.dataset.superAdminTab !== 'plans';
+    document.getElementById('superAdminPromoPanel').hidden = btn.dataset.superAdminTab !== 'promo';
     document.getElementById('superAdminAuditPanel').hidden = btn.dataset.superAdminTab !== 'audit';
     if (btn.dataset.superAdminTab === 'overview') loadGlobalStats();
     if (btn.dataset.superAdminTab === 'sites') loadSuperAdminSites();
