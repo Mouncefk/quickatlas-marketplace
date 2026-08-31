@@ -331,6 +331,24 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_listing_leads_seller ON listing_leads(seller_id);
   CREATE INDEX IF NOT EXISTS idx_listing_leads_listing ON listing_leads(listing_id);
 `);
+// Migration : liens réseaux sociaux d'un compte professionnel (WhatsApp,
+// Instagram, Facebook) — configurés par le professionnel lui-même dans
+// ses réglages, jamais par l'administrateur du site à sa place. Servent
+// à afficher des icônes cliquables sur son profil public et à enrichir
+// la carte de partage générée pour ses annonces.
+{
+  const userColumns2 = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
+  const socialColumns = [
+    ['social_whatsapp', 'TEXT'],
+    ['social_instagram', 'TEXT'],
+    ['social_facebook', 'TEXT'],
+  ];
+  for (const [name, type] of socialColumns) {
+    if (!userColumns2.includes(name)) {
+      db.exec(`ALTER TABLE users ADD COLUMN ${name} ${type}`);
+    }
+  }
+}
 // Migration : ajout de la colonne image_url à la table messages, pour
 // permettre de joindre une photo à un message (façon Vinted/Avito).
 // ALTER TABLE ne peut pas être conditionné par IF NOT EXISTS en SQLite —
