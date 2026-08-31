@@ -940,6 +940,7 @@
       <div class="auth-tabs">
         <button class="auth-tab active" data-super-admin-tab="overview" data-i18n="admin.tab_overview">Vue d'ensemble</button>
         <button class="auth-tab" data-super-admin-tab="sites" data-i18n="admin.tab_sites">Sites</button>
+        <button class="auth-tab" data-super-admin-tab="reservations" data-i18n="admin.tab_reservations">Réservations</button>
         <button class="auth-tab" data-super-admin-tab="plans" data-i18n="admin.tab_plans">Formules</button>
         <button class="auth-tab" data-super-admin-tab="promo" data-i18n="admin.tab_promo">Promotion</button>
         <button class="auth-tab" data-super-admin-tab="audit" data-i18n="admin.tab_audit">Journal d'audit</button>
@@ -964,6 +965,23 @@
             </tr>
           </thead>
           <tbody id="superAdminSitesBody"></tbody>
+        </table>
+      </div>
+      <div id="superAdminReservationsPanel" class="admin-panel" hidden>
+        <p class="form-hint" data-i18n="admin.reservations_hint">Demandes de réservation de sous-domaine avant lancement officiel — gratuites, sans engagement.</p>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th data-i18n="admin.reservations_col_subdomain">Sous-domaine</th>
+              <th data-i18n="admin.reservations_col_business">Entreprise</th>
+              <th data-i18n="admin.reservations_col_sector">Secteur</th>
+              <th data-i18n="admin.reservations_col_contact">Contact</th>
+              <th data-i18n="admin.reservations_col_status">Statut</th>
+              <th data-i18n="admin.reservations_col_date">Demandé le</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="superAdminReservationsBody"></tbody>
         </table>
       </div>
       <div id="superAdminPlansPanel" class="admin-panel" hidden>
@@ -1256,6 +1274,51 @@
       </form>
     </div>
   </div>
+  <!-- ===== Réservation de sous-domaine (pré-lancement) ===== -->
+  <section id="view-reserve" class="view" hidden>
+    <div class="form-page">
+      <p class="eyebrow" data-i18n="reserve.eyebrow">AVANT LE LANCEMENT OFFICIEL</p>
+      <h1 data-i18n="reserve.title">Réservez votre marketplace, gratuitement</h1>
+      <p data-i18n="reserve.intro">Vous êtes professionnel de l'immobilier, de l'automobile ou d'un autre secteur ? Réservez dès maintenant le nom de votre future marketplace — sans engagement, sans paiement. Nous vous recontacterons personnellement à l'approche du lancement.</p>
+      <form id="reserveForm" class="atlas-form">
+        <div class="form-row">
+          <label><span data-i18n="reserve.field_subdomain">Nom de sous-domaine souhaité</span>
+            <div class="reserve-subdomain-row">
+              <input type="text" name="subdomain" id="reserveSubdomain" required pattern="[a-z0-9-]{3,40}" data-i18n-placeholder="reserve.subdomain_placeholder" placeholder="auto-maroc" />
+              <span class="reserve-subdomain-suffix">.quickatlas.net</span>
+            </div>
+            <span id="reserveSubdomainStatus" class="form-hint"></span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="reserve.field_business_name">Nom de votre entreprise</span>
+            <input type="text" name="business_name" required />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="reserve.field_sector">Secteur d'activité (optionnel)</span>
+            <select name="sector">
+              <option value="" data-i18n="reserve.sector_none">— Non précisé —</option>
+              <option value="immobilier" data-i18n="category.immobilier">Immobilier</option>
+              <option value="vehicules" data-i18n="category.vehicules">Véhicules</option>
+              <option value="autre" data-i18n="reserve.sector_other">Autre</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row form-row--split">
+          <label><span data-i18n="reserve.field_email">Email de contact</span>
+            <input type="email" name="contact_email" required />
+          </label>
+          <label><span data-i18n="reserve.field_phone">Téléphone (optionnel)</span>
+            <input type="tel" name="contact_phone" />
+          </label>
+        </div>
+        <p class="form-error" id="reserveError" hidden></p>
+        <p class="form-success" id="reserveSuccess" hidden></p>
+        <button type="submit" class="btn btn--primary" id="reserveSubmitBtn" data-i18n="reserve.submit">Réserver gratuitement</button>
+      </form>
+    </div>
+  </section>
   <!-- ===== TERMS ===== -->
   <section id="view-terms" class="view" hidden>
     <div class="form-page">
@@ -1326,6 +1389,7 @@
       <h4 data-i18n="footer.col_help">Aide</h4>
       <button class="footer-link" id="footerAlertsHowToBtn" data-i18n="footer.alerts_how_to">Comment fonctionnent les alertes</button>
       <button class="footer-link" data-nav="terms" data-i18n="footer.trust_safety">Sécurité et confiance</button>
+      <button class="footer-link" data-nav="reserve" data-i18n="reserve.footer_link">🏷️ Réservez votre marketplace</button>
       <a class="footer-link" href="mailto:contact@quickatlas.net" data-i18n="footer.contact">Nous contacter</a>
     </div>
     <div class="footer-col">
