@@ -1180,18 +1180,50 @@ async function loadFeatured() {
  * liste que le champ ville principal — limitation connue en V1 : pour
  * un pays fédéral, se limite aux villes du même État que la ville
  * principale (pas de vue consolidée multi-États pour l'instant). */
-/** Peuple le multi-select "villes supplémentaires" avec TOUTES les
- * villes du pays, États fédéraux compris — contrairement au champ ville
+/** Villes supplémentaires — liste à cocher avec recherche, plutôt qu'un
+ * menu déroulant natif à sélection multiple (nécessitant Ctrl/Cmd+clic,
+ * peu intuitif pour un formulaire public). Même principe que la liste
+ * de pays du panneau Super Admin : currentExtraCitiesData garde l'état
+ * coché de toutes les villes, y compris celles masquées par un filtre
+ * de recherche en cours, pour ne jamais perdre un choix déjà fait. */
+let currentExtraCitiesData = [];
+function syncExtraCitiesCheckedState() {
+  document.querySelectorAll('#publishExtraCitiesList input[type="checkbox"]').forEach((cb) => {
+    const city = currentExtraCitiesData.find((c) => c.id === Number(cb.dataset.cityId));
+    if (city) city.checked = cb.checked;
+  });
+}
+function renderExtraCitiesList(filterText) {
+  syncExtraCitiesCheckedState();
+  const list = document.getElementById('publishExtraCitiesList');
+  if (!list) return;
+  const query = (filterText || '').trim().toLowerCase();
+  const filtered = query ? currentExtraCitiesData.filter((c) => c.name.toLowerCase().includes(query)) : currentExtraCitiesData;
+  list.innerHTML = '';
+  for (const c of filtered) {
+    list.append(
+      el('label', { class: 'terms-checkbox site-category-item' }, [
+        el('input', { type: 'checkbox', 'data-city-id': c.id, checked: c.checked ? 'checked' : null }),
+        el('span', {}, c.name),
+      ])
+    );
+  }
+}
+document.getElementById('publishExtraCitiesSearch')?.addEventListener('input', (e) => renderExtraCitiesList(e.target.value));
+/** Peuple la liste "villes supplémentaires" avec TOUTES les villes du
+ * pays, États fédéraux compris — contrairement au champ ville
  * principale, qui reste limité à un État à la fois pour un pays
  * fédéral. Interrogation indépendante de la route dédiée
  * /countries/:id/all-cities plutôt que de recycler la liste (limitée)
  * déjà affichée pour la ville principale. */
 async function fillPublishExtraCities(countryId) {
-  const sel = document.getElementById('publishExtraCities');
-  if (!sel) return;
+  const list = document.getElementById('publishExtraCitiesList');
+  if (!list) return;
+  const searchInput = document.getElementById('publishExtraCitiesSearch');
+  if (searchInput) searchInput.value = '';
   const cities = await api(`/countries/${countryId}/all-cities`);
-  sel.innerHTML = '';
-  for (const c of cities) sel.append(el('option', { value: c.id }, c.name));
+  currentExtraCitiesData = cities.map((c) => ({ ...c, checked: false }));
+  renderExtraCitiesList('');
 }
 async function fillPublishCities(countryId) {
   const cities = await api(`/countries/${countryId}/cities`);
@@ -3130,7 +3162,8 @@ function updateExtraCitiesVisibility() {
   if (!row || !checkbox) return;
   row.hidden = checkbox.checked;
   if (checkbox.checked) {
-    [...document.getElementById('publishExtraCities').options].forEach((opt) => { opt.selected = false; });
+    currentExtraCitiesData.forEach((c) => { c.checked = false; });
+    document.querySelectorAll('#publishExtraCitiesList input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
   }
 }
 document.getElementById('publishVisibleAllCities')?.addEventListener('change', updateExtraCitiesVisibility);
@@ -3162,7 +3195,11 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     listing_type: fd.get('listing_type'),
     city_id: Number(fd.get('city_id')),
     visible_all_cities: fd.get('visible_all_cities') === 'on',
-    extra_city_ids: document.getElementById('publishVisibleAllCities').checked ? [] : fd.getAll('extra_city_ids').map(Number),
+    extra_city_ids: (() => {
+      if (document.getElementById('publishVisibleAllCities').checked) return [];
+      syncExtraCitiesCheckedState();
+      return currentExtraCitiesData.filter((c) => c.checked).map((c) => c.id);
+    })(),
     price: fd.get('price') === '' ? null : Number(fd.get('price')),
     currency: (fd.get('currency') || 'EUR').toUpperCase(),
     description: fd.get('description'),
