@@ -4453,11 +4453,13 @@ document.querySelectorAll('[data-super-admin-tab]').forEach((btn) =>
     document.querySelectorAll('[data-super-admin-tab]').forEach((b) => b.classList.toggle('active', b === btn));
     document.getElementById('superAdminOverviewPanel').hidden = btn.dataset.superAdminTab !== 'overview';
     document.getElementById('superAdminSitesPanel').hidden = btn.dataset.superAdminTab !== 'sites';
+    document.getElementById('superAdminReservationsPanel').hidden = btn.dataset.superAdminTab !== 'reservations';
     document.getElementById('superAdminPlansPanel').hidden = btn.dataset.superAdminTab !== 'plans';
     document.getElementById('superAdminPromoPanel').hidden = btn.dataset.superAdminTab !== 'promo';
     document.getElementById('superAdminAuditPanel').hidden = btn.dataset.superAdminTab !== 'audit';
     if (btn.dataset.superAdminTab === 'overview') loadGlobalStats();
     if (btn.dataset.superAdminTab === 'sites') loadSuperAdminSites();
+    if (btn.dataset.superAdminTab === 'reservations') loadSuperAdminReservations();
     if (btn.dataset.superAdminTab === 'plans') loadSuperAdminPlans();
     if (btn.dataset.superAdminTab === 'audit') loadSuperAdminAuditLog();
   })
@@ -4746,6 +4748,69 @@ function populatePlanDropdown(selectEl, currentValue) {
   for (const p of currentPlansData) {
     if (!p.is_active && String(p.id) !== String(currentValue)) continue; // formule retirée : masquée sauf si déjà en cours d'utilisation par ce site
     selectEl.append(el('option', { value: p.id, selected: String(p.id) === String(currentValue) ? 'selected' : null }, `${p.name} — ${formatPlanPrice(p)}`));
+  }
+}
+/** Libellé lisible du statut d'une réservation. */
+function reservationStatusLabel(status) {
+  return i18n.t(`admin.reservation_status_${status}`);
+}
+async function loadSuperAdminReservations() {
+  const tbody = document.getElementById('superAdminReservationsBody');
+  if (!tbody) return;
+  try {
+    const reservations = await api('/super-admin/reservations');
+    tbody.innerHTML = '';
+    if (reservations.length === 0) {
+      tbody.append(el('tr', {}, el('td', { colspan: '7' }, el('p', { class: 'empty-state' }, i18n.t('admin.reservations_empty')))));
+      return;
+    }
+    for (const r of reservations) {
+      tbody.append(
+        el('tr', {}, [
+          el('td', {}, `${r.subdomain}.quickatlas.net`),
+          el('td', {}, r.business_name),
+          el('td', {}, r.sector || '—'),
+          el('td', {}, [
+            el('span', {}, r.contact_email),
+            r.contact_phone ? el('span', { class: 'form-hint', style: 'display:block;' }, r.contact_phone) : null,
+          ]),
+          el('td', {}, el('span', { class: `role-badge ${r.status === 'pending' ? '' : r.status === 'declined' ? 'role-badge--admin' : ''}` }, reservationStatusLabel(r.status))),
+          el('td', {}, new Date(r.created_at + 'Z').toLocaleDateString()),
+          el('td', {}, r.status === 'pending' ? [
+            el('button', { class: 'btn btn--ghost btn--small', onclick: () => convertReservationToSite(r) }, i18n.t('admin.reservations_convert')),
+            el('button', { class: 'btn btn--ghost btn--small', onclick: () => declineReservation(r.id) }, i18n.t('admin.reservations_decline')),
+          ] : null),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+/** Pré-remplit le formulaire "Nouveau site" habituel à partir d'une
+ * réservation — la création elle-même suit exactement le même parcours
+ * que pour un site créé directement, y compris la conversion
+ * automatique du statut de la réservation côté serveur. */
+function convertReservationToSite(reservation) {
+  document.getElementById('newSiteForm').reset();
+  document.getElementById('newSiteError').hidden = true;
+  const form = document.getElementById('newSiteForm');
+  form.brand_name.value = reservation.business_name;
+  form.slug.value = reservation.subdomain;
+  document.getElementById('newSiteSubdomainInput').value = `${reservation.subdomain}.quickatlas.net`;
+  form.owner_name.value = reservation.business_name;
+  form.owner_email.value = reservation.contact_email;
+  newSiteSubdomainManuallyEdited = true;
+  document.getElementById('newSiteModal').hidden = false;
+}
+async function declineReservation(id) {
+  if (!confirm(i18n.t('admin.reservations_decline_confirm'))) return;
+  try {
+    await api(`/super-admin/reservations/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'declined' }) });
+    showToast(i18n.t('toast.reservation_declined'));
+    loadSuperAdminReservations();
+  } catch (err) {
+    showToast(err.message);
   }
 }
 async function loadSuperAdminPlans() {
@@ -5121,6 +5186,7 @@ document.getElementById('newSiteForm')?.addEventListener('submit', async (e) => 
     showToast(i18n.t('toast.super_admin_site_created'));
     document.getElementById('newSiteModal').hidden = true;
     loadSuperAdminSites(); loadSuperAdminAuditLog();
+    if (!document.getElementById('superAdminReservationsPanel').hidden) loadSuperAdminReservations();
   } catch (err) {
     errEl.textContent = friendlyErrorMessage(err);
     errEl.hidden = false;
@@ -6040,3 +6106,55 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => { /* installation impossible, site reste utilisable normalement */ });
   });
 }
+// ---------- Réservation de sous-domaine (pré-lancement) ----------
+document.getElementById('reserveSubdomain')?.addEventListener(
+  'input',
+  debounce(async (e) => {
+    const statusEl = document.getElementById('reserveSubdomainStatus');
+    const value = e.target.value.trim().toLowerCase();
+    if (!value || !/^[a-z0-9-]{3,40}$/.test(value)) {
+      statusEl.textContent = '';
+      return;
+    }
+    statusEl.textContent = i18n.t('reserve.checking');
+    try {
+      const { available } = await api(`/reservations/check-subdomain?subdomain=${encodeURIComponent(value)}`);
+      statusEl.textContent = available ? `✅ ${i18n.t('reserve.available')}` : `❌ ${i18n.t('reserve.unavailable')}`;
+      statusEl.classList.toggle('reserve-status--ok', available);
+      statusEl.classList.toggle('reserve-status--taken', !available);
+    } catch {
+      statusEl.textContent = '';
+    }
+  }, 500)
+);
+document.getElementById('reserveForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('reserveError');
+  const successEl = document.getElementById('reserveSuccess');
+  const submitBtn = document.getElementById('reserveSubmitBtn');
+  errEl.hidden = true;
+  successEl.hidden = true;
+  submitBtn.disabled = true;
+  try {
+    await api('/reservations', {
+      method: 'POST',
+      body: JSON.stringify({
+        subdomain: fd.get('subdomain'),
+        business_name: fd.get('business_name'),
+        sector: fd.get('sector'),
+        contact_email: fd.get('contact_email'),
+        contact_phone: fd.get('contact_phone'),
+      }),
+    });
+    successEl.textContent = i18n.t('reserve.success', { subdomain: fd.get('subdomain') });
+    successEl.hidden = false;
+    e.target.reset();
+    document.getElementById('reserveSubdomainStatus').textContent = '';
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
