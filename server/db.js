@@ -331,20 +331,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_listing_leads_seller ON listing_leads(seller_id);
   CREATE INDEX IF NOT EXISTS idx_listing_leads_listing ON listing_leads(listing_id);
 `);
-// Migration : origine d'une visite (vue d'annonce ou visite du site) —
-// permet de distinguer une visite venue d'un lien de partage tracé
-// (réseaux sociaux) du trafic normal. NULL = origine inconnue/normale,
-// 'share' = venue d'un lien copié via le bouton de partage tracé.
-{
-  const listingViewsColumns = db.prepare("PRAGMA table_info(listing_views)").all().map((c) => c.name);
-  if (!listingViewsColumns.includes('source')) {
-    db.exec('ALTER TABLE listing_views ADD COLUMN source TEXT');
-  }
-  const siteVisitsColumns = db.prepare("PRAGMA table_info(site_visits)").all().map((c) => c.name);
-  if (!siteVisitsColumns.includes('source')) {
-    db.exec('ALTER TABLE site_visits ADD COLUMN source TEXT');
-  }
-}
 // Migration : liens réseaux sociaux d'un compte professionnel (WhatsApp,
 // Instagram, Facebook) — configurés par le professionnel lui-même dans
 // ses réglages, jamais par l'administrateur du site à sa place. Servent
@@ -719,6 +705,24 @@ db.exec(`
   );
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(listing_id);`);
+// Migration : origine d'une visite (vue d'annonce ou visite du site) —
+// permet de distinguer une visite venue d'un lien de partage tracé
+// (réseaux sociaux) du trafic normal. NULL = origine inconnue/normale,
+// 'share' = venue d'un lien copié via le bouton de partage tracé.
+// Placée ici (après la création de listing_views et site_visits toutes
+// deux définies plus haut) — une erreur de positionnement précédente la
+// faisait s'exécuter avant que listing_views existe, cassant la
+// création de tout nouveau site.
+{
+  const listingViewsColumns = db.prepare("PRAGMA table_info(listing_views)").all().map((c) => c.name);
+  if (!listingViewsColumns.includes('source')) {
+    db.exec('ALTER TABLE listing_views ADD COLUMN source TEXT');
+  }
+  const siteVisitsColumns = db.prepare("PRAGMA table_info(site_visits)").all().map((c) => c.name);
+  if (!siteVisitsColumns.includes('source')) {
+    db.exec('ALTER TABLE site_visits ADD COLUMN source TEXT');
+  }
+}
   // Journal des actions administrateur sensibles (changement de rôle,
   // suppression d'utilisateur...) — trace qui a fait quoi et quand, utile
   // en cas de problème pour comprendre ce qui s'est passé. Alimenté via
@@ -914,6 +918,23 @@ function initializeMasterDatabase(dbPath) {
         max_categories INTEGER,
         description TEXT,
         is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    // Réservations de sous-domaine avant lancement officiel — gratuites,
+    // sans engagement : juste une demande enregistrée, sans compte ni
+    // base de données créée. Convertie plus tard en vrai site via le
+    // formulaire habituel de création, pré-rempli à partir de ces
+    // informations.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS site_reservations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subdomain TEXT NOT NULL UNIQUE,
+        business_name TEXT NOT NULL,
+        sector TEXT,
+        contact_email TEXT NOT NULL,
+        contact_phone TEXT,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','converted','declined')),
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `);
