@@ -320,9 +320,9 @@
           <p class="form-hint" data-i18n="publish.hint_visible_all_cities">Votre annonce reste rattachée à sa ville réelle ci-dessus — cette option l'affiche en plus dans toutes les autres villes du même pays.</p>
         </div>
         <div class="form-row" id="publishExtraCitiesRow">
-          <label><span data-i18n="publish.label_extra_cities">Ou choisissez des villes supplémentaires précises (optionnel)</span>
-            <select name="extra_city_ids" id="publishExtraCities" multiple size="5"></select>
-          </label>
+          <label><span data-i18n="publish.label_extra_cities">Ou choisissez des villes supplémentaires précises (optionnel)</span></label>
+          <input type="search" id="publishExtraCitiesSearch" class="site-countries-search" data-i18n-placeholder="publish.extra_cities_search_placeholder" placeholder="Rechercher une ville…" />
+          <div id="publishExtraCitiesList" class="site-categories-list"></div>
         </div>
         <div class="form-row form-row--split">
           <label id="publishCurrencyLabel"><span data-i18n="publish.label_currency">Devise</span>
