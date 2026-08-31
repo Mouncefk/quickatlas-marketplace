@@ -687,15 +687,16 @@ async function geolocateIp(ip) {
 /** Enregistre une vue géolocalisée pour une annonce, en tâche de fond
  * (n'attend jamais cette fonction — ne doit jamais ralentir l'affichage
  * de la fiche annonce pour le visiteur). */
-function logListingViewAsync(listingId, req) {
+function logListingViewAsync(listingId, req, source) {
   const forwarded = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
   const ip = forwarded || req.socket.remoteAddress || '';
   geolocateIp(ip)
     .then((geo) => {
-      db.prepare('INSERT INTO listing_views (listing_id, country, city, viewed_at) VALUES (?, ?, ?, datetime(\'now\'))').run(
+      db.prepare('INSERT INTO listing_views (listing_id, country, city, viewed_at, source) VALUES (?, ?, ?, datetime(\'now\'), ?)').run(
         listingId,
         geo?.country || null,
-        geo?.city || null
+        geo?.city || null,
+        source || null
       );
     })
     .catch((err) => console.error('[géolocalisation] échec silencieux :', err.message));
@@ -1508,7 +1509,8 @@ async function handleRequest(req, res) {
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/track-visit' && method === 'POST') {
-      db.prepare('INSERT INTO site_visits DEFAULT VALUES').run();
+      const body = await readBody(req).catch(() => ({}));
+      db.prepare('INSERT INTO site_visits (source) VALUES (?)').run((body && body.source) || null);
       return sendJSON(res, 201, { ok: true });
     }
     if (pathname === '/api/config' && method === 'GET') {
@@ -1990,7 +1992,7 @@ async function handleRequest(req, res) {
         return sendJSON(res, 404, { error: 'Annonce introuvable' });
       }
       db.prepare('UPDATE listings SET view_count = view_count + 1 WHERE id = ?').run(row.id);
-      logListingViewAsync(row.id, req);
+      logListingViewAsync(row.id, req, url.searchParams.get('src'));
       row.view_count = row.view_count + 1;
       row.images = JSON.parse(row.images_json);
       row.owner_verified = !!row.owner_verified_at;
@@ -2285,7 +2287,8 @@ async function handleRequest(req, res) {
       const rows = db
         .prepare(
           `SELECT l.id, l.title, l.view_count, l.status, l.created_at, l.expires_at,
-                  (SELECT COUNT(*) FROM favorites f WHERE f.listing_id = l.id) AS fav_count
+                  (SELECT COUNT(*) FROM favorites f WHERE f.listing_id = l.id) AS fav_count,
+                  (SELECT COUNT(*) FROM listing_views lv WHERE lv.listing_id = l.id AND lv.source = 'share') AS share_view_count
            FROM listings l WHERE l.user_id = ? ORDER BY l.created_at DESC`
         )
         .all(user.id);
@@ -2938,6 +2941,7 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       const newUsers7d = db.prepare("SELECT COUNT(*) AS c FROM users WHERE created_at >= datetime('now', '-7 days')").get().c;
       const totalVisits = db.prepare('SELECT COUNT(*) AS c FROM site_visits').get().c;
       const visits7d = db.prepare("SELECT COUNT(*) AS c FROM site_visits WHERE created_at >= datetime('now', '-7 days')").get().c;
+      const shareVisits = db.prepare("SELECT COUNT(*) AS c FROM site_visits WHERE source = 'share'").get().c;
       const countriesWithListings = db
         .prepare(
           `SELECT COUNT(DISTINCT co.id) AS c
@@ -2998,7 +3002,7 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       }
       return sendJSON(res, 200, {
         totalUsers, totalAdmins, totalListings, activeListings, suspendedListings,
-        newListings7d, newUsers7d, countriesWithListings, totalVisits, visits7d,
+        newListings7d, newUsers7d, countriesWithListings, totalVisits, visits7d, shareVisits,
         byCategory, byType, byCountry, daily, dailyVisits,
       });
     }
