@@ -6070,6 +6070,16 @@ document.getElementById('cityRequestForm')?.addEventListener('submit', async (e)
   }
 });
 async function boot() {
+  // Bascule immédiate vers la réservation si c'est la page demandée —
+  // avant même le chargement de la carte du monde (assez lourde), pour
+  // qu'un visiteur arrivant via un lien direct ou un QR code voie tout
+  // de suite le bon contenu, sans que la carte ne s'affiche d'abord
+  // pendant que le reste charge encore en arrière-plan.
+  if (window.location.pathname === '/reserve') {
+    document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
+    document.getElementById('view-reserve').hidden = false;
+    window.scrollTo(0, 0);
+  }
   await applySiteBranding();
   initLanguagePicker();
   trackSiteVisit();
