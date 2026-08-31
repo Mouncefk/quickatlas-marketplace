@@ -773,6 +773,11 @@ document.getElementById('helpDontShowAgain').addEventListener('change', (e) => {
   else localStorage.removeItem('quickatlas_guide_dismissed');
 });
 function maybeShowGuideOnFirstVisit() {
+  // Ne jamais s'afficher par-dessus la page de réservation — un
+  // professionnel qui arrive via un QR code ou un lien direct veut voir
+  // le formulaire tout de suite, pas un guide destiné aux acheteurs/
+  // vendeurs grand public.
+  if (window.location.pathname === '/reserve') return;
   if (localStorage.getItem('quickatlas_guide_dismissed')) return;
   if (localStorage.getItem('quickatlas_guide_seen')) return;
   localStorage.setItem('quickatlas_guide_seen', '1');
