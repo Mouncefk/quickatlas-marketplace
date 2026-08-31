@@ -939,6 +939,7 @@
         <button class="auth-tab active" data-super-admin-tab="overview" data-i18n="admin.tab_overview">Vue d'ensemble</button>
         <button class="auth-tab" data-super-admin-tab="sites" data-i18n="admin.tab_sites">Sites</button>
         <button class="auth-tab" data-super-admin-tab="plans" data-i18n="admin.tab_plans">Formules</button>
+        <button class="auth-tab" data-super-admin-tab="promo" data-i18n="admin.tab_promo">Promotion</button>
         <button class="auth-tab" data-super-admin-tab="audit" data-i18n="admin.tab_audit">Journal d'audit</button>
       </div>
       <div id="superAdminOverviewPanel" class="admin-panel">
@@ -978,6 +979,27 @@
           </thead>
           <tbody id="superAdminPlansBody"></tbody>
         </table>
+      </div>
+      <div id="superAdminPromoPanel" class="admin-panel" hidden>
+        <p class="form-hint" data-i18n="admin.promo_hint">Générez une image promotionnelle pour faire connaître QuickAtlas — une nouveauté, une fonctionnalité — prête à partager sur vos propres réseaux.</p>
+        <div class="form-row">
+          <label><span data-i18n="admin.promo_field_title">Titre</span>
+            <input type="text" id="promoTitleInput" maxlength="80" placeholder="Ex. Gérez plusieurs marketplaces depuis un seul compte" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.promo_field_description">Description (optionnel)</span>
+            <textarea id="promoDescriptionInput" rows="3" maxlength="200" data-i18n-placeholder="admin.promo_description_placeholder" placeholder="Un court texte d'accroche, quelques mots suffisent."></textarea>
+          </label>
+        </div>
+        <button type="button" id="promoGenerateBtn" class="btn btn--primary btn--small" data-i18n="admin.promo_generate">Générer l'image</button>
+        <p class="form-error" id="promoError" hidden></p>
+        <div id="promoPreviewBox" hidden>
+          <canvas id="promoCanvas" width="1000" height="600" class="promo-canvas-preview"></canvas>
+          <div class="form-actions">
+            <button type="button" id="promoShareBtn" class="btn btn--primary btn--small" data-i18n="share.postcard_button">📮 Partager (carte postale)</button>
+          </div>
+        </div>
       </div>
       <div id="superAdminAuditPanel" class="admin-panel" hidden>
         <p class="form-hint" data-i18n="admin.super_admin_audit_hint">Les 100 actions les plus récentes effectuées sur le réseau de sites.</p>
