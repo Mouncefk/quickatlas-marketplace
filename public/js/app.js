@@ -2230,6 +2230,22 @@ function loadImageSafe(src) {
     img.src = src;
   });
 }
+/** Copie un lien tracé (annonce précise ou site du professionnel), qui
+ * une fois ouvert sera comptabilisé à part dans les statistiques —
+ * plutôt qu'une simple copie de lien classique, pour que le
+ * professionnel puisse mesurer l'effet réel de ses partages. */
+/** Copie un lien tracé (annonce précise ou site du professionnel), qui
+ * une fois ouvert sera comptabilisé à part dans les statistiques —
+ * plutôt qu'une simple copie de lien classique, pour que le
+ * professionnel puisse mesurer l'effet réel de ses partages. */
+function copyTrackedShareLink(url) {
+  navigator.clipboard.writeText(url)
+    .then(() => showToast(i18n.t('toast.link_copied')))
+    .catch(() => showToast(i18n.t('toast.link_copied')));
+}
+document.getElementById('copyInviteLinkBtn')?.addEventListener('click', () => {
+  copyTrackedShareLink(`${window.location.origin}/?src=share`);
+});
 async function shareListingAsPostcard(listing) {
   const url = `${window.location.origin}/?listing=${listing.id}`;
   const shareText = i18n.t('share.postcard_text', { title: listing.title, city: listing.city_name });
@@ -2787,7 +2803,11 @@ document.getElementById('randomExploreViewBtn').addEventListener('click', () => 
 let currentListingId = null;
 async function openListingDetail(id) {
   currentListingId = id;
-  const l = await api(`/listings/${id}`);
+  // Lu avant toute modification de l'URL ci-dessous (pushState) — capture
+  // l'origine \"partage\" uniquement au moment de l'arrivée initiale sur le
+  // lien, pas lors d'une navigation interne ultérieure vers une autre annonce.
+  const shareSrc = new URLSearchParams(window.location.search).get('src');
+  const l = await api(`/listings/${id}${shareSrc ? `?src=${encodeURIComponent(shareSrc)}` : ''}`);
   openListingSnapshot = { price: l.price, status: l.status };
   const updateBanner = document.getElementById('detailUpdateBanner');
   if (updateBanner) updateBanner.hidden = true;
@@ -2890,6 +2910,7 @@ async function openListingDetail(id) {
       l.job_cv_url ? el('a', { class: 'share-postcard-btn', href: l.job_cv_url, target: '_blank', rel: 'noopener' }, `📄 ${i18n.t('publish.job_cv_download')}`) : null,
       favBtn,
       el('button', { class: 'share-postcard-btn', onclick: () => shareListingAsPostcard(l) }, `📮 ${i18n.t('share.postcard_button')}`),
+      el('button', { class: 'share-postcard-btn', onclick: () => copyTrackedShareLink(`${window.location.origin}/annonce/${l.id}-${slugify(l.title)}?src=share`) }, `🔗 ${i18n.t('share.copy_link_button')}`),
       (state.user && state.user.id !== l.user_id && l.owner_phone)
         ? el('a', {
             class: 'whatsapp-btn',
@@ -3462,7 +3483,7 @@ async function loadDetailedStats() {
   try {
     const rows = await api('/me/listings-stats');
     if (rows.length === 0) {
-      tbody.append(el('tr', {}, [el('td', { colspan: '5' }, i18n.t('mine.empty'))]));
+      tbody.append(el('tr', {}, [el('td', { colspan: '6' }, i18n.t('mine.empty'))]));
       return;
     }
     for (const r of rows) {
@@ -3470,6 +3491,7 @@ async function loadDetailedStats() {
         el('tr', {}, [
           el('td', {}, r.title),
           el('td', {}, String(r.view_count)),
+          el('td', {}, String(r.share_view_count || 0)),
           el('td', {}, String(r.fav_count)),
           el('td', {}, r.status),
           el('td', {}, new Date(r.created_at + 'Z').toLocaleDateString()),
@@ -5585,6 +5607,7 @@ function renderAdminDashboard(stats) {
     ['card_countries_active', stats.countriesWithListings, false],
     ['card_total_visits', stats.totalVisits, true],
     ['card_visits_7d', stats.visits7d, false],
+    ['card_share_visits', stats.shareVisits, true],
   ];
   for (const [key, value, accent] of items) {
     cards.append(
@@ -5918,9 +5941,14 @@ function handleInitialUrlRoute() {
   }
 }
 function trackSiteVisit() {
-  if (sessionStorage.getItem('atlas_visit_tracked')) return;
+  const src = new URLSearchParams(window.location.search).get('src');
+  // Le garde-fou de session évite de compter plusieurs fois un visiteur
+  // normal — mais une visite tracée (venue d'un lien de partage) reste
+  // toujours comptée, même si le visiteur avait déjà ouvert le site plus
+  // tôt dans sa session : c'est justement ce clic-là qu'on veut mesurer.
+  if (!src && sessionStorage.getItem('atlas_visit_tracked')) return;
   sessionStorage.setItem('atlas_visit_tracked', '1');
-  api('/track-visit', { method: 'POST' }).catch(() => { /* silencieux */ });
+  api('/track-visit', { method: 'POST', body: JSON.stringify({ source: src || null }) }).catch(() => { /* silencieux */ });
 }
 /** Ouvre la modale de signalement de ville manquante, préremplit l'email
  * si l'utilisateur est connecté. */
