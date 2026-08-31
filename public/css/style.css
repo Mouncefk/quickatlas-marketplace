@@ -3258,3 +3258,18 @@ textarea { resize: vertical; }
   gap: 12px;
   margin-top: 8px;
 }
+/* ---------- Liens réseaux sociaux d'un professionnel (détail d'annonce) ---------- */
+.social-links-row { display: flex; gap: 8px; margin-top: 6px; }
+.social-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(198, 161, 91, 0.15);
+  font-size: 1rem;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.social-link-icon:hover { background: rgba(198, 161, 91, 0.3); }
