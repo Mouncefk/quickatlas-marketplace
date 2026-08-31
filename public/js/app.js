@@ -3362,6 +3362,139 @@ async function loadDetailedStats() {
 }
 /** Charge et affiche la liste des clients ayant mis en favori au moins
  * une annonce du vendeur connecté. */
+/** Libellé lisible d'un statut de prospect. */
+function leadStatusLabel(status) {
+  return i18n.t(`mine.lead_status_${status}`);
+}
+let currentLeadsData = [];
+/** Charge et affiche le suivi de prospects — chaque conversation initiée
+ * par un acheteur devient automatiquement une fiche ici (voir
+ * server.js, route POST /api/conversations), en plus des prospects
+ * ajoutés manuellement. */
+async function loadLeads() {
+  const list = document.getElementById('leadsList');
+  if (!list) return;
+  list.innerHTML = '';
+  try {
+    currentLeadsData = await api('/me/leads');
+    renderLeadsList();
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+function renderLeadsList() {
+  const list = document.getElementById('leadsList');
+  if (!list) return;
+  const filter = document.getElementById('leadsStatusFilter')?.value || '';
+  const filtered = filter ? currentLeadsData.filter((l) => l.status === filter) : currentLeadsData;
+  list.innerHTML = '';
+  if (filtered.length === 0) {
+    list.append(el('p', { class: 'empty-state' }, i18n.t('mine.leads_empty')));
+    return;
+  }
+  for (const lead of filtered) {
+    const contactLabel = lead.buyer_name || lead.contact_name || '—';
+    list.append(
+      el('div', { class: 'lead-row', onclick: () => openLeadModal(lead) }, [
+        el('span', { class: `role-badge lead-status-badge lead-status-badge--${lead.status}` }, leadStatusLabel(lead.status)),
+        el('span', { class: 'lead-row-contact' }, contactLabel),
+        el('span', { class: 'lead-row-listing' }, lead.listing_title),
+        el('span', { class: 'form-hint' }, new Date(lead.updated_at + 'Z').toLocaleDateString()),
+      ])
+    );
+  }
+}
+document.getElementById('leadsStatusFilter')?.addEventListener('change', renderLeadsList);
+function openLeadModal(lead) {
+  const form = document.getElementById('leadForm');
+  form.reset();
+  form.lead_id.value = lead.id;
+  form.status.value = lead.status;
+  form.next_reminder_at.value = lead.next_reminder_at ? lead.next_reminder_at.slice(0, 10) : '';
+  form.notes.value = lead.notes || '';
+  const contactLine = [lead.buyer_name || lead.contact_name, lead.buyer_email || lead.contact_email, lead.contact_phone]
+    .filter(Boolean)
+    .join(' — ');
+  document.getElementById('leadModalContactInfo').textContent = `${lead.listing_title} — ${contactLine}`;
+  document.getElementById('leadError').hidden = true;
+  document.getElementById('leadModal').hidden = false;
+}
+document.getElementById('leadForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('leadError');
+  errEl.hidden = true;
+  try {
+    await api(`/me/leads/${fd.get('lead_id')}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        status: fd.get('status'),
+        notes: fd.get('notes'),
+        next_reminder_at: fd.get('next_reminder_at'),
+      }),
+    });
+    showToast(i18n.t('toast.lead_updated'));
+    document.getElementById('leadModal').hidden = true;
+    loadLeads();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
+document.getElementById('leadDeleteBtn')?.addEventListener('click', async () => {
+  const leadId = document.getElementById('leadForm').lead_id.value;
+  if (!confirm(i18n.t('mine.lead_delete_confirm'))) return;
+  try {
+    await api(`/me/leads/${leadId}`, { method: 'DELETE' });
+    showToast(i18n.t('toast.lead_deleted'));
+    document.getElementById('leadModal').hidden = true;
+    loadLeads();
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+document.getElementById('addLeadBtn')?.addEventListener('click', async () => {
+  const form = document.getElementById('addLeadForm');
+  form.reset();
+  document.getElementById('addLeadError').hidden = true;
+  const sel = document.getElementById('addLeadListingSelect');
+  sel.innerHTML = '';
+  try {
+    const myListings = await api('/me/listings');
+    for (const li of myListings) sel.append(el('option', { value: li.id }, li.title));
+    document.getElementById('addLeadModal').hidden = false;
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+document.getElementById('addLeadForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('addLeadError');
+  errEl.hidden = true;
+  try {
+    await api('/me/leads', {
+      method: 'POST',
+      body: JSON.stringify({
+        listing_id: Number(fd.get('listing_id')),
+        contact_name: fd.get('contact_name'),
+        contact_phone: fd.get('contact_phone'),
+        contact_email: fd.get('contact_email'),
+      }),
+    });
+    showToast(i18n.t('toast.lead_added'));
+    document.getElementById('addLeadModal').hidden = true;
+    loadLeads();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
+document.getElementById('showLeadsBtn')?.addEventListener('click', () => {
+  const panel = document.getElementById('leadsPanel');
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) loadLeads();
+});
 async function loadInterestedClients() {
   const list = document.getElementById('interestedClientsList');
   list.innerHTML = '';
