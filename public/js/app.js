@@ -207,6 +207,21 @@ function showToast(msg) {
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => { el.hidden = true; }, 3200);
 }
+/** Bannière proposant de partager l'annonce qu'on vient de publier —
+ * contrairement au toast classique (texte seul, disparaît tout seul),
+ * celle-ci porte une vraie action et reste jusqu'à ce qu'on la traite,
+ * puisque c'est le moment où le vendeur est le plus motivé à
+ * promouvoir sa nouvelle annonce. */
+function promptShareAfterPublish(listing) {
+  document.getElementById('sharePromptBanner')?.remove();
+  const banner = el('div', { id: 'sharePromptBanner', class: 'share-prompt-banner' }, [
+    el('span', {}, i18n.t('share.prompt_message')),
+    el('button', { class: 'btn btn--primary btn--small', onclick: () => { shareListingAsPostcard(listing); banner.remove(); } }, `📮 ${i18n.t('share.postcard_button')}`),
+    el('button', { class: 'share-prompt-dismiss', 'aria-label': i18n.t('share.prompt_dismiss'), onclick: () => banner.remove() }, '×'),
+  ]);
+  document.body.append(banner);
+  setTimeout(() => banner.remove(), 10000);
+}
 function friendlyErrorMessage(err) {
   if (err.message === 'EMAIL_NOT_VERIFIED') return i18n.t('verify.required_action');
   if (err.message === 'AI_NOT_CONFIGURED') return i18n.t('ai.not_configured_error');
@@ -2251,7 +2266,12 @@ async function shareListingAsPostcard(listing) {
     ctx.font = '13px monospace';
     ctx.fillStyle = '#B5482E';
     ctx.textAlign = 'center';
-    ctx.fillText(window.currentSiteName.toUpperCase(), 880, 495);
+    // Porte la marque du professionnel lui-même plutôt que celle du site,
+    // quand le vendeur en est un — cohérent avec l'idée de lui fournir
+    // du matériel qui renforce SA propre identité quand il le partage sur
+    // ses propres réseaux, pas celle de QuickAtlas.
+    const stampBrand = (listing.owner_is_professional && listing.owner_company_name ? listing.owner_company_name : window.currentSiteName).toUpperCase();
+    ctx.fillText(stampBrand.length > 16 ? stampBrand.slice(0, 15) + '…' : stampBrand, 880, 495);
     ctx.fillText((listing.city_name || '').toUpperCase(), 880, 517);
     ctx.textAlign = 'left';
     const blob = await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
@@ -3274,6 +3294,13 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     resetImageUpload();
     document.getElementById('publishImageUrl').disabled = false;
     resetJobCvUpload();
+    // Propose immédiatement le partage de la toute nouvelle annonce —
+    // c'est le moment où le vendeur est le plus motivé à la promouvoir,
+    // plutôt que d'attendre qu'il retombe dessus plus tard par hasard.
+    try {
+      const freshListing = await api(`/listings/${result.id}`);
+      setTimeout(() => promptShareAfterPublish(freshListing), 1200);
+    } catch { /* non bloquant si la récupération échoue */ }
     navigate('mine');
   } catch (err) {
     errEl.textContent = friendlyErrorMessage(err);
