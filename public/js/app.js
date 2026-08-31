@@ -1858,6 +1858,16 @@ async function uploadImageFile(file) {
   const res = await api('/uploads', { method: 'POST', body: JSON.stringify({ data: base64, mime: file.type }) });
   return res.url;
 }
+/** Normalise ce que le professionnel a saisi dans ses réglages (URL
+ * complète, domaine sans protocole, ou simple identifiant) en une URL
+ * cliquable valide — évite d'imposer un format strict de saisie. */
+function normalizeSocialUrl(value, defaultDomain) {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return '#';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.toLowerCase().includes(defaultDomain)) return `https://${trimmed.replace(/^\/+/, '')}`;
+  return `https://${defaultDomain}/${trimmed.replace(/^@/, '')}`;
+}
 function proBadge(tier) {
   if (!tier) return null;
   return el('span', { class: `pro-badge pro-badge--${tier}` }, `⭐ ${i18n.t(`pro.tier_${tier}`)}`);
@@ -2331,6 +2341,9 @@ function renderProProfileForm(box, current) {
   box.innerHTML = '';
   const nameInput = el('input', { type: 'text', name: 'company_name', value: current.company_name || '', placeholder: i18n.t('auth.company_name'), required: true });
   const websiteInput = el('input', { type: 'text', name: 'company_website', value: current.company_website || '', placeholder: 'monentreprise.com' });
+  const whatsappInput = el('input', { type: 'tel', name: 'social_whatsapp', value: current.social_whatsapp || '', placeholder: '+212 6XX XXX XXX' });
+  const instagramInput = el('input', { type: 'text', name: 'social_instagram', value: current.social_instagram || '', placeholder: 'instagram.com/monentreprise' });
+  const facebookInput = el('input', { type: 'text', name: 'social_facebook', value: current.social_facebook || '', placeholder: 'facebook.com/monentreprise' });
   const logoPreview = el('img', { class: 'company-logo-detail', src: current.company_logo_url || '', style: current.company_logo_url ? '' : 'display:none;' });
   let logoUrl = current.company_logo_url || null;
   const logoInput = el('input', { type: 'file', accept: 'image/*', onchange: async (e) => {
@@ -2349,7 +2362,10 @@ function renderProProfileForm(box, current) {
     try {
       await api('/me/professional-profile', {
         method: 'PUT',
-        body: JSON.stringify({ is_professional: true, company_name: nameInput.value, company_website: websiteInput.value, company_logo_url: logoUrl }),
+        body: JSON.stringify({
+          is_professional: true, company_name: nameInput.value, company_website: websiteInput.value, company_logo_url: logoUrl,
+          social_whatsapp: whatsappInput.value, social_instagram: instagramInput.value, social_facebook: facebookInput.value,
+        }),
       });
       const { user } = await api('/auth/me');
       state.user = { ...state.user, ...user };
@@ -2361,6 +2377,10 @@ function renderProProfileForm(box, current) {
   box.append(
     el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('auth.company_name')), nameInput])]),
     el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('auth.company_website')), websiteInput])]),
+    el('h4', { class: 'publish-side-panel-title' }, i18n.t('pro.social_links_title')),
+    el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.social_whatsapp')), whatsappInput])]),
+    el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.social_instagram')), instagramInput])]),
+    el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.social_facebook')), facebookInput])]),
     el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.logo_label')), logoInput]), logoPreview]),
     errEl, saveBtn
   );
@@ -2766,6 +2786,13 @@ async function openListingDetail(id) {
             proBadge(l.owner_pro_tier),
             l.owner_domain_verified ? el('span', { class: 'pro-domain-badge' }, `✓ ${i18n.t('pro.domain_verified')}`) : null,
           ]),
+          (l.owner_social_whatsapp || l.owner_social_instagram || l.owner_social_facebook)
+            ? el('div', { class: 'social-links-row' }, [
+                l.owner_social_whatsapp ? el('a', { href: `https://wa.me/${l.owner_social_whatsapp.replace(/[^\d]/g, '')}`, target: '_blank', rel: 'noopener', 'aria-label': 'WhatsApp', class: 'social-link-icon' }, '💬') : null,
+                l.owner_social_instagram ? el('a', { href: normalizeSocialUrl(l.owner_social_instagram, 'instagram.com'), target: '_blank', rel: 'noopener', 'aria-label': 'Instagram', class: 'social-link-icon' }, '📷') : null,
+                l.owner_social_facebook ? el('a', { href: normalizeSocialUrl(l.owner_social_facebook, 'facebook.com'), target: '_blank', rel: 'noopener', 'aria-label': 'Facebook', class: 'social-link-icon' }, '👍') : null,
+              ])
+            : null,
         ]),
       ]) : null,
       el('p', { class: 'detail-meta' }, [
