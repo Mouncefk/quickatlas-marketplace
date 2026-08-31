@@ -331,6 +331,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_listing_leads_seller ON listing_leads(seller_id);
   CREATE INDEX IF NOT EXISTS idx_listing_leads_listing ON listing_leads(listing_id);
 `);
+// Migration : origine d'une visite (vue d'annonce ou visite du site) —
+// permet de distinguer une visite venue d'un lien de partage tracé
+// (réseaux sociaux) du trafic normal. NULL = origine inconnue/normale,
+// 'share' = venue d'un lien copié via le bouton de partage tracé.
+{
+  const listingViewsColumns = db.prepare("PRAGMA table_info(listing_views)").all().map((c) => c.name);
+  if (!listingViewsColumns.includes('source')) {
+    db.exec('ALTER TABLE listing_views ADD COLUMN source TEXT');
+  }
+  const siteVisitsColumns = db.prepare("PRAGMA table_info(site_visits)").all().map((c) => c.name);
+  if (!siteVisitsColumns.includes('source')) {
+    db.exec('ALTER TABLE site_visits ADD COLUMN source TEXT');
+  }
+}
 // Migration : liens réseaux sociaux d'un compte professionnel (WhatsApp,
 // Instagram, Facebook) — configurés par le professionnel lui-même dans
 // ses réglages, jamais par l'administrateur du site à sa place. Servent
