@@ -1622,6 +1622,20 @@ async function handleRequest(req, res) {
         .all(countryId);
       return sendJSON(res, 200, rows);
     }
+    // Toutes les villes d'un pays, États fédéraux compris — contrairement
+    // à la route ci-dessus (qui exclut volontairement les villes
+    // rattachées à un État, pour la sélection de la ville RÉELLE d'une
+    // annonce, faite via le sélecteur d'État approprié). Sert
+    // spécifiquement au choix des villes SUPPLÉMENTAIRES à la
+    // publication, où l'on veut au contraire proposer l'ensemble du pays
+    // sans distinction d'État.
+    if ((m = pathname.match(/^\/api\/countries\/(\d+)\/all-cities$/)) && method === 'GET') {
+      const countryId = Number(m[1]);
+      const rows = db
+        .prepare('SELECT id, name FROM cities WHERE country_id = ? AND country_id NOT IN (SELECT country_id FROM disabled_countries) ORDER BY name')
+        .all(countryId);
+      return sendJSON(res, 200, rows);
+    }
     if ((m = pathname.match(/^\/api\/countries\/(\d+)\/states$/)) && method === 'GET') {
       const countryId = Number(m[1]);
       const rows = db
