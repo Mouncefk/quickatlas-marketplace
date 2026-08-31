@@ -342,6 +342,8 @@ db.exec(`
     ['social_whatsapp', 'TEXT'],
     ['social_instagram', 'TEXT'],
     ['social_facebook', 'TEXT'],
+    ['social_tiktok', 'TEXT'],
+    ['social_linkedin', 'TEXT'],
   ];
   for (const [name, type] of socialColumns) {
     if (!userColumns2.includes(name)) {
