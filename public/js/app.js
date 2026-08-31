@@ -6005,6 +6005,10 @@ function handleInitialUrlRoute() {
     if (category) browseCategory(category);
     return;
   }
+  if (path === '/reserve') {
+    navigate('reserve');
+    return;
+  }
 }
 function trackSiteVisit() {
   const src = new URLSearchParams(window.location.search).get('src');
