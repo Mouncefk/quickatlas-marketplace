@@ -2423,6 +2423,8 @@ function renderProProfileForm(box, current) {
   const whatsappInput = el('input', { type: 'tel', name: 'social_whatsapp', value: current.social_whatsapp || '', placeholder: '+212 6XX XXX XXX' });
   const instagramInput = el('input', { type: 'text', name: 'social_instagram', value: current.social_instagram || '', placeholder: 'instagram.com/monentreprise' });
   const facebookInput = el('input', { type: 'text', name: 'social_facebook', value: current.social_facebook || '', placeholder: 'facebook.com/monentreprise' });
+  const tiktokInput = el('input', { type: 'text', name: 'social_tiktok', value: current.social_tiktok || '', placeholder: 'tiktok.com/@monentreprise' });
+  const linkedinInput = el('input', { type: 'text', name: 'social_linkedin', value: current.social_linkedin || '', placeholder: 'linkedin.com/company/monentreprise' });
   const logoPreview = el('img', { class: 'company-logo-detail', src: current.company_logo_url || '', style: current.company_logo_url ? '' : 'display:none;' });
   let logoUrl = current.company_logo_url || null;
   const logoInput = el('input', { type: 'file', accept: 'image/*', onchange: async (e) => {
@@ -2444,6 +2446,7 @@ function renderProProfileForm(box, current) {
         body: JSON.stringify({
           is_professional: true, company_name: nameInput.value, company_website: websiteInput.value, company_logo_url: logoUrl,
           social_whatsapp: whatsappInput.value, social_instagram: instagramInput.value, social_facebook: facebookInput.value,
+          social_tiktok: tiktokInput.value, social_linkedin: linkedinInput.value,
         }),
       });
       const { user } = await api('/auth/me');
@@ -2460,6 +2463,8 @@ function renderProProfileForm(box, current) {
     el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.social_whatsapp')), whatsappInput])]),
     el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.social_instagram')), instagramInput])]),
     el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.social_facebook')), facebookInput])]),
+    el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.social_tiktok')), tiktokInput])]),
+    el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.social_linkedin')), linkedinInput])]),
     el('div', { class: 'form-row' }, [el('label', {}, [el('span', {}, i18n.t('pro.logo_label')), logoInput]), logoPreview]),
     errEl, saveBtn
   );
@@ -2865,11 +2870,13 @@ async function openListingDetail(id) {
             proBadge(l.owner_pro_tier),
             l.owner_domain_verified ? el('span', { class: 'pro-domain-badge' }, `✓ ${i18n.t('pro.domain_verified')}`) : null,
           ]),
-          (l.owner_social_whatsapp || l.owner_social_instagram || l.owner_social_facebook)
+          (l.owner_social_whatsapp || l.owner_social_instagram || l.owner_social_facebook || l.owner_social_tiktok || l.owner_social_linkedin)
             ? el('div', { class: 'social-links-row' }, [
                 l.owner_social_whatsapp ? el('a', { href: `https://wa.me/${l.owner_social_whatsapp.replace(/[^\d]/g, '')}`, target: '_blank', rel: 'noopener', 'aria-label': 'WhatsApp', class: 'social-link-icon' }, '💬') : null,
                 l.owner_social_instagram ? el('a', { href: normalizeSocialUrl(l.owner_social_instagram, 'instagram.com'), target: '_blank', rel: 'noopener', 'aria-label': 'Instagram', class: 'social-link-icon' }, '📷') : null,
                 l.owner_social_facebook ? el('a', { href: normalizeSocialUrl(l.owner_social_facebook, 'facebook.com'), target: '_blank', rel: 'noopener', 'aria-label': 'Facebook', class: 'social-link-icon' }, '👍') : null,
+                l.owner_social_tiktok ? el('a', { href: normalizeSocialUrl(l.owner_social_tiktok, 'tiktok.com'), target: '_blank', rel: 'noopener', 'aria-label': 'TikTok', class: 'social-link-icon' }, '🎵') : null,
+                l.owner_social_linkedin ? el('a', { href: normalizeSocialUrl(l.owner_social_linkedin, 'linkedin.com'), target: '_blank', rel: 'noopener', 'aria-label': 'LinkedIn', class: 'social-link-icon' }, '💼') : null,
               ])
             : null,
         ]),
