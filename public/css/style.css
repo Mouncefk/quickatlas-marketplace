@@ -3303,3 +3303,12 @@ textarea { resize: vertical; }
   cursor: pointer;
   padding: 0 4px;
 }
+/* ---------- Aperçu de la carte promotionnelle (Super Admin) ---------- */
+.promo-canvas-preview {
+  width: 100%;
+  max-width: 600px;
+  height: auto;
+  border-radius: 8px;
+  margin-top: 12px;
+  display: block;
+}
