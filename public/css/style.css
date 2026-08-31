@@ -3312,3 +3312,17 @@ textarea { resize: vertical; }
   margin-top: 12px;
   display: block;
 }
+/* ---------- Réservation de sous-domaine (pré-lancement) ---------- */
+.reserve-subdomain-row { display: flex; align-items: center; gap: 8px; }
+.reserve-subdomain-row input { flex: 1; }
+.reserve-subdomain-suffix { color: var(--parchment-200); font-size: 0.9rem; white-space: nowrap; }
+.form-success {
+  color: var(--teal-500);
+  background: rgba(93, 151, 142, 0.12);
+  border: 1px solid rgba(93, 151, 142, 0.3);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+.reserve-status--ok { color: var(--teal-500); }
+.reserve-status--taken { color: var(--rust-text); }
