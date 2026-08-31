@@ -2551,7 +2551,7 @@ async function handleRequest(req, res) {
       const sites = masterDb
         .prepare(`
           SELECT s.id, s.slug, s.subdomain, s.custom_domain, s.brand_name, s.status, s.owner_email, s.created_at,
-                 s.billing_status, s.billing_plan_label, s.billing_notes, s.plan_id, s.grace_period_ends_at,
+                 s.billing_status, s.billing_plan_label, s.billing_notes, s.plan_id, s.grace_period_ends_at, s.demo_expires_at,
                  p.name AS plan_name
           FROM sites s LEFT JOIN plans p ON p.id = s.plan_id
           ORDER BY s.created_at DESC
@@ -2670,6 +2670,38 @@ function checkGracePeriodExpirations() {
     console.log(`[grace-period] ${expiredTrials.length} site(s) passé(s) de "essai" à "en retard" (période de grâce écoulée).`);
   }
 }
+/** Supprime automatiquement les sites de démonstration (auto-provisionnés
+ * depuis une réservation pré-lancement) une fois leur échéance dépassée
+ * — même mécanisme exact que la suppression manuelle d'un site depuis le
+ * Super Admin (fermeture de la connexion, suppression du fichier et de
+ * ses annexes WAL, retrait du registre). Un Super Admin peut repousser
+ * cette échéance au cas par cas (voir route extend-demo) pour un dossier
+ * en discussion active, sans quoi ce nettoyage s'applique sans exception. */
+function checkDemoExpirations() {
+  const expiredDemos = masterDb
+    .prepare("SELECT id, slug, db_filename, brand_name FROM sites WHERE demo_expires_at IS NOT NULL AND demo_expires_at < datetime('now')")
+    .all();
+  for (const site of expiredDemos) {
+    closeTenantDatabase(site.db_filename);
+    try {
+      fs.unlinkSync(path.join(DATA_DIR, site.db_filename));
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.error('[demo-expiration] échec de la suppression du fichier de base :', err.message);
+    }
+    for (const suffix of ['-wal', '-shm']) {
+      try {
+        fs.unlinkSync(path.join(DATA_DIR, site.db_filename + suffix));
+      } catch {
+        // Absence normale la plupart du temps — rien à signaler.
+      }
+    }
+    masterDb.prepare('DELETE FROM sites WHERE id = ?').run(site.id);
+    logAdminAction(masterDb, { id: null, email: 'tâche automatique' }, 'site_deleted', 'site', site.slug, { brand_name: site.brand_name, reason: 'demo_expired' });
+  }
+  if (expiredDemos.length > 0) {
+    console.log(`[demo-expiration] ${expiredDemos.length} site(s) de démonstration supprimé(s) (échéance dépassée).`);
+  }
+}
 // Catégories activées/désactivées pour un site précis du réseau — la
 // liste catégories elle-même (partagée, copiée à la création du site)
 // est lue depuis SA PROPRE base, tandis que disabled_categories
@@ -2773,13 +2805,52 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
       masterDb
         .prepare('INSERT INTO site_reservations (subdomain, business_name, sector, contact_email, contact_phone) VALUES (?, ?, ?, ?, ?)')
         .run(subdomain, businessName, (body.sector || '').trim() || null, contactEmail, (body.contact_phone || '').trim() || null);
+      // Provisionnement immédiat d'un vrai site en mode essai — même
+      // mécanisme que la création manuelle depuis le Super Admin, mais
+      // déclenché automatiquement dès la réservation, pour que le
+      // professionnel puisse tout de suite naviguer et publier une
+      // annonce test sur SON sous-domaine. Aucun mot de passe n'étant
+      // collecté sur ce formulaire public, un mot de passe aléatoire
+      // inconnaissable est généré, puis un jeton de réinitialisation
+      // (même mécanisme que "mot de passe oublié") est envoyé par email
+      // pour qu'il en choisisse un lui-même.
+      let provisionedSiteUrl = null;
+      let setupLink = null;
+      try {
+        const dbFilename = `site_${subdomain}.db`;
+        const newSiteDb = initializeDatabase(path.join(DATA_DIR, dbFilename));
+        copyReferenceData(mainDb, newSiteDb);
+        const randomPassword = crypto.randomBytes(24).toString('hex');
+        const { salt, hash } = hashPassword(randomPassword);
+        const ownerResult = newSiteDb
+          .prepare(
+            "INSERT INTO users (name, email, password_hash, password_salt, role, email_verified_at, terms_accepted_at) VALUES (?, ?, ?, ?, 'admin', datetime('now'), datetime('now'))"
+          )
+          .run(businessName, contactEmail, hash, salt);
+        masterDb
+          .prepare(
+            `INSERT INTO sites (slug, subdomain, db_filename, brand_name, owner_email, status, grace_period_ends_at, demo_expires_at) VALUES (?, ?, ?, ?, ?, 'active', datetime('now', '+14 days'), datetime('now', '+30 days'))`
+          )
+          .run(subdomain, subdomain, dbFilename, businessName, contactEmail);
+        masterDb.prepare("UPDATE site_reservations SET status = 'converted' WHERE subdomain = ?").run(subdomain);
+        const raw = generateRawToken();
+        newSiteDb
+          .prepare("INSERT INTO auth_tokens (user_id, purpose, token_hash, expires_at) VALUES (?, 'reset_password', ?, datetime('now', '+7 days'))")
+          .run(ownerResult.lastInsertRowid, hashRawToken(raw));
+        provisionedSiteUrl = `https://${subdomain}.quickatlas.net`;
+        setupLink = `${provisionedSiteUrl}/?reset=${raw}`;
+      } catch (err) {
+        console.error('[reservation] échec du provisionnement automatique du site :', err.message);
+      }
       sendMail({
         smtpConfig: getSiteMailConfig(),
         to: contactEmail,
         purpose: 'reservation',
-        subject: `Votre sous-domaine ${subdomain}.quickatlas.net est réservé !`,
-        text: `Bonjour,\n\nVotre réservation pour ${subdomain}.quickatlas.net (${businessName}) est bien enregistrée — gratuite et sans engagement.\n\nNous vous recontacterons personnellement à l'approche du lancement officiel pour finaliser la mise en route de votre marketplace.\n\nÀ très bientôt,\nL'équipe QuickAtlas`,
-        link: SITE_URL,
+        subject: `Votre marketplace ${subdomain}.quickatlas.net est prête à découvrir !`,
+        text: provisionedSiteUrl
+          ? `Bonjour,\n\nVotre réservation pour ${subdomain}.quickatlas.net (${businessName}) est enregistrée — gratuite et sans engagement.\n\nVotre marketplace est déjà prête à explorer, en mode essai : choisissez votre mot de passe pour y accéder et publier votre première annonce test :\n${setupLink}\n\nCe lien est valable 7 jours. Nous vous recontacterons personnellement à l'approche du lancement officiel pour finaliser la mise en route.\n\nÀ très bientôt,\nL'équipe QuickAtlas`
+          : `Bonjour,\n\nVotre réservation pour ${subdomain}.quickatlas.net (${businessName}) est bien enregistrée — gratuite et sans engagement.\n\nNous vous recontacterons personnellement à l'approche du lancement officiel pour finaliser la mise en route de votre marketplace.\n\nÀ très bientôt,\nL'équipe QuickAtlas`,
+        link: provisionedSiteUrl || SITE_URL,
       }).catch((err) => console.error('[reservation] échec envoi email confirmation :', err.message));
       // Notifie chaque super admin, pour ne pas dépendre d'une visite
       // manuelle régulière du panneau Réservations — la liste des
@@ -2964,6 +3035,20 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       if (targetSite.slug === 'main') return sendJSON(res, 400, { error: 'Impossible de suspendre le site principal.' });
       masterDb.prepare('UPDATE sites SET status = ? WHERE id = ?').run(status, Number(m[1]));
       logAdminAction(masterDb, admin, status === 'suspended' ? 'site_suspended' : 'site_reactivated', 'site', targetSite.slug, null);
+      return sendJSON(res, 200, { ok: true });
+    }
+    // Prolonge l'échéance d'un site de démonstration — repousse de 30
+    // jours supplémentaires à partir de maintenant, pour un dossier en
+    // discussion active. Sans effet visible sur un site qui n'est pas
+    // une démonstration (demo_expires_at déjà NULL).
+    if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)\/extend-demo$/)) && method === 'PUT') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const targetSite = masterDb.prepare('SELECT id, slug, demo_expires_at FROM sites WHERE id = ?').get(Number(m[1]));
+      if (!targetSite) return sendJSON(res, 404, { error: 'Site introuvable.' });
+      if (!targetSite.demo_expires_at) return sendJSON(res, 400, { error: "Ce site n'est pas un site de démonstration." });
+      masterDb.prepare("UPDATE sites SET demo_expires_at = datetime('now', '+30 days') WHERE id = ?").run(Number(m[1]));
+      logAdminAction(masterDb, admin, 'site_demo_extended', 'site', targetSite.slug, null);
       return sendJSON(res, 200, { ok: true });
     }
     // Suppression définitive d'un site — action irréversible (base de
@@ -4126,6 +4211,20 @@ server.listen(PORT, () => {
       checkGracePeriodExpirations();
     } catch (err) {
       console.error('[grace-period] échec de la vérification périodique :', err.message);
+    }
+  }, 24 * 60 * 60 * 1000);
+  // Vérification quotidienne des sites de démonstration expirés — même
+  // cadence que le reste des tâches automatiques.
+  try {
+    checkDemoExpirations();
+  } catch (err) {
+    console.error('[demo-expiration] échec de la vérification initiale :', err.message);
+  }
+  setInterval(() => {
+    try {
+      checkDemoExpirations();
+    } catch (err) {
+      console.error('[demo-expiration] échec de la vérification périodique :', err.message);
     }
   }, 24 * 60 * 60 * 1000);
 });
