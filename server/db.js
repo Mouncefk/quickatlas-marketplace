@@ -721,6 +721,43 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
       }
     }
   }
+  // Migration : visibilité multi-ville d'une annonce — un utilisateur
+  // renseigne d'abord la ville réelle du bien (city_id, toujours
+  // obligatoire, inchangé), puis peut choisir d'étendre la visibilité de
+  // son annonce à des villes supplémentaires de son choix
+  // (listing_extra_cities), ou à toutes les villes du même pays
+  // (visible_all_cities).
+  //
+  // listing_visible_cities est une table CALCULÉE (pas saisie
+  // directement) : elle liste, pour chaque annonce, l'ensemble des
+  // villes où elle doit apparaître (ville réelle + villes
+  // supplémentaires + toutes les villes du pays si activé), reconstruite
+  // à chaque publication/modification via syncListingVisibleCities()
+  // dans server.js. Toutes les recherches/parcours par ville
+  // s'appuient sur CETTE table plutôt que de reproduire cette logique
+  // (ville réelle OU ville supplémentaire OU pays entier) dans chacune
+  // des nombreuses requêtes existantes — un simple JOIN, plus rapide et
+  // bien plus simple à maintenir que de dupliquer cette condition
+  // partout.
+  {
+    const listingColumns5 = db.prepare("PRAGMA table_info(listings)").all();
+    if (!listingColumns5.some((c) => c.name === 'visible_all_cities')) {
+      db.exec('ALTER TABLE listings ADD COLUMN visible_all_cities INTEGER NOT NULL DEFAULT 0');
+    }
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS listing_extra_cities (
+      listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+      city_id INTEGER NOT NULL REFERENCES cities(id) ON DELETE CASCADE,
+      PRIMARY KEY (listing_id, city_id)
+    );
+    CREATE TABLE IF NOT EXISTS listing_visible_cities (
+      listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+      city_id INTEGER NOT NULL REFERENCES cities(id) ON DELETE CASCADE,
+      PRIMARY KEY (listing_id, city_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_listing_visible_cities_city ON listing_visible_cities(city_id);
+  `);
   return db;
 }
 
