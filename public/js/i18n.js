@@ -81,7 +81,7 @@ const LANGUAGE_CATALOG = [
 
 const T = {
   fr: {
-    'auth.professional_toggle': 'Je m\'inscris en tant que professionnel (annonceur)', 'auth.company_name': 'Nom de l\'entreprise', 'auth.company_website': 'Site web (optionnel)', 'pro.social_links_title': 'Réseaux sociaux', 'pro.social_whatsapp': 'WhatsApp professionnel', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'auth.domain_verified_hint': '💡 Si votre email correspond au domaine de ce site, un badge "Domaine vérifié" s\'affichera automatiquement.',
+    'auth.professional_toggle': 'Je m\'inscris en tant que professionnel (annonceur)', 'auth.company_name': 'Nom de l\'entreprise', 'auth.company_website': 'Site web (optionnel)', 'pro.social_links_title': 'Réseaux sociaux', 'pro.social_whatsapp': 'WhatsApp professionnel', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'pro.social_tiktok': 'TikTok', 'pro.social_linkedin': 'LinkedIn', 'auth.domain_verified_hint': '💡 Si votre email correspond au domaine de ce site, un badge "Domaine vérifié" s\'affichera automatiquement.',
     'pro.tier_nouveau': 'Nouveau', 'pro.tier_actif': 'Actif', 'pro.tier_confirme': 'Confirmé', 'pro.tier_expert': 'Expert',
     'pro.domain_verified': 'Domaine vérifié', 'pro.tier_up_toast': '🎉 Félicitations, vous passez au palier {tier} ! Un crédit de mise en avant vous a été offert.',
     'pro.section_title': 'Profil professionnel', 'pro.section_intro': 'Mettez votre logo en avant sur vos annonces, et gagnez en visibilité au fil de vos publications.',
@@ -358,7 +358,7 @@ const T = {
     'toast.listing_suspended': 'Annonce suspendue (masquée du site public).', 'toast.listing_reactivated': 'Annonce réactivée.',
   },
   en: {
-    'auth.professional_toggle': 'I\'m registering as a professional (advertiser)', 'auth.company_name': 'Company name', 'auth.company_website': 'Website (optional)', 'pro.social_links_title': 'Social media', 'pro.social_whatsapp': 'Business WhatsApp', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'auth.domain_verified_hint': '💡 If your email matches this site\'s domain, a "Verified domain" badge will show automatically.',
+    'auth.professional_toggle': 'I\'m registering as a professional (advertiser)', 'auth.company_name': 'Company name', 'auth.company_website': 'Website (optional)', 'pro.social_links_title': 'Social media', 'pro.social_whatsapp': 'Business WhatsApp', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'pro.social_tiktok': 'TikTok', 'pro.social_linkedin': 'LinkedIn', 'auth.domain_verified_hint': '💡 If your email matches this site\'s domain, a "Verified domain" badge will show automatically.',
     'pro.tier_nouveau': 'New', 'pro.tier_actif': 'Active', 'pro.tier_confirme': 'Established', 'pro.tier_expert': 'Expert',
     'pro.domain_verified': 'Verified domain', 'pro.tier_up_toast': '🎉 Congratulations, you\'ve reached the {tier} tier! A free boost credit has been added to your account.',
     'pro.section_title': 'Professional profile', 'pro.section_intro': 'Showcase your logo on your listings, and gain visibility as you publish.',
@@ -635,7 +635,7 @@ const T = {
     'toast.listing_suspended': 'Listing suspended (hidden from the public site).', 'toast.listing_reactivated': 'Listing reactivated.',
   },
   it: {
-    'auth.professional_toggle': 'Mi registro come professionista (inserzionista)', 'auth.company_name': 'Nome dell\'azienda', 'auth.company_website': 'Sito web (opzionale)', 'pro.social_links_title': 'Social media', 'pro.social_whatsapp': 'WhatsApp aziendale', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'auth.domain_verified_hint': '💡 Se la tua email corrisponde al dominio di questo sito, apparirà automaticamente un badge "Dominio verificato".',
+    'auth.professional_toggle': 'Mi registro come professionista (inserzionista)', 'auth.company_name': 'Nome dell\'azienda', 'auth.company_website': 'Sito web (opzionale)', 'pro.social_links_title': 'Social media', 'pro.social_whatsapp': 'WhatsApp aziendale', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'pro.social_tiktok': 'TikTok', 'pro.social_linkedin': 'LinkedIn', 'auth.domain_verified_hint': '💡 Se la tua email corrisponde al dominio di questo sito, apparirà automaticamente un badge "Dominio verificato".',
     'pro.tier_nouveau': 'Nuovo', 'pro.tier_actif': 'Attivo', 'pro.tier_confirme': 'Consolidato', 'pro.tier_expert': 'Esperto',
     'pro.domain_verified': 'Dominio verificato', 'pro.tier_up_toast': '🎉 Complimenti, hai raggiunto il livello {tier}! Ti è stato assegnato un credito di promozione gratuito.',
     'pro.section_title': 'Profilo professionale', 'pro.section_intro': 'Metti in evidenza il tuo logo sui tuoi annunci e guadagna visibilità pubblicando.',
@@ -912,7 +912,7 @@ const T = {
     'toast.listing_suspended': 'Annuncio sospeso (nascosto dal sito pubblico).', 'toast.listing_reactivated': 'Annuncio riattivato.',
   },
   ar: {
-    'auth.professional_toggle': 'أسجّل كحساب احترافي (معلن)', 'auth.company_name': 'اسم الشركة', 'auth.company_website': 'الموقع الإلكتروني (اختياري)', 'pro.social_links_title': 'وسائل التواصل الاجتماعي', 'pro.social_whatsapp': 'واتساب المهني', 'pro.social_instagram': 'إنستغرام', 'pro.social_facebook': 'فيسبوك', 'auth.domain_verified_hint': '💡 إذا كان بريدك الإلكتروني يطابق نطاق هذا الموقع، ستظهر شارة "نطاق موثّق" تلقائيًا.',
+    'auth.professional_toggle': 'أسجّل كحساب احترافي (معلن)', 'auth.company_name': 'اسم الشركة', 'auth.company_website': 'الموقع الإلكتروني (اختياري)', 'pro.social_links_title': 'وسائل التواصل الاجتماعي', 'pro.social_whatsapp': 'واتساب المهني', 'pro.social_instagram': 'إنستغرام', 'pro.social_facebook': 'فيسبوك', 'pro.social_tiktok': 'تيك توك', 'pro.social_linkedin': 'لينكدإن', 'auth.domain_verified_hint': '💡 إذا كان بريدك الإلكتروني يطابق نطاق هذا الموقع، ستظهر شارة "نطاق موثّق" تلقائيًا.',
     'pro.tier_nouveau': 'جديد', 'pro.tier_actif': 'نشيط', 'pro.tier_confirme': 'موثوق', 'pro.tier_expert': 'خبير',
     'pro.domain_verified': 'نطاق موثّق', 'pro.tier_up_toast': '🎉 تهانينا، لقد وصلت إلى مستوى {tier}! تم منحك رصيد ترويج مجاني.',
     'pro.section_title': 'الملف الاحترافي', 'pro.section_intro': 'أبرز شعارك في إعلاناتك، واكسب المزيد من الظهور كلما نشرت.',
@@ -1189,7 +1189,7 @@ const T = {
     'toast.listing_suspended': 'تم تعليق الإعلان (مخفي عن الموقع العام).', 'toast.listing_reactivated': 'تمت إعادة تنشيط الإعلان.',
   },
   es: {
-    'auth.professional_toggle': 'Me registro como profesional (anunciante)', 'auth.company_name': 'Nombre de la empresa', 'auth.company_website': 'Sitio web (opcional)', 'pro.social_links_title': 'Redes sociales', 'pro.social_whatsapp': 'WhatsApp profesional', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'auth.domain_verified_hint': '💡 Si su email coincide con el dominio de este sitio, se mostrará automáticamente una insignia "Dominio verificado".',
+    'auth.professional_toggle': 'Me registro como profesional (anunciante)', 'auth.company_name': 'Nombre de la empresa', 'auth.company_website': 'Sitio web (opcional)', 'pro.social_links_title': 'Redes sociales', 'pro.social_whatsapp': 'WhatsApp profesional', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'pro.social_tiktok': 'TikTok', 'pro.social_linkedin': 'LinkedIn', 'auth.domain_verified_hint': '💡 Si su email coincide con el dominio de este sitio, se mostrará automáticamente una insignia "Dominio verificado".',
     'pro.tier_nouveau': 'Nuevo', 'pro.tier_actif': 'Activo', 'pro.tier_confirme': 'Consolidado', 'pro.tier_expert': 'Experto',
     'pro.domain_verified': 'Dominio verificado', 'pro.tier_up_toast': '🎉 ¡Felicidades, ha alcanzado el nivel {tier}! Se le ha concedido un crédito de promoción gratuito.',
     'pro.section_title': 'Perfil profesional', 'pro.section_intro': 'Destaque su logo en sus anuncios y gane visibilidad a medida que publica.',
@@ -1466,7 +1466,7 @@ const T = {
     'toast.listing_suspended': 'Anuncio suspendido (oculto del sitio público).', 'toast.listing_reactivated': 'Anuncio reactivado.',
   },
   pt: {
-    'auth.professional_toggle': 'Estou a registar-me como profissional (anunciante)', 'auth.company_name': 'Nome da empresa', 'auth.company_website': 'Site (opcional)', 'pro.social_links_title': 'Redes sociais', 'pro.social_whatsapp': 'WhatsApp profissional', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'auth.domain_verified_hint': '💡 Se o seu email corresponder ao domínio deste site, um selo "Domínio verificado" aparecerá automaticamente.',
+    'auth.professional_toggle': 'Estou a registar-me como profissional (anunciante)', 'auth.company_name': 'Nome da empresa', 'auth.company_website': 'Site (opcional)', 'pro.social_links_title': 'Redes sociais', 'pro.social_whatsapp': 'WhatsApp profissional', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'pro.social_tiktok': 'TikTok', 'pro.social_linkedin': 'LinkedIn', 'auth.domain_verified_hint': '💡 Se o seu email corresponder ao domínio deste site, um selo "Domínio verificado" aparecerá automaticamente.',
     'pro.tier_nouveau': 'Novo', 'pro.tier_actif': 'Ativo', 'pro.tier_confirme': 'Consolidado', 'pro.tier_expert': 'Especialista',
     'pro.domain_verified': 'Domínio verificado', 'pro.tier_up_toast': '🎉 Parabéns, atingiu o nível {tier}! Recebeu um crédito de destaque gratuito.',
     'pro.section_title': 'Perfil profissional', 'pro.section_intro': 'Destaque o seu logótipo nos seus anúncios e ganhe visibilidade à medida que publica.',
@@ -1754,7 +1754,7 @@ const T = {
     'auth.forgot_password': 'Passwort vergessen?', 'auth.send_reset_link': 'Link senden',
     'auth.back_to_login': '← Zurück zur Anmeldung', 'auth.new_password': 'Neues Passwort',
     'auth.set_new_password': 'Neues Passwort bestätigen', 'auth.or_divider': 'oder mit einer E-Mail',
-    'auth.company_name': 'Firmenname', 'auth.company_website': 'Webseite (optional)', 'pro.social_links_title': 'Soziale Netzwerke', 'pro.social_whatsapp': 'Geschäftliches WhatsApp', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook',
+    'auth.company_name': 'Firmenname', 'auth.company_website': 'Webseite (optional)', 'pro.social_links_title': 'Soziale Netzwerke', 'pro.social_whatsapp': 'Geschäftliches WhatsApp', 'pro.social_instagram': 'Instagram', 'pro.social_facebook': 'Facebook', 'pro.social_tiktok': 'TikTok', 'pro.social_linkedin': 'LinkedIn',
     'auth.professional_toggle': 'Ich registriere mich als Fachanbieter',
     'hero.title_short': 'Entdecke!', 'hero.instruction': 'Ihr Glück ist vielleicht nur einen Klick entfernt.',
     'map.click_hint': '👆 Eine Karte, eine Welt voller Anzeigen…',
