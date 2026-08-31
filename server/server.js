@@ -185,6 +185,36 @@ function isCountryDisabled(countryId) {
   if (!countryId) return false;
   return !!db.prepare('SELECT 1 FROM disabled_countries WHERE country_id = ?').get(countryId);
 }
+/** Recalcule intégralement l'ensemble des villes où une annonce doit
+ * apparaître (ville réelle + villes supplémentaires choisies + toutes
+ * les villes du pays si activé), et le stocke dans
+ * listing_visible_cities — table que toutes les recherches/parcours par
+ * ville consultent, plutôt que de reproduire cette logique dans chacune
+ * d'elles. À appeler après toute création ou modification d'annonce
+ * touchant la ville, les villes supplémentaires ou l'option "toutes les
+ * villes du pays". */
+function syncListingVisibleCities(listingId) {
+  const listing = db.prepare('SELECT city_id, visible_all_cities FROM listings WHERE id = ?').get(listingId);
+  if (!listing) return;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare('DELETE FROM listing_visible_cities WHERE listing_id = ?').run(listingId);
+    const insertStmt = db.prepare('INSERT OR IGNORE INTO listing_visible_cities (listing_id, city_id) VALUES (?, ?)');
+    insertStmt.run(listingId, listing.city_id);
+    const extraCities = db.prepare('SELECT city_id FROM listing_extra_cities WHERE listing_id = ?').all(listingId);
+    for (const row of extraCities) insertStmt.run(listingId, row.city_id);
+    if (listing.visible_all_cities) {
+      const countryCities = db
+        .prepare('SELECT id FROM cities WHERE country_id = (SELECT country_id FROM cities WHERE id = ?)')
+        .all(listing.city_id);
+      for (const row of countryCities) insertStmt.run(listingId, row.id);
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
 /** Lit la configuration email propre au site actuellement concerné par
  * la requête en cours (identifiants SMTP/IMAP saisis par l'administrateur
  * de CE site précis, dans Administration → Apparence → Email) — retourne
@@ -1119,7 +1149,7 @@ async function handleRequest(req, res) {
         .prepare(
           `SELECT ci.name AS city_name, co.iso2 AS country_iso2, co.name AS country_name
            FROM cities ci JOIN countries co ON co.id = ci.country_id
-           WHERE EXISTS (SELECT 1 FROM listings l WHERE l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now'))`
+           WHERE EXISTS (SELECT 1 FROM listing_visible_cities lvc JOIN listings l ON l.id = lvc.listing_id WHERE lvc.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now'))`
         )
         .all();
       const urls = [
@@ -1143,7 +1173,7 @@ async function handleRequest(req, res) {
         const stats = db
           .prepare(
             `SELECT COUNT(DISTINCT ci.id) AS cities, COUNT(l.id) AS listings
-             FROM cities ci LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
+             FROM cities ci LEFT JOIN listing_visible_cities lvc ON lvc.city_id = ci.id LEFT JOIN listings l ON l.id = lvc.listing_id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
              WHERE ci.country_id = ? AND ci.country_id NOT IN (SELECT country_id FROM disabled_countries)`
           )
           .get(country.id);
@@ -1568,7 +1598,7 @@ async function handleRequest(req, res) {
                   COUNT(DISTINCT l.id) AS listing_count
            FROM countries c
            LEFT JOIN cities ci ON ci.country_id = c.id
-           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
+           LEFT JOIN listing_visible_cities lvc ON lvc.city_id = ci.id LEFT JOIN listings l ON l.id = lvc.listing_id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            WHERE c.id NOT IN (SELECT country_id FROM disabled_countries)
            GROUP BY c.id
            ORDER BY c.name`
@@ -1584,7 +1614,7 @@ async function handleRequest(req, res) {
           `SELECT ci.id, ci.name, ci.timezone,
                   COUNT(l.id) AS listing_count
            FROM cities ci
-           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
+           LEFT JOIN listing_visible_cities lvc ON lvc.city_id = ci.id LEFT JOIN listings l ON l.id = lvc.listing_id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            WHERE ci.country_id = ? AND ci.state_id IS NULL AND ci.country_id NOT IN (SELECT country_id FROM disabled_countries)
            GROUP BY ci.id
            ORDER BY ci.name`
@@ -1601,7 +1631,7 @@ async function handleRequest(req, res) {
                   COUNT(DISTINCT l.id) AS listing_count
            FROM states s
            LEFT JOIN cities ci ON ci.state_id = s.id
-           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
+           LEFT JOIN listing_visible_cities lvc ON lvc.city_id = ci.id LEFT JOIN listings l ON l.id = lvc.listing_id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            WHERE s.country_id = ? AND s.country_id NOT IN (SELECT country_id FROM disabled_countries)
            GROUP BY s.id
            ORDER BY s.name`
@@ -1616,7 +1646,7 @@ async function handleRequest(req, res) {
           `SELECT ci.id, ci.name, ci.timezone,
                   COUNT(l.id) AS listing_count
            FROM cities ci
-           LEFT JOIN listings l ON l.city_id = ci.id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
+           LEFT JOIN listing_visible_cities lvc ON lvc.city_id = ci.id LEFT JOIN listings l ON l.id = lvc.listing_id AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories)
            WHERE ci.state_id = ? AND ci.country_id NOT IN (SELECT country_id FROM disabled_countries)
            GROUP BY ci.id
            ORDER BY ci.name`
@@ -1811,7 +1841,7 @@ async function handleRequest(req, res) {
         JOIN cities ci ON ci.id = l.city_id
         JOIN countries co ON co.id = ci.country_id
         JOIN users u ON u.id = l.user_id
-        WHERE l.city_id = ? AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories) AND co.id NOT IN (SELECT country_id FROM disabled_countries)
+        WHERE l.id IN (SELECT listing_id FROM listing_visible_cities WHERE city_id = ?) AND l.status = 'active' AND l.expires_at > datetime('now') AND l.category_id NOT IN (SELECT category_id FROM disabled_categories) AND co.id NOT IN (SELECT country_id FROM disabled_countries)
       `;
       const params = [cityId];
       if (category) {
@@ -1842,7 +1872,7 @@ async function handleRequest(req, res) {
       if (!user) return;
       if (!requireVerifiedEmail(user, res)) return;
       const body = await readBody(req);
-      const { title, description, listing_type, price, currency, city_id, category_id, subcategory_id, images, open_to_trade, trade_description, language, is_secondhand, date_start, date_end, price_promo, price_type, capacity_guests, bedrooms, bathrooms, amenities, vehicle_brand, vehicle_model, vehicle_year, vehicle_mileage, vehicle_condition, vehicle_transmission, vehicle_fuel_type, surface_m2, num_rooms, floor_number, furnished, construction_year, job_contract_type, job_remote_type, job_experience_level, job_education_level, job_sector, job_cv_url } = body;
+      const { title, description, listing_type, price, currency, city_id, category_id, subcategory_id, images, open_to_trade, trade_description, language, is_secondhand, date_start, date_end, price_promo, price_type, capacity_guests, bedrooms, bathrooms, amenities, vehicle_brand, vehicle_model, vehicle_year, vehicle_mileage, vehicle_condition, vehicle_transmission, vehicle_fuel_type, surface_m2, num_rooms, floor_number, furnished, construction_year, job_contract_type, job_remote_type, job_experience_level, job_education_level, job_sector, job_cv_url, extra_city_ids, visible_all_cities } = body;
       const VALID_TYPES = ['vente', 'location', 'achat', 'offre_emploi', 'demande_emploi'];
       if (!title || !listing_type || !VALID_TYPES.includes(listing_type)) {
         return sendJSON(res, 400, { error: "Titre et type d'annonce valide requis." });
@@ -1879,11 +1909,23 @@ async function handleRequest(req, res) {
       const listingLang = ['fr', 'en', 'ar', 'es', 'pt', 'it'].includes(language) ? language : 'fr';
       const id = db
         .prepare(
-          `INSERT INTO listings (user_id, city_id, category_id, subcategory_id, title, description, listing_type, price, currency, images_json, open_to_trade, trade_description, language, is_secondhand, date_start, date_end, price_promo, price_type, capacity_guests, bedrooms, bathrooms, amenities_json, vehicle_brand, vehicle_model, vehicle_year, vehicle_mileage, vehicle_condition, vehicle_transmission, vehicle_fuel_type, surface_m2, num_rooms, floor_number, furnished, construction_year, job_contract_type, job_remote_type, job_experience_level, job_education_level, job_sector, job_cv_url)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO listings (user_id, city_id, category_id, subcategory_id, title, description, listing_type, price, currency, images_json, open_to_trade, trade_description, language, is_secondhand, date_start, date_end, price_promo, price_type, capacity_guests, bedrooms, bathrooms, amenities_json, vehicle_brand, vehicle_model, vehicle_year, vehicle_mileage, vehicle_condition, vehicle_transmission, vehicle_fuel_type, surface_m2, num_rooms, floor_number, furnished, construction_year, job_contract_type, job_remote_type, job_experience_level, job_education_level, job_sector, job_cv_url, visible_all_cities)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
-        .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null, listingLang, is_secondhand ? 1 : 0, (date_start || '').trim() || null, (date_end || '').trim() || null, price_promo === null || price_promo === undefined || price_promo === '' ? null : Number(price_promo), (price_type || '').trim() || null, capacity_guests === null || capacity_guests === undefined || capacity_guests === '' ? null : Number(capacity_guests), bedrooms === null || bedrooms === undefined || bedrooms === '' ? null : Number(bedrooms), bathrooms === null || bathrooms === undefined || bathrooms === '' ? null : Number(bathrooms), Array.isArray(amenities) && amenities.length ? JSON.stringify(amenities) : null, (vehicle_brand || '').trim() || null, (vehicle_model || '').trim() || null, vehicle_year === null || vehicle_year === undefined || vehicle_year === '' ? null : Number(vehicle_year), vehicle_mileage === null || vehicle_mileage === undefined || vehicle_mileage === '' ? null : Number(vehicle_mileage), (vehicle_condition || '').trim() || null, (vehicle_transmission || '').trim() || null, (vehicle_fuel_type || '').trim() || null, surface_m2 === null || surface_m2 === undefined || surface_m2 === '' ? null : Number(surface_m2), num_rooms === null || num_rooms === undefined || num_rooms === '' ? null : Number(num_rooms), (floor_number || '').trim() || null, (furnished || '').trim() || null, construction_year === null || construction_year === undefined || construction_year === '' ? null : Number(construction_year), (job_contract_type || '').trim() || null, (job_remote_type || '').trim() || null, (job_experience_level || '').trim() || null, (job_education_level || '').trim() || null, (job_sector || '').trim() || null, (job_cv_url || '').trim() || null)
+        .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null, listingLang, is_secondhand ? 1 : 0, (date_start || '').trim() || null, (date_end || '').trim() || null, price_promo === null || price_promo === undefined || price_promo === '' ? null : Number(price_promo), (price_type || '').trim() || null, capacity_guests === null || capacity_guests === undefined || capacity_guests === '' ? null : Number(capacity_guests), bedrooms === null || bedrooms === undefined || bedrooms === '' ? null : Number(bedrooms), bathrooms === null || bathrooms === undefined || bathrooms === '' ? null : Number(bathrooms), Array.isArray(amenities) && amenities.length ? JSON.stringify(amenities) : null, (vehicle_brand || '').trim() || null, (vehicle_model || '').trim() || null, vehicle_year === null || vehicle_year === undefined || vehicle_year === '' ? null : Number(vehicle_year), vehicle_mileage === null || vehicle_mileage === undefined || vehicle_mileage === '' ? null : Number(vehicle_mileage), (vehicle_condition || '').trim() || null, (vehicle_transmission || '').trim() || null, (vehicle_fuel_type || '').trim() || null, surface_m2 === null || surface_m2 === undefined || surface_m2 === '' ? null : Number(surface_m2), num_rooms === null || num_rooms === undefined || num_rooms === '' ? null : Number(num_rooms), (floor_number || '').trim() || null, (furnished || '').trim() || null, construction_year === null || construction_year === undefined || construction_year === '' ? null : Number(construction_year), (job_contract_type || '').trim() || null, (job_remote_type || '').trim() || null, (job_experience_level || '').trim() || null, (job_education_level || '').trim() || null, (job_sector || '').trim() || null, (job_cv_url || '').trim() || null, visible_all_cities ? 1 : 0)
         .lastInsertRowid;
+      // Villes supplémentaires choisies — restreintes au même pays que la
+      // ville réelle du bien (pas de sens à cross-lister une voiture au
+      // Maroc vers une ville française), cohérent avec la portée retenue
+      // pour "toutes les villes du pays".
+      if (Array.isArray(extra_city_ids) && extra_city_ids.length) {
+        const insertExtraCity = db.prepare('INSERT OR IGNORE INTO listing_extra_cities (listing_id, city_id) VALUES (?, ?)');
+        for (const extraCityId of extra_city_ids) {
+          const extraCity = db.prepare('SELECT id FROM cities WHERE id = ? AND country_id = ?').get(Number(extraCityId), city.country_id);
+          if (extraCity) insertExtraCity.run(id, extraCity.id);
+        }
+      }
+      syncListingVisibleCities(id);
       const risk = computeFraudRisk({ price: finalPrice, currency: currency || 'EUR', description: (description || '').trim(), images, subcategoryId, userId: user.id, title: title.trim(), categorySlug: category.slug });
       if (risk.score > 0) {
         db.prepare('UPDATE listings SET fraud_risk_score = ?, fraud_risk_reasons = ? WHERE id = ?').run(risk.score, risk.reasons.join(' · '), id);
@@ -2093,13 +2135,13 @@ async function handleRequest(req, res) {
           return sendJSON(res, 400, { error: "Ce pays n'est actuellement pas disponible sur ce site — impossible de republier cette annonce." });
         }
       }
-      const fields = ['title', 'description', 'listing_type', 'price', 'currency', 'city_id', 'category_id', 'subcategory_id', 'status'];
+      const fields = ['title', 'description', 'listing_type', 'price', 'currency', 'city_id', 'category_id', 'subcategory_id', 'status', 'visible_all_cities'];
       const updates = [];
       const params = [];
       for (const f of fields) {
         if (body[f] !== undefined) {
           updates.push(`${f} = ?`);
-          params.push(f === 'images' ? JSON.stringify(body[f]) : body[f]);
+          params.push(f === 'visible_all_cities' ? (body[f] ? 1 : 0) : body[f]);
         }
       }
       if (body.images !== undefined) {
@@ -2111,6 +2153,27 @@ async function handleRequest(req, res) {
         params.push(listingId);
         db.prepare(`UPDATE listings SET ${updates.join(', ')} WHERE id = ?`).run(...params);
       }
+      // Villes supplémentaires : remplacées intégralement si transmises
+      // (tableau vide = les retirer toutes), restreintes au même pays que
+      // la ville réelle — même règle qu'à la publication. Puis
+      // resynchronisation de listing_visible_cities si l'un des trois
+      // éléments qui la déterminent a été touché (ville, villes
+      // supplémentaires, ou portée "tout le pays").
+      let visibilityTouched = body.city_id !== undefined || body.visible_all_cities !== undefined;
+      if (Array.isArray(body.extra_city_ids)) {
+        const finalCityId = body.city_id !== undefined ? body.city_id : listing.city_id;
+        const finalCity = db.prepare('SELECT country_id FROM cities WHERE id = ?').get(finalCityId);
+        db.prepare('DELETE FROM listing_extra_cities WHERE listing_id = ?').run(listingId);
+        if (finalCity) {
+          const insertExtraCity = db.prepare('INSERT OR IGNORE INTO listing_extra_cities (listing_id, city_id) VALUES (?, ?)');
+          for (const extraCityId of body.extra_city_ids) {
+            const extraCity = db.prepare('SELECT id FROM cities WHERE id = ? AND country_id = ?').get(Number(extraCityId), finalCity.country_id);
+            if (extraCity) insertExtraCity.run(listingId, extraCity.id);
+          }
+        }
+        visibilityTouched = true;
+      }
+      if (visibilityTouched) syncListingVisibleCities(listingId);
       return sendJSON(res, 200, { ok: true });
     }
     if ((m = pathname.match(/^\/api\/listings\/(\d+)\/renew$/)) && method === 'POST') {
