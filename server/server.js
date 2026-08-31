@@ -2744,6 +2744,59 @@ if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)\/categories$/)) && me
 // Pas de suppression définitive : un plan déjà associé à un site
 // existant doit rester consultable pour l'historique — on le retire
 // simplement de la liste proposée pour un NOUVEAU site (is_active).
+// Réservation de sous-domaine avant lancement officiel — publique,
+// gratuite, sans engagement (voir table site_reservations dans db.js).
+if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
+      const subdomainRaw = (url.searchParams.get('subdomain') || '').trim().toLowerCase();
+      if (!subdomainRaw || !/^[a-z0-9-]{3,40}$/.test(subdomainRaw)) {
+        return sendJSON(res, 200, { available: false, reason: 'invalid' });
+      }
+      const existingSite = masterDb.prepare('SELECT id FROM sites WHERE slug = ? OR subdomain LIKE ?').get(subdomainRaw, `${subdomainRaw}.%`);
+      const existingReservation = masterDb.prepare("SELECT id FROM site_reservations WHERE subdomain = ? AND status = 'pending'").get(subdomainRaw);
+      return sendJSON(res, 200, { available: !existingSite && !existingReservation });
+    }
+    if (pathname === '/api/reservations' && method === 'POST') {
+      const body = await readBody(req);
+      const subdomain = (body.subdomain || '').trim().toLowerCase();
+      const businessName = (body.business_name || '').trim();
+      const contactEmail = (body.contact_email || '').trim().toLowerCase();
+      if (!/^[a-z0-9-]{3,40}$/.test(subdomain)) {
+        return sendJSON(res, 400, { error: 'Sous-domaine invalide (lettres, chiffres, tirets, 3 à 40 caractères).' });
+      }
+      if (!businessName) return sendJSON(res, 400, { error: "Le nom de l'entreprise est requis." });
+      if (!contactEmail || !contactEmail.includes('@')) return sendJSON(res, 400, { error: 'Adresse email invalide.' });
+      const existingSite = masterDb.prepare('SELECT id FROM sites WHERE slug = ? OR subdomain LIKE ?').get(subdomain, `${subdomain}.%`);
+      const existingReservation = masterDb.prepare("SELECT id FROM site_reservations WHERE subdomain = ? AND status = 'pending'").get(subdomain);
+      if (existingSite || existingReservation) {
+        return sendJSON(res, 409, { error: 'Ce sous-domaine est déjà pris ou réservé.' });
+      }
+      masterDb
+        .prepare('INSERT INTO site_reservations (subdomain, business_name, sector, contact_email, contact_phone) VALUES (?, ?, ?, ?, ?)')
+        .run(subdomain, businessName, (body.sector || '').trim() || null, contactEmail, (body.contact_phone || '').trim() || null);
+      sendMail({
+        smtpConfig: getSiteMailConfig(),
+        to: contactEmail,
+        purpose: 'reservation',
+        subject: `Votre sous-domaine ${subdomain}.quickatlas.net est réservé !`,
+        text: `Bonjour,\n\nVotre réservation pour ${subdomain}.quickatlas.net (${businessName}) est bien enregistrée — gratuite et sans engagement.\n\nNous vous recontacterons personnellement à l'approche du lancement officiel pour finaliser la mise en route de votre marketplace.\n\nÀ très bientôt,\nL'équipe QuickAtlas`,
+        link: SITE_URL,
+      }).catch((err) => console.error('[reservation] échec envoi email confirmation :', err.message));
+      return sendJSON(res, 201, { ok: true });
+    }
+    if (pathname === '/api/super-admin/reservations' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const rows = masterDb.prepare('SELECT * FROM site_reservations ORDER BY created_at DESC').all();
+      return sendJSON(res, 200, rows);
+    }
+    if ((m = pathname.match(/^\/api\/super-admin\/reservations\/(\d+)$/)) && method === 'PUT') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      if (!['pending', 'converted', 'declined'].includes(body.status)) return sendJSON(res, 400, { error: 'Statut invalide.' });
+      masterDb.prepare('UPDATE site_reservations SET status = ? WHERE id = ?').run(body.status, Number(m[1]));
+      return sendJSON(res, 200, { ok: true });
+    }
 if (pathname === '/api/super-admin/plans' && method === 'GET') {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
@@ -2879,6 +2932,10 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
         )
         .run(slug, subdomain, customDomain, dbFilename, brandName, ownerEmail, planId, `+${gracePeriodDays} days`);
       logAdminAction(masterDb, admin, 'site_created', 'site', slug, { brand_name: brandName, subdomain, custom_domain: customDomain, owner_email: ownerEmail, plan_id: planId, grace_period_days: gracePeriodDays });
+      // Si ce sous-domaine correspondait à une réservation en attente,
+      // elle est marquée convertie — sans effet si aucune réservation
+      // ne correspond (création directe, sans passer par la réservation).
+      masterDb.prepare("UPDATE site_reservations SET status = 'converted' WHERE subdomain = ? AND status = 'pending'").run(slug);
       return sendJSON(res, 201, { ok: true, slug, db_filename: dbFilename });
     }
     if ((m = pathname.match(/^\/api\/super-admin\/sites\/(\d+)$/)) && method === 'PUT') {
