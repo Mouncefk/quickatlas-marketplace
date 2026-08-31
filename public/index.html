@@ -565,6 +565,7 @@
       <div class="seller-stats" id="sellerStats"></div>
       <div class="dashboard-detail-toggle" id="proDashboardToggle" hidden>
         <button type="button" id="showDetailedStatsBtn" class="btn btn--ghost btn--small" data-i18n="mine.show_detailed_stats">📊 Voir le détail par annonce</button>
+        <button type="button" id="showLeadsBtn" class="btn btn--ghost btn--small" data-i18n="mine.show_leads">📋 Suivi de prospects</button>
         <button type="button" id="showInterestedClientsBtn" class="btn btn--ghost btn--small" data-i18n="mine.show_interested_clients">👥 Mes clients intéressés</button>
         <button type="button" id="showGeoStatsBtn" class="btn btn--ghost btn--small" data-i18n="mine.show_geo_stats">🌍 Origine géographique</button>
       </div>
@@ -581,6 +582,22 @@
           </thead>
           <tbody id="detailedStatsBody"></tbody>
         </table>
+      </div>
+      <div id="leadsPanel" hidden>
+        <p class="form-hint" data-i18n="mine.leads_hint">Chaque personne qui vous contacte au sujet d'une annonce devient automatiquement un prospect suivi ici — ajoutez-y aussi vos contacts hors plateforme (appel, visite spontanée...).</p>
+        <div class="leads-toolbar">
+          <select id="leadsStatusFilter">
+            <option value="" data-i18n="mine.leads_filter_all">Tous les statuts</option>
+            <option value="nouveau" data-i18n="mine.lead_status_nouveau">Nouveau</option>
+            <option value="contacte" data-i18n="mine.lead_status_contacte">Contacté</option>
+            <option value="visite_programmee" data-i18n="mine.lead_status_visite_programmee">Visite programmée</option>
+            <option value="offre_faite" data-i18n="mine.lead_status_offre_faite">Offre faite</option>
+            <option value="conclu" data-i18n="mine.lead_status_conclu">Conclu</option>
+            <option value="perdu" data-i18n="mine.lead_status_perdu">Perdu</option>
+          </select>
+          <button type="button" id="addLeadBtn" class="btn btn--primary btn--small" data-i18n="mine.leads_add">+ Ajouter un prospect</button>
+        </div>
+        <div id="leadsList"></div>
       </div>
       <div id="interestedClientsPanel" hidden>
         <p class="form-hint" data-i18n="mine.interested_clients_hint">Ces personnes ont mis au moins une de vos annonces en favori — elles seront prévenues en avant-première si vous utilisez le bouton "Prévenir mes clients" sur une nouvelle annonce.</p>
@@ -1145,6 +1162,73 @@
         </label>
         <p class="form-error" id="planError" hidden></p>
         <button type="submit" class="btn btn--primary" data-i18n="admin.plans_save">Enregistrer</button>
+      </form>
+    </div>
+  </div>
+  <!-- ===== Modale : détail / modification d'un prospect ===== -->
+  <div class="modal-overlay" id="leadModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="leadModal" aria-label="Fermer">&times;</button>
+      <h2 data-i18n="mine.lead_modal_title">Fiche prospect</h2>
+      <form id="leadForm" class="atlas-form">
+        <input type="hidden" name="lead_id" />
+        <p class="form-hint" id="leadModalContactInfo"></p>
+        <div class="form-row">
+          <label><span data-i18n="mine.lead_field_status">Statut</span>
+            <select name="status">
+              <option value="nouveau" data-i18n="mine.lead_status_nouveau">Nouveau</option>
+              <option value="contacte" data-i18n="mine.lead_status_contacte">Contacté</option>
+              <option value="visite_programmee" data-i18n="mine.lead_status_visite_programmee">Visite programmée</option>
+              <option value="offre_faite" data-i18n="mine.lead_status_offre_faite">Offre faite</option>
+              <option value="conclu" data-i18n="mine.lead_status_conclu">Conclu</option>
+              <option value="perdu" data-i18n="mine.lead_status_perdu">Perdu</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="mine.lead_field_reminder">Rappel (optionnel)</span>
+            <input type="date" name="next_reminder_at" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="mine.lead_field_notes">Notes</span>
+            <textarea name="notes" rows="4" data-i18n-placeholder="mine.lead_notes_placeholder" placeholder="Ex. Visite prévue samedi 14h, très intéressé par le balcon…"></textarea>
+          </label>
+        </div>
+        <p class="form-error" id="leadError" hidden></p>
+        <div class="form-actions">
+          <button type="button" id="leadDeleteBtn" class="btn btn--danger btn--small" data-i18n="mine.lead_delete">Supprimer ce prospect</button>
+          <button type="submit" class="btn btn--primary" data-i18n="mine.lead_save">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <!-- ===== Modale : ajout manuel d'un prospect ===== -->
+  <div class="modal-overlay" id="addLeadModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="addLeadModal" aria-label="Fermer">&times;</button>
+      <h2 data-i18n="mine.leads_add">+ Ajouter un prospect</h2>
+      <form id="addLeadForm" class="atlas-form">
+        <div class="form-row">
+          <label><span data-i18n="mine.lead_field_listing">Annonce concernée</span>
+            <select name="listing_id" id="addLeadListingSelect" required></select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="mine.lead_field_name">Nom</span>
+            <input type="text" name="contact_name" required />
+          </label>
+        </div>
+        <div class="form-row form-row--split">
+          <label><span data-i18n="mine.lead_field_phone">Téléphone (optionnel)</span>
+            <input type="tel" name="contact_phone" />
+          </label>
+          <label><span data-i18n="mine.lead_field_email">Email (optionnel)</span>
+            <input type="email" name="contact_email" />
+          </label>
+        </div>
+        <p class="form-error" id="addLeadError" hidden></p>
+        <button type="submit" class="btn btn--primary" data-i18n="mine.leads_add_submit">Ajouter</button>
       </form>
     </div>
   </div>
