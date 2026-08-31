@@ -3326,3 +3326,5 @@ textarea { resize: vertical; }
 }
 .reserve-status--ok { color: var(--teal-500); }
 .reserve-status--taken { color: var(--rust-text); }
+/* ---------- Échéance des sites de démonstration ---------- */
+.form-hint--demo { color: var(--brass-300); }
