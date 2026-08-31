@@ -2302,6 +2302,82 @@ async function handleRequest(req, res) {
         .all(user.id);
       return sendJSON(res, 200, rows);
     }
+    // Suivi de prospects (mini-CRM) — liste tous les prospects du
+    // vendeur connecté, tous statuts confondus, avec les infos de
+    // l'annonce et de l'acheteur (si contact enregistré via message).
+    if (pathname === '/api/me/leads' && method === 'GET') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      if (!user.is_professional) return sendJSON(res, 403, { error: 'Réservé aux comptes professionnels.' });
+      const rows = db
+        .prepare(
+          `SELECT ll.id, ll.listing_id, l.title AS listing_title, ll.buyer_id, u.name AS buyer_name, u.email AS buyer_email,
+                  ll.contact_name, ll.contact_phone, ll.contact_email, ll.source, ll.status, ll.notes, ll.next_reminder_at, ll.created_at, ll.updated_at
+           FROM listing_leads ll
+           JOIN listings l ON l.id = ll.listing_id
+           LEFT JOIN users u ON u.id = ll.buyer_id
+           WHERE ll.seller_id = ?
+           ORDER BY ll.updated_at DESC`
+        )
+        .all(user.id);
+      return sendJSON(res, 200, rows);
+    }
+    // Ajout manuel d'un prospect contacté hors plateforme (visite
+    // spontanée, appel téléphonique direct...) — buyer_id reste NULL,
+    // les coordonnées sont saisies librement par le vendeur.
+    if (pathname === '/api/me/leads' && method === 'POST') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      if (!user.is_professional) return sendJSON(res, 403, { error: 'Réservé aux comptes professionnels.' });
+      const body = await readBody(req);
+      const listing = db.prepare('SELECT id FROM listings WHERE id = ? AND user_id = ?').get(Number(body.listing_id), user.id);
+      if (!listing) return sendJSON(res, 404, { error: 'Annonce introuvable.' });
+      const contactName = (body.contact_name || '').trim();
+      if (!contactName) return sendJSON(res, 400, { error: 'Le nom du prospect est requis.' });
+      const result = db
+        .prepare('INSERT INTO listing_leads (listing_id, seller_id, contact_name, contact_phone, contact_email, source, status) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(listing.id, user.id, contactName, (body.contact_phone || '').trim() || null, (body.contact_email || '').trim() || null, 'manual', 'nouveau');
+      return sendJSON(res, 201, { ok: true, id: result.lastInsertRowid });
+    }
+    // Mise à jour d'un prospect : statut, notes, rappel — jamais les
+    // coordonnées d'un prospect issu d'une conversation (buyer_id),
+    // puisqu'elles proviennent alors du compte utilisateur lui-même.
+    if ((m = pathname.match(/^\/api\/me\/leads\/(\d+)$/)) && method === 'PUT') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const lead = db.prepare('SELECT id FROM listing_leads WHERE id = ? AND seller_id = ?').get(Number(m[1]), user.id);
+      if (!lead) return sendJSON(res, 404, { error: 'Prospect introuvable.' });
+      const body = await readBody(req);
+      const validStatuses = ['nouveau', 'contacte', 'visite_programmee', 'offre_faite', 'conclu', 'perdu'];
+      const updates = [];
+      const params = [];
+      if (body.status !== undefined) {
+        if (!validStatuses.includes(body.status)) return sendJSON(res, 400, { error: 'Statut invalide.' });
+        updates.push('status = ?');
+        params.push(body.status);
+      }
+      if (body.notes !== undefined) {
+        updates.push('notes = ?');
+        params.push((body.notes || '').trim() || null);
+      }
+      if (body.next_reminder_at !== undefined) {
+        updates.push('next_reminder_at = ?');
+        params.push((body.next_reminder_at || '').trim() || null);
+      }
+      if (!updates.length) return sendJSON(res, 400, { error: 'Aucune modification transmise.' });
+      updates.push("updated_at = datetime('now')");
+      params.push(Number(m[1]));
+      db.prepare(`UPDATE listing_leads SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+      return sendJSON(res, 200, { ok: true });
+    }
+    if ((m = pathname.match(/^\/api\/me\/leads\/(\d+)$/)) && method === 'DELETE') {
+      const user = requireAuth(req, res);
+      if (!user) return;
+      const lead = db.prepare('SELECT id FROM listing_leads WHERE id = ? AND seller_id = ?').get(Number(m[1]), user.id);
+      if (!lead) return sendJSON(res, 404, { error: 'Prospect introuvable.' });
+      db.prepare('DELETE FROM listing_leads WHERE id = ?').run(Number(m[1]));
+      return sendJSON(res, 200, { ok: true });
+    }
     // Clients intéressés — utilisateurs ayant mis en favori au moins une
     // annonce du vendeur connecté, avec le détail de quelle(s) annonce(s).
     // Sert de base au ciblage "avant-première" ci-dessous.
@@ -2975,6 +3051,12 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
           .prepare('INSERT INTO conversations (listing_id, buyer_id, seller_id) VALUES (?, ?, ?)')
           .run(listing_id, user.id, listing.user_id).lastInsertRowid;
         conversation = { id: convId };
+        // Nouvelle conversation = nouveau prospect suivi automatiquement
+        // pour le vendeur (voir listing_leads) — un contact qui écrit
+        // pour la première fois au sujet d'une annonce est un signal
+        // d'intérêt fort, contrairement à un simple favori.
+        db.prepare('INSERT INTO listing_leads (listing_id, seller_id, buyer_id, source, status) VALUES (?, ?, ?, ?, ?)')
+          .run(listing_id, listing.user_id, user.id, 'message', 'nouveau');
       }
       db.prepare('INSERT INTO messages (conversation_id, sender_id, body, image_url) VALUES (?, ?, ?, ?)').run(conversation.id, user.id, (body || '').trim(), image_url || null);
       return sendJSON(res, 201, { conversation_id: conversation.id });
