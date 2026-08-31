@@ -1120,6 +1120,7 @@ async function handlePublishCountryChange(countryId) {
   pubCatSelect.dispatchEvent(new Event('change'));
   const stateLabel = document.getElementById('publishStateLabel');
   const stateSelect = document.getElementById('publishState');
+  fillPublishExtraCities(country.id);
   if (country.is_federal) {
     stateLabel.hidden = false;
     const states = await api(`/countries/${country.id}/states`);
@@ -1141,7 +1142,6 @@ async function fillPublishCitiesFromStates(stateId) {
   const sel = document.getElementById('publishCity');
   sel.innerHTML = '';
   for (const c of cities) sel.append(el('option', { value: c.id }, c.name));
-  fillPublishExtraCities(cities);
 }
 function renderStatsBar() {
   const bar = document.getElementById('statsBar');
@@ -1180,9 +1180,16 @@ async function loadFeatured() {
  * liste que le champ ville principal — limitation connue en V1 : pour
  * un pays fédéral, se limite aux villes du même État que la ville
  * principale (pas de vue consolidée multi-États pour l'instant). */
-function fillPublishExtraCities(cities) {
+/** Peuple le multi-select "villes supplémentaires" avec TOUTES les
+ * villes du pays, États fédéraux compris — contrairement au champ ville
+ * principale, qui reste limité à un État à la fois pour un pays
+ * fédéral. Interrogation indépendante de la route dédiée
+ * /countries/:id/all-cities plutôt que de recycler la liste (limitée)
+ * déjà affichée pour la ville principale. */
+async function fillPublishExtraCities(countryId) {
   const sel = document.getElementById('publishExtraCities');
   if (!sel) return;
+  const cities = await api(`/countries/${countryId}/all-cities`);
   sel.innerHTML = '';
   for (const c of cities) sel.append(el('option', { value: c.id }, c.name));
 }
@@ -1191,7 +1198,6 @@ async function fillPublishCities(countryId) {
   const sel = document.getElementById('publishCity');
   sel.innerHTML = '';
   for (const c of cities) sel.append(el('option', { value: c.id }, c.name));
-  fillPublishExtraCities(cities);
 }
 function renderCountryGrid() {
   setupCountryCombobox();
