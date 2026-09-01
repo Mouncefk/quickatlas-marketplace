@@ -614,6 +614,19 @@ body:not(.atlas-engaged) #recentlyViewedSection {
   color: var(--teal-500);
 }
 .admin-table tr:hover td { background: var(--ink-700); }
+/* Colonne Actions collante — reste toujours visible à droite, même
+   quand le tableau défile horizontalement (beaucoup de colonnes) ;
+   sans ça, le bouton "⋯" devient difficile à trouver, tout à droite
+   d'un tableau large. Fond opaque obligatoire pour masquer le contenu
+   qui défile en dessous. */
+.admin-table th.admin-actions-col,
+.admin-table td.admin-actions-cell {
+  position: sticky;
+  right: 0;
+  background: var(--ink-900);
+  box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.5);
+}
+.admin-table tr:hover td.admin-actions-cell { background: var(--ink-700); }
 .role-badge {
   font-family: var(--font-mono);
   font-size: 0.7rem;
