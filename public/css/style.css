@@ -972,6 +972,7 @@ textarea { resize: vertical; }
 }
 .conversation-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
@@ -993,6 +994,8 @@ textarea { resize: vertical; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 60px;
 }
 .conversation-thread {
   border: 1px solid var(--ink-line);
