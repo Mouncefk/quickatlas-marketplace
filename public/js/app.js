@@ -1292,6 +1292,14 @@ function renderExtraCountriesList(filterText) {
   }
 }
 document.getElementById('publishExtraCountriesSearch')?.addEventListener('input', (e) => renderExtraCountriesList(e.target.value));
+document.getElementById('publishExtraCountriesSelectAllBtn')?.addEventListener('click', () => {
+  for (const c of state.countries || []) selectedExtraCountryIds.add(c.id);
+  renderExtraCountriesList(document.getElementById('publishExtraCountriesSearch')?.value || '');
+});
+document.getElementById('publishExtraCountriesDeselectAllBtn')?.addEventListener('click', () => {
+  selectedExtraCountryIds = new Set();
+  renderExtraCountriesList(document.getElementById('publishExtraCountriesSearch')?.value || '');
+});
 /** Bascule l'affichage entre le mode habituel (villes supplémentaires
  * limitées au même pays) et le mode Tourisme (recherche mondiale de
  * villes + sélection de pays entiers supplémentaires) — appelée à
