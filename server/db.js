@@ -472,6 +472,27 @@ db.exec(`
       .run(tourismCategory.id, 'activites-excursions', 'Activités & Excursions');
   }
 }
+// Migration : deuxième vague d'affinage Tourisme (comparaison
+// approfondie avec Airbnb/Expedia/GetYourGuide) — type de logement et
+// nombre de lits pour l'hébergement, inclus/non-inclus et prise en
+// charge pour les activités, politique d'annulation partagée par les
+// deux (même concept, un seul champ). Toutes nullable.
+{
+  const tourismColumns3 = db.prepare("PRAGMA table_info(listings)").all();
+  const newTourismColumns2 = [
+    ['property_room_type', 'TEXT'],
+    ['num_beds', 'INTEGER'],
+    ['cancellation_policy', 'TEXT'],
+    ['activity_included', 'TEXT'],
+    ['activity_excluded', 'TEXT'],
+    ['activity_pickup_included', 'INTEGER'],
+  ];
+  for (const [name, type] of newTourismColumns2) {
+    if (!tourismColumns3.some((c) => c.name === name)) {
+      db.exec(`ALTER TABLE listings ADD COLUMN ${name} ${type}`);
+    }
+  }
+}
 // Migration : favoris pays et villes — permet un accès direct depuis
 // l'accueil sans repasser par la carte, en plus (pas à la place) du
 // parcours pays → ville déjà en place.
