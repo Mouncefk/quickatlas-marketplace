@@ -60,8 +60,29 @@ function dotStuff(body) {
  * `fromName` : nom affiché dans l'en-tête From (le nom de marque du site
  * qui envoie, plutôt que "QuickAtlas" en dur — chaque site du réseau
  * envoie sous son propre nom). */
-function buildMimeMessage({ from, fromName, to, subject, text, html, attachments }) {
-  const headersCommon = [`From: ${fromName} <${from}>`, `To: <${to}>`, `Subject: ${subject}`];
+function buildMimeMessage({ from, fromName, to, subject, text, html, attachments, unsubscribeMailto }) {
+  // Ces trois en-têtes sont attendus par pratiquement tous les clients
+  // email et filtres anti-spam — leur absence est elle-même un signal
+  // suspect, indépendamment du contenu. Message-ID unique par email
+  // (jamais réutilisé), format standard <horodatage.aléatoire@domaine>.
+  const messageId = `<${Date.now()}.${crypto.randomBytes(8).toString('hex')}@${(from.split('@')[1] || 'quickatlas.net')}>`;
+  const headersCommon = [
+    `From: ${fromName} <${from}>`,
+    `To: <${to}>`,
+    `Subject: ${subject}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: ${messageId}`,
+    'MIME-Version: 1.0',
+  ];
+  // Lien de désinscription en en-tête — norme attendue par Gmail/Yahoo
+  // pour tout envoi groupé depuis 2024 ; son absence pénalise
+  // directement la délivrabilité, même avec un contenu par ailleurs
+  // irréprochable. En mailto faute de gestion d'abonnement dédiée pour
+  // l'instant — reste conforme, un désabonnement par simple réponse
+  // email fonctionne très bien pour ce volume.
+  if (unsubscribeMailto) {
+    headersCommon.push(`List-Unsubscribe: <mailto:${unsubscribeMailto}>`, 'List-Unsubscribe-Post: List-Unsubscribe=One-Click');
+  }
   if (!attachments || attachments.length === 0) {
     if (!html) {
       return [...headersCommon, 'Content-Type: text/plain; charset=utf-8', '', text].join('\r\n');
@@ -111,7 +132,7 @@ function buildMimeMessage({ from, fromName, to, subject, text, html, attachments
   return [...headersCommon, `Content-Type: multipart/mixed; boundary="${boundary}"`, '', ...parts].join('\r\n');
 }
 
-async function sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName }) {
+async function sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName, unsubscribeMailto }) {
   const socket = tls.connect({ host, port: Number(port) || 465, servername: host });
   await new Promise((resolve, reject) => {
     socket.once('secureConnect', resolve);
@@ -127,7 +148,7 @@ async function sendViaSmtp({ to, subject, text, html, attachments, host, port, u
     await smtpCommand(socket, `MAIL FROM:<${from}>`);
     await smtpCommand(socket, `RCPT TO:<${to}>`);
     await smtpCommand(socket, 'DATA', ['3']);
-    const message = dotStuff(buildMimeMessage({ from, fromName, to, subject, text, html, attachments })) + '\r\n.';
+    const message = dotStuff(buildMimeMessage({ from, fromName, to, subject, text, html, attachments, unsubscribeMailto })) + '\r\n.';
     await smtpCommand(socket, message);
     await smtpCommand(socket, 'QUIT', ['2', '3', '5']);
   } finally {
@@ -146,7 +167,7 @@ async function sendViaSmtp({ to, subject, text, html, attachments, host, port, u
  *   argument, repli sur les variables d'environnement globales
  *   (comportement du site principal, inchangé).
  */
-export async function sendMail({ to, subject, text, html, link, purpose, attachments, smtpConfig }) {
+export async function sendMail({ to, subject, text, html, link, purpose, attachments, smtpConfig, unsubscribeMailto }) {
   const host = smtpConfig?.host || process.env.SMTP_HOST;
   const port = smtpConfig?.port || process.env.SMTP_PORT;
   const user = smtpConfig?.user || process.env.SMTP_USER;
@@ -159,7 +180,7 @@ export async function sendMail({ to, subject, text, html, link, purpose, attachm
 
   if (configured) {
     try {
-      await sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName });
+      await sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName, unsubscribeMailto: unsubscribeMailto || from });
       sentOk = 1;
     } catch (err) {
       sendError = err.message;
