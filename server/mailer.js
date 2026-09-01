@@ -132,7 +132,7 @@ function buildMimeMessage({ from, fromName, to, subject, text, html, attachments
   return [...headersCommon, `Content-Type: multipart/mixed; boundary="${boundary}"`, '', ...parts].join('\r\n');
 }
 
-async function sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName, unsubscribeMailto }) {
+async function sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName, unsubscribeMailto, bcc }) {
   const socket = tls.connect({ host, port: Number(port) || 465, servername: host });
   await new Promise((resolve, reject) => {
     socket.once('secureConnect', resolve);
@@ -147,6 +147,14 @@ async function sendViaSmtp({ to, subject, text, html, attachments, host, port, u
     await smtpCommand(socket, b64(pass));
     await smtpCommand(socket, `MAIL FROM:<${from}>`);
     await smtpCommand(socket, `RCPT TO:<${to}>`);
+    // CCI (BCC) : destinataire(s) supplémentaire(s) qui reçoivent bien le
+    // message, mais n'apparaissent dans AUCUN en-tête (ni To, ni Cc) — le
+    // destinataire principal ne voit jamais qu'une copie a été envoyée
+    // ailleurs. C'est la nature même du CCI en SMTP : une commande
+    // RCPT TO supplémentaire, sans rien changer au contenu du message.
+    for (const bccAddr of (bcc || [])) {
+      await smtpCommand(socket, `RCPT TO:<${bccAddr}>`);
+    }
     await smtpCommand(socket, 'DATA', ['3']);
     const message = dotStuff(buildMimeMessage({ from, fromName, to, subject, text, html, attachments, unsubscribeMailto })) + '\r\n.';
     await smtpCommand(socket, message);
@@ -167,7 +175,7 @@ async function sendViaSmtp({ to, subject, text, html, attachments, host, port, u
  *   argument, repli sur les variables d'environnement globales
  *   (comportement du site principal, inchangé).
  */
-export async function sendMail({ to, subject, text, html, link, purpose, attachments, smtpConfig, unsubscribeMailto }) {
+export async function sendMail({ to, subject, text, html, link, purpose, attachments, smtpConfig, unsubscribeMailto, bcc }) {
   const host = smtpConfig?.host || process.env.SMTP_HOST;
   const port = smtpConfig?.port || process.env.SMTP_PORT;
   const user = smtpConfig?.user || process.env.SMTP_USER;
@@ -180,7 +188,7 @@ export async function sendMail({ to, subject, text, html, link, purpose, attachm
 
   if (configured) {
     try {
-      await sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName, unsubscribeMailto: unsubscribeMailto || from });
+      await sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName, unsubscribeMailto: unsubscribeMailto || from, bcc });
       sentOk = 1;
     } catch (err) {
       sendError = err.message;
