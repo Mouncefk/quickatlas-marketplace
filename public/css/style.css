@@ -3339,3 +3339,12 @@ textarea { resize: vertical; }
 .tourism-included-block { background: rgba(93, 151, 142, 0.12); border: 1px solid rgba(93, 151, 142, 0.3); }
 .tourism-excluded-block { background: rgba(181, 72, 46, 0.1); border: 1px solid rgba(181, 72, 46, 0.25); margin-top: 8px; }
 .tourism-included-block p, .tourism-excluded-block p { margin: 4px 0 0; white-space: pre-line; }
+/* ---------- Sous-titre de section (panneaux Super Admin) ---------- */
+.admin-subsection-title {
+  margin-top: 28px;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  color: var(--brass-300);
+  border-top: 1px solid rgba(198, 161, 91, 0.25);
+  padding-top: 16px;
+}
