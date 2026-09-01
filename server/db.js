@@ -440,6 +440,38 @@ db.exec(`
     db.exec('ALTER TABLE listings ADD COLUMN amenities_json TEXT');
   }
 }
+// Migration : affinage Tourisme (comparaison avec Airbnb/Booking/
+// GetYourGuide/Viator) — répartition voyageurs plus précise pour
+// l'hébergement (enfants distincts des adultes), et nouveaux champs
+// dédiés aux activités/excursions, un pan du Tourisme jusqu'ici absent
+// (visites guidées, excursions, cours...), distinct de l'hébergement.
+// Toutes ces colonnes restent nullable, sans effet sur les autres
+// catégories.
+{
+  const tourismColumns2 = db.prepare("PRAGMA table_info(listings)").all();
+  const newTourismColumns = [
+    ['capacity_children', 'INTEGER'],
+    ['activity_duration', 'TEXT'],
+    ['activity_group_size_min', 'INTEGER'],
+    ['activity_group_size_max', 'INTEGER'],
+    ['activity_languages', 'TEXT'],
+    ['activity_meeting_point', 'TEXT'],
+    ['activity_difficulty', 'TEXT'],
+    ['activity_min_age', 'INTEGER'],
+  ];
+  for (const [name, type] of newTourismColumns) {
+    if (!tourismColumns2.some((c) => c.name === name)) {
+      db.exec(`ALTER TABLE listings ADD COLUMN ${name} ${type}`);
+    }
+  }
+  // Nouvelle sous-catégorie "Activités & Excursions", au même titre que
+  // locations-vacances et hotellerie-insolite déjà existantes.
+  const tourismCategory = db.prepare("SELECT id FROM categories WHERE slug = 'tourisme-voyages'").get();
+  if (tourismCategory) {
+    db.prepare('INSERT OR IGNORE INTO subcategories (category_id, slug, name) VALUES (?, ?, ?)')
+      .run(tourismCategory.id, 'activites-excursions', 'Activités & Excursions');
+  }
+}
 // Migration : favoris pays et villes — permet un accès direct depuis
 // l'accueil sans repasser par la carte, en plus (pas à la place) du
 // parcours pays → ville déjà en place.
