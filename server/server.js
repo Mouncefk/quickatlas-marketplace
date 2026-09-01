@@ -2932,6 +2932,86 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
       const rows = masterDb.prepare('SELECT * FROM site_reservations ORDER BY created_at DESC').all();
       return sendJSON(res, 200, rows);
     }
+    // Campagnes d'emailing intégrées, avec traçabilité individuelle —
+    // remplace le simple envoi groupé précédent. Un jeton unique par
+    // destinataire permet de savoir qui a ouvert et cliqué, sans
+    // dépendre d'un service tiers (Listmonk/Mautic).
+    if (pathname === '/api/super-admin/campaigns' && method === 'POST') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const subject = (body.subject || '').trim();
+      const message = (body.message || '').trim();
+      if (!subject || !message) return sendJSON(res, 400, { error: 'Objet et message requis.' });
+      const ctaLabel = (body.cta_label || '').trim() || null;
+      const ctaUrl = (body.cta_url || '').trim() || null;
+      const statusFilter = ['pending', 'converted', 'declined'].includes(body.status_filter) ? body.status_filter : 'pending';
+      const recipients = masterDb.prepare('SELECT contact_email FROM site_reservations WHERE status = ?').all(statusFilter);
+      const campaignId = masterDb
+        .prepare('INSERT INTO email_campaigns (subject, message, cta_label, cta_url, audience_filter, recipient_count) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(subject, message, ctaLabel, ctaUrl, statusFilter, recipients.length).lastInsertRowid;
+      const escapedMessage = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+      for (const r of recipients) {
+        const token = crypto.randomBytes(24).toString('hex');
+        masterDb.prepare('INSERT INTO email_campaign_recipients (campaign_id, email, tracking_token) VALUES (?, ?, ?)').run(campaignId, r.contact_email, token);
+        const ctaHtml = ctaUrl
+          ? `<p style="text-align:center;margin:24px 0;"><a href="${SITE_URL}/api/campaigns/track-click/${token}" style="background:#C6A15B;color:#0E1B2E;padding:12px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;">${ctaLabel || 'En savoir plus'}</a></p>`
+          : '';
+        const html = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#0E1B2E;line-height:1.5;"><p>${escapedMessage}</p>${ctaHtml}<img src="${SITE_URL}/api/campaigns/track-open/${token}" width="1" height="1" style="display:none;" alt="" /></div>`;
+        sendMail({
+          smtpConfig: getSiteMailConfig(),
+          to: r.contact_email,
+          purpose: 'campaign',
+          subject,
+          text: message + (ctaUrl ? `\n\n${ctaLabel || 'En savoir plus'} : ${ctaUrl}` : ''),
+          html,
+          link: SITE_URL,
+        }).catch((err) => console.error('[campaign] échec envoi à', r.contact_email, ':', err.message));
+      }
+      logAdminAction(masterDb, admin, 'campaign_sent', 'campaign', String(campaignId), { subject, status_filter: statusFilter, recipient_count: recipients.length });
+      return sendJSON(res, 200, { ok: true, sent: recipients.length });
+    }
+    if (pathname === '/api/super-admin/campaigns' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const rows = masterDb
+        .prepare(
+          `SELECT c.id, c.subject, c.audience_filter, c.recipient_count, c.sent_at,
+                  COUNT(DISTINCT CASE WHEN r.open_count > 0 THEN r.id END) AS opened_count,
+                  COUNT(DISTINCT CASE WHEN r.click_count > 0 THEN r.id END) AS clicked_count
+           FROM email_campaigns c
+           LEFT JOIN email_campaign_recipients r ON r.campaign_id = c.id
+           GROUP BY c.id
+           ORDER BY c.sent_at DESC`
+        )
+        .all();
+      return sendJSON(res, 200, rows);
+    }
+    // Pixel de suivi d'ouverture — route publique (chargée directement
+    // par le client email, sans authentification possible), renvoie
+    // toujours une image valide même si le jeton est invalide/déjà
+    // traité, pour ne jamais casser l'affichage de l'email chez le
+    // destinataire.
+    if ((m = pathname.match(/^\/api\/campaigns\/track-open\/([a-f0-9]+)$/)) && method === 'GET') {
+      const recipient = masterDb.prepare('SELECT id FROM email_campaign_recipients WHERE tracking_token = ?').get(m[1]);
+      if (recipient) {
+        masterDb.prepare("UPDATE email_campaign_recipients SET open_count = open_count + 1, first_opened_at = COALESCE(first_opened_at, datetime('now')) WHERE id = ?").run(recipient.id);
+      }
+      const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7', 'base64');
+      res.writeHead(200, { 'Content-Type': 'image/gif', 'Content-Length': pixel.length, 'Cache-Control': 'no-store' });
+      return res.end(pixel);
+    }
+    // Redirection avec suivi de clic — même logique de tolérance : un
+    // jeton invalide redirige simplement vers le site plutôt que
+    // d'afficher une erreur au destinataire.
+    if ((m = pathname.match(/^\/api\/campaigns\/track-click\/([a-f0-9]+)$/)) && method === 'GET') {
+      const recipient = masterDb.prepare('SELECT r.id, c.cta_url FROM email_campaign_recipients r JOIN email_campaigns c ON c.id = r.campaign_id WHERE r.tracking_token = ?').get(m[1]);
+      if (recipient) {
+        masterDb.prepare("UPDATE email_campaign_recipients SET click_count = click_count + 1, first_clicked_at = COALESCE(first_clicked_at, datetime('now')) WHERE id = ?").run(recipient.id);
+      }
+      res.writeHead(302, { Location: recipient?.cta_url || SITE_URL });
+      return res.end();
+    }
     if ((m = pathname.match(/^\/api\/super-admin\/reservations\/(\d+)$/)) && method === 'PUT') {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
