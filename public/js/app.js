@@ -808,6 +808,7 @@ async function loadCategories() {
     updateTourismPriceExtrasVisibility(findCategoryById(pubCat.value)?.slug, newSubSlug);
     updateTourismLodgingVisibility(newSubSlug);
     updateActivityDetailsVisibility(newSubSlug);
+    updateTourismCancellationVisibility(newSubSlug);
     updateBedroomsBathroomsVisibility(newSubSlug);
     updateVehicleDetailsVisibility(newSubSlug);
     updateRealEstateDetailsVisibility(newSubSlug);
@@ -899,6 +900,10 @@ function updateTourismLodgingVisibility(subcategorySlug) {
     const childrenInput = document.getElementById('publishCapacityChildren');
     if (childrenInput) childrenInput.value = '';
     row.querySelectorAll('input[name="amenities"]').forEach((cb) => { cb.checked = false; });
+    const roomTypeSelect = document.getElementById('publishPropertyRoomType');
+    if (roomTypeSelect) roomTypeSelect.value = '';
+    const numBedsInput = document.getElementById('publishNumBeds');
+    if (numBedsInput) numBedsInput.value = '';
   }
 }
 /** Affiche/masque le bloc de champs propres aux Activités & Excursions
@@ -910,12 +915,27 @@ function updateActivityDetailsVisibility(subcategorySlug) {
   const isActivity = subcategorySlug === 'activites-excursions';
   row.hidden = !isActivity;
   if (!isActivity) {
-    ['publishActivityDuration', 'publishActivityGroupMin', 'publishActivityGroupMax', 'publishActivityLanguages', 'publishActivityMeetingPoint'].forEach((id) => {
+    ['publishActivityDuration', 'publishActivityGroupMin', 'publishActivityGroupMax', 'publishActivityLanguages', 'publishActivityMeetingPoint', 'publishActivityIncluded', 'publishActivityExcluded'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
     const difficultySelect = document.getElementById('publishActivityDifficulty');
     if (difficultySelect) difficultySelect.value = '';
+    const pickupCheckbox = document.getElementById('publishActivityPickupIncluded');
+    if (pickupCheckbox) pickupCheckbox.checked = false;
+  }
+}
+/** Politique d'annulation — champ partagé entre hébergement et
+ * activités (même concept dans les deux cas), visible dès que l'une ou
+ * l'autre s'applique, plutôt que dupliqué dans chaque bloc. */
+function updateTourismCancellationVisibility(subcategorySlug) {
+  const row = document.getElementById('tourismCancellationRow');
+  if (!row) return;
+  const applies = ['locations-vacances', 'hotellerie-insolite', 'activites-excursions'].includes(subcategorySlug);
+  row.hidden = !applies;
+  if (!applies) {
+    const select = document.getElementById('publishCancellationPolicy');
+    if (select) select.value = '';
   }
 }
 /** Chambres / salles de bain — extrait du bloc hébergement Tourisme
@@ -2009,6 +2029,14 @@ function activityDifficultyLabel(code) {
   const map = { facile: 'publish.activity_difficulty_easy', modere: 'publish.activity_difficulty_moderate', difficile: 'publish.activity_difficulty_hard' };
   return map[code] ? i18n.t(map[code]) : code;
 }
+function propertyRoomTypeLabel(code) {
+  const map = { entire_place: 'publish.property_room_type_entire', private_room: 'publish.property_room_type_private', shared_room: 'publish.property_room_type_shared' };
+  return map[code] ? i18n.t(map[code]) : code;
+}
+function cancellationPolicyLabel(code) {
+  const map = { flexible: 'publish.cancellation_policy_flexible', moderee: 'publish.cancellation_policy_moderate', stricte: 'publish.cancellation_policy_strict' };
+  return map[code] ? i18n.t(map[code]) : code;
+}
 function vehicleConditionLabel(code) {
   const map = {
     neuf: 'publish.vehicle_condition_new', tres_bon_etat: 'publish.vehicle_condition_excellent',
@@ -2947,8 +2975,10 @@ async function openListingDetail(id) {
       l.price_type ? ` / ${priceTypeLabel(l.price_type)}` : '',
     ]) : (l.price_type ? el('p', { class: 'tourism-price-type-detail' }, priceTypeLabel(l.price_type)) : null),
     l.capacity_guests ? el('div', { class: 'tourism-lodging-facts' }, [
+      l.property_room_type ? el('span', {}, propertyRoomTypeLabel(l.property_room_type)) : null,
       el('span', {}, `🧑‍🤝‍🧑 ${l.capacity_guests}${l.capacity_children ? ` (${i18n.t('publish.capacity_children_display', { count: l.capacity_children })})` : ''}`),
       l.bedrooms ? el('span', {}, `🛏️ ${l.bedrooms}`) : null,
+      l.num_beds ? el('span', {}, `🛌 ${l.num_beds}`) : null,
       l.bathrooms ? el('span', {}, `🚿 ${l.bathrooms}`) : null,
     ].filter(Boolean)) : null,
     l.amenities_json ? el('div', { class: 'tourism-amenities' },
@@ -2960,8 +2990,18 @@ async function openListingDetail(id) {
       l.activity_difficulty ? el('span', {}, activityDifficultyLabel(l.activity_difficulty)) : null,
       l.activity_languages ? el('span', {}, `🗣️ ${l.activity_languages}`) : null,
       l.activity_min_age ? el('span', {}, i18n.t('publish.activity_min_age_display', { count: l.activity_min_age })) : null,
+      l.activity_pickup_included ? el('span', {}, `🚐 ${i18n.t('publish.label_activity_pickup_included')}`) : null,
     ].filter(Boolean)) : null,
     l.activity_meeting_point ? el('p', { class: 'form-hint' }, `📍 ${i18n.t('publish.label_activity_meeting_point')} : ${l.activity_meeting_point}`) : null,
+    l.activity_included ? el('div', { class: 'tourism-included-block' }, [
+      el('strong', {}, `✅ ${i18n.t('publish.label_activity_included')}`),
+      el('p', {}, l.activity_included),
+    ]) : null,
+    l.activity_excluded ? el('div', { class: 'tourism-excluded-block' }, [
+      el('strong', {}, `❌ ${i18n.t('publish.label_activity_excluded')}`),
+      el('p', {}, l.activity_excluded),
+    ]) : null,
+    l.cancellation_policy ? el('p', { class: 'form-hint' }, `🔄 ${i18n.t('publish.label_cancellation_policy')} : ${cancellationPolicyLabel(l.cancellation_policy)}`) : null,
     (l.vehicle_brand || l.vehicle_model || l.vehicle_year || l.vehicle_mileage || l.vehicle_condition || l.vehicle_transmission || l.vehicle_fuel_type) ? el('div', { class: 'vehicle-facts' }, [
       (l.vehicle_brand || l.vehicle_model) ? el('span', {}, [l.vehicle_brand, l.vehicle_model].filter(Boolean).join(' ')) : null,
       l.vehicle_year ? el('span', {}, String(l.vehicle_year)) : null,
@@ -3391,6 +3431,7 @@ function preparePublishForm() {
   const initialSubSlug = findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug;
   updateTourismLodgingVisibility(initialSubSlug);
   updateActivityDetailsVisibility(initialSubSlug);
+  updateTourismCancellationVisibility(initialSubSlug);
   updateBedroomsBathroomsVisibility(initialSubSlug);
   updateVehicleDetailsVisibility(initialSubSlug);
   updateRealEstateDetailsVisibility(initialSubSlug);
@@ -3424,6 +3465,7 @@ document.getElementById('publishSubcategory').addEventListener('change', (e) => 
   const subSlug = findSubcategoryById(e.target.value)?.slug;
   updateTourismLodgingVisibility(subSlug);
   updateActivityDetailsVisibility(subSlug);
+  updateTourismCancellationVisibility(subSlug);
   updateBedroomsBathroomsVisibility(subSlug);
   updateVehicleDetailsVisibility(subSlug);
   updateRealEstateDetailsVisibility(subSlug);
@@ -3473,6 +3515,12 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     activity_meeting_point: fd.get('activity_meeting_point') || null,
     activity_difficulty: fd.get('activity_difficulty') || null,
     activity_min_age: fd.get('activity_min_age') || null,
+    property_room_type: fd.get('property_room_type') || null,
+    num_beds: fd.get('num_beds') || null,
+    cancellation_policy: fd.get('cancellation_policy') || null,
+    activity_included: fd.get('activity_included') || null,
+    activity_excluded: fd.get('activity_excluded') || null,
+    activity_pickup_included: fd.get('activity_pickup_included') === 'on',
     vehicle_brand: fd.get('vehicle_brand') || null,
     vehicle_model: fd.get('vehicle_model') || null,
     vehicle_year: fd.get('vehicle_year') || null,
