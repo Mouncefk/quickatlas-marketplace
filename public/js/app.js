@@ -802,6 +802,7 @@ async function loadCategories() {
     updatePublishTypeAndPriceUI(findCategoryById(pubCat.value));
     updateSecondhandVisibility(findCategoryById(pubCat.value)?.slug, 'secondhandCheckbox');
     updateJobDetailsVisibility(findCategoryById(pubCat.value)?.slug);
+    updateTourismCrossBorderMode(findCategoryById(pubCat.value)?.slug);
     const newSubSlug = findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug;
     updateTourismDatesVisibility(findCategoryById(pubCat.value)?.slug, newSubSlug);
     updateTourismPriceExtrasVisibility(findCategoryById(pubCat.value)?.slug, newSubSlug);
@@ -1202,48 +1203,114 @@ async function loadFeatured() {
  * principale (pas de vue consolidée multi-États pour l'instant). */
 /** Villes supplémentaires — liste à cocher avec recherche, plutôt qu'un
  * menu déroulant natif à sélection multiple (nécessitant Ctrl/Cmd+clic,
- * peu intuitif pour un formulaire public). Même principe que la liste
- * de pays du panneau Super Admin : currentExtraCitiesData garde l'état
- * coché de toutes les villes, y compris celles masquées par un filtre
- * de recherche en cours, pour ne jamais perdre un choix déjà fait. */
+ * peu intuitif pour un formulaire public). selectedExtraCityIds garde la
+ * sélection elle-même (jamais perdue, y compris en changeant de
+ * recherche) séparément de currentExtraCitiesData, qui ne contient que
+ * les villes actuellement AFFICHÉES — indispensable pour le Tourisme, où
+ * l'affichage change à chaque recherche mondiale plutôt que de filtrer
+ * une liste fixe. */
 let currentExtraCitiesData = [];
-function syncExtraCitiesCheckedState() {
-  document.querySelectorAll('#publishExtraCitiesList input[type="checkbox"]').forEach((cb) => {
-    const city = currentExtraCitiesData.find((c) => c.id === Number(cb.dataset.cityId));
-    if (city) city.checked = cb.checked;
-  });
-}
-function renderExtraCitiesList(filterText) {
-  syncExtraCitiesCheckedState();
+let selectedExtraCityIds = new Set();
+let currentPublishIsTourism = false;
+function renderExtraCitiesList(items) {
   const list = document.getElementById('publishExtraCitiesList');
   if (!list) return;
-  const query = (filterText || '').trim().toLowerCase();
-  const filtered = query ? currentExtraCitiesData.filter((c) => c.name.toLowerCase().includes(query)) : currentExtraCitiesData;
   list.innerHTML = '';
-  for (const c of filtered) {
+  for (const c of items) {
     list.append(
       el('label', { class: 'terms-checkbox site-category-item' }, [
-        el('input', { type: 'checkbox', 'data-city-id': c.id, checked: c.checked ? 'checked' : null }),
-        el('span', {}, c.name),
+        el('input', {
+          type: 'checkbox', 'data-city-id': c.id, checked: selectedExtraCityIds.has(c.id) ? 'checked' : null,
+          onchange: (e) => { if (e.target.checked) selectedExtraCityIds.add(c.id); else selectedExtraCityIds.delete(c.id); },
+        }),
+        el('span', {}, currentPublishIsTourism && c.country_name ? `${c.name} (${c.country_name})` : c.name),
       ])
     );
   }
 }
-document.getElementById('publishExtraCitiesSearch')?.addEventListener('input', (e) => renderExtraCitiesList(e.target.value));
+const debouncedGlobalCitySearch = debounce(async (query) => {
+  const list = document.getElementById('publishExtraCitiesList');
+  if (!list) return;
+  if (query.trim().length < 2) { list.innerHTML = ''; return; }
+  try {
+    const results = await api(`/cities/search-global?q=${encodeURIComponent(query.trim())}`);
+    renderExtraCitiesList(results);
+  } catch { /* recherche silencieusement infructueuse */ }
+}, 400);
+document.getElementById('publishExtraCitiesSearch')?.addEventListener('input', (e) => {
+  if (currentPublishIsTourism) {
+    debouncedGlobalCitySearch(e.target.value);
+  } else {
+    const query = e.target.value.trim().toLowerCase();
+    renderExtraCitiesList(query ? currentExtraCitiesData.filter((c) => c.name.toLowerCase().includes(query)) : currentExtraCitiesData);
+  }
+});
 /** Peuple la liste "villes supplémentaires" avec TOUTES les villes du
  * pays, États fédéraux compris — contrairement au champ ville
  * principale, qui reste limité à un État à la fois pour un pays
  * fédéral. Interrogation indépendante de la route dédiée
  * /countries/:id/all-cities plutôt que de recycler la liste (limitée)
- * déjà affichée pour la ville principale. */
+ * déjà affichée pour la ville principale. Pour le Tourisme, la liste
+ * pré-chargée n'a pas de sens (recherche mondiale à la place) — reste
+ * simplement vide tant qu'aucune recherche n'a été tapée. */
 async function fillPublishExtraCities(countryId) {
   const list = document.getElementById('publishExtraCitiesList');
   if (!list) return;
   const searchInput = document.getElementById('publishExtraCitiesSearch');
   if (searchInput) searchInput.value = '';
+  selectedExtraCityIds = new Set();
+  if (currentPublishIsTourism) {
+    currentExtraCitiesData = [];
+    list.innerHTML = '';
+    return;
+  }
   const cities = await api(`/countries/${countryId}/all-cities`);
-  currentExtraCitiesData = cities.map((c) => ({ ...c, checked: false }));
-  renderExtraCitiesList('');
+  currentExtraCitiesData = cities;
+  renderExtraCitiesList(currentExtraCitiesData);
+}
+/** Pays supplémentaires — Tourisme uniquement, transfrontalier par
+ * nature. Même principe de liste à cocher avec recherche que les villes
+ * supplémentaires, réutilisant state.countries (déjà chargé) plutôt que
+ * de refaire un appel réseau. */
+let selectedExtraCountryIds = new Set();
+function renderExtraCountriesList(filterText) {
+  const list = document.getElementById('publishExtraCountriesList');
+  if (!list) return;
+  const query = (filterText || '').trim().toLowerCase();
+  const items = query ? (state.countries || []).filter((c) => c.name.toLowerCase().includes(query)) : (state.countries || []);
+  list.innerHTML = '';
+  for (const c of items) {
+    list.append(
+      el('label', { class: 'terms-checkbox site-category-item' }, [
+        el('input', {
+          type: 'checkbox', 'data-country-id': c.id, checked: selectedExtraCountryIds.has(c.id) ? 'checked' : null,
+          onchange: (e) => { if (e.target.checked) selectedExtraCountryIds.add(c.id); else selectedExtraCountryIds.delete(c.id); },
+        }),
+        el('span', {}, c.name),
+      ])
+    );
+  }
+}
+document.getElementById('publishExtraCountriesSearch')?.addEventListener('input', (e) => renderExtraCountriesList(e.target.value));
+/** Bascule l'affichage entre le mode habituel (villes supplémentaires
+ * limitées au même pays) et le mode Tourisme (recherche mondiale de
+ * villes + sélection de pays entiers supplémentaires) — appelée à
+ * chaque changement de catégorie dans le formulaire de publication. */
+function updateTourismCrossBorderMode(categorySlug) {
+  currentPublishIsTourism = categorySlug === 'tourisme-voyages';
+  const countriesRow = document.getElementById('publishExtraCountriesRow');
+  if (countriesRow) countriesRow.hidden = !currentPublishIsTourism;
+  selectedExtraCountryIds = new Set();
+  document.getElementById('publishExtraCountriesSearch') && (document.getElementById('publishExtraCountriesSearch').value = '');
+  if (currentPublishIsTourism) renderExtraCountriesList('');
+  // Repart d'une liste de villes vierge à chaque bascule — évite de
+  // laisser une sélection issue de l'autre mode (liste pré-chargée vs
+  // recherche mondiale), qui n'aurait plus de sens une fois basculé.
+  selectedExtraCityIds = new Set();
+  const citiesList = document.getElementById('publishExtraCitiesList');
+  if (citiesList) citiesList.innerHTML = '';
+  const citiesSearch = document.getElementById('publishExtraCitiesSearch');
+  if (citiesSearch) citiesSearch.value = '';
 }
 async function fillPublishCities(countryId) {
   const cities = await api(`/countries/${countryId}/cities`);
@@ -3287,6 +3354,7 @@ function preparePublishForm() {
   updateTourismDatesVisibility(cat ? cat.slug : null, initialSubSlug);
   updateTourismPriceExtrasVisibility(cat ? cat.slug : null, initialSubSlug);
   updateJobDetailsVisibility(cat ? cat.slug : null);
+  updateTourismCrossBorderMode(cat ? cat.slug : null);
   const warningEl = document.getElementById('categoryMismatchWarning');
   if (warningEl) warningEl.hidden = true;
 }
@@ -3301,7 +3369,7 @@ function updateExtraCitiesVisibility() {
   if (!row || !checkbox) return;
   row.hidden = checkbox.checked;
   if (checkbox.checked) {
-    currentExtraCitiesData.forEach((c) => { c.checked = false; });
+    selectedExtraCityIds = new Set();
     document.querySelectorAll('#publishExtraCitiesList input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
   }
 }
@@ -3334,11 +3402,8 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     listing_type: fd.get('listing_type'),
     city_id: Number(fd.get('city_id')),
     visible_all_cities: fd.get('visible_all_cities') === 'on',
-    extra_city_ids: (() => {
-      if (document.getElementById('publishVisibleAllCities').checked) return [];
-      syncExtraCitiesCheckedState();
-      return currentExtraCitiesData.filter((c) => c.checked).map((c) => c.id);
-    })(),
+    extra_city_ids: document.getElementById('publishVisibleAllCities').checked ? [] : [...selectedExtraCityIds],
+    extra_country_ids: currentPublishIsTourism ? [...selectedExtraCountryIds] : [],
     price: fd.get('price') === '' ? null : Number(fd.get('price')),
     currency: (fd.get('currency') || 'EUR').toUpperCase(),
     description: fd.get('description'),
