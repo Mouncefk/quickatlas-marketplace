@@ -5284,6 +5284,19 @@ function toggleActionsMenu(e, id) {
   const menu = document.getElementById(`actionsMenu-${id}`);
   const wasHidden = menu.hidden;
   closeAllActionsMenus();
+  if (wasHidden) {
+    // Position calculée à partir du bouton cliqué plutôt que du CSS
+    // relatif habituel — nécessaire depuis que le menu est passé en
+    // position fixe (voir style.css), pour échapper au découpage du
+    // tableau de sites, dont le conteneur défile horizontalement.
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 180; // doit rester cohérent avec min-width en CSS
+    let left = rect.right - menuWidth;
+    if (left < 8) left = 8;
+    if (left + menuWidth > window.innerWidth - 8) left = window.innerWidth - menuWidth - 8;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${rect.bottom + 4}px`;
+  }
   menu.hidden = !wasHidden;
 }
 document.addEventListener('click', closeAllActionsMenus);
