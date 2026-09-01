@@ -503,6 +503,26 @@ state.categoryBrowse = { category: null, subcategory: '', type: '', sort: 'newes
  * de ces trois n'est un bien physique). Ne fait rien si l'élément
  * n'existe pas sur la page. */
 const SECONDHAND_EXCLUDED_CATEGORIES = ['tourisme-voyages', 'emploi', 'opportunites-affaires', 'services'];
+/** L'échange contre un autre bien n'a de sens que pour un objet physique
+ * à céder — pas pour un séjour touristique, une offre d'emploi, une
+ * opportunité d'affaires ou une prestation de service. Réutilise
+ * volontairement la même liste que le neuf/occasion ci-dessus : même
+ * logique sous-jacente (bien physique cessible vs service/expérience),
+ * pas de raison de la dupliquer avec un contenu différent. */
+function updateTradeVisibility(categorySlug) {
+  const checkbox = document.getElementById('openToTradeCheckbox');
+  if (!checkbox) return;
+  const row = checkbox.closest('.terms-checkbox');
+  if (!row) return;
+  const isExcluded = SECONDHAND_EXCLUDED_CATEGORIES.includes(categorySlug);
+  row.hidden = isExcluded;
+  if (isExcluded) {
+    checkbox.checked = false;
+    document.getElementById('tradeDescriptionRow').hidden = true;
+    const tradeInput = document.getElementById('tradeDescriptionInput');
+    if (tradeInput) tradeInput.value = '';
+  }
+}
 function updateSecondhandVisibility(categorySlug, checkboxId) {
   const checkbox = document.getElementById(checkboxId);
   if (!checkbox) return;
@@ -801,6 +821,7 @@ async function loadCategories() {
     fillSubcategorySelect(document.getElementById('publishSubcategory'), findCategoryById(pubCat.value), false);
     updatePublishTypeAndPriceUI(findCategoryById(pubCat.value));
     updateSecondhandVisibility(findCategoryById(pubCat.value)?.slug, 'secondhandCheckbox');
+    updateTradeVisibility(findCategoryById(pubCat.value)?.slug);
     updateJobDetailsVisibility(findCategoryById(pubCat.value)?.slug);
     updateTourismCrossBorderMode(findCategoryById(pubCat.value)?.slug);
     const newSubSlug = findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug;
@@ -3453,6 +3474,7 @@ function preparePublishForm() {
   updateRealEstateDetailsVisibility(initialSubSlug);
   updatePublishTypeAndPriceUI(cat);
   updateSecondhandVisibility(cat ? cat.slug : null, 'secondhandCheckbox');
+  updateTradeVisibility(cat ? cat.slug : null);
   updateTourismDatesVisibility(cat ? cat.slug : null, initialSubSlug);
   updateTourismPriceExtrasVisibility(cat ? cat.slug : null, initialSubSlug);
   updateJobDetailsVisibility(cat ? cat.slug : null);
