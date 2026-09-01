@@ -60,19 +60,39 @@ function dotStuff(body) {
  * `fromName` : nom affiché dans l'en-tête From (le nom de marque du site
  * qui envoie, plutôt que "QuickAtlas" en dur — chaque site du réseau
  * envoie sous son propre nom). */
-function buildMimeMessage({ from, fromName, to, subject, text, attachments }) {
+function buildMimeMessage({ from, fromName, to, subject, text, html, attachments }) {
   const headersCommon = [`From: ${fromName} <${from}>`, `To: <${to}>`, `Subject: ${subject}`];
   if (!attachments || attachments.length === 0) {
-    return [...headersCommon, 'Content-Type: text/plain; charset=utf-8', '', text].join('\r\n');
+    if (!html) {
+      return [...headersCommon, 'Content-Type: text/plain; charset=utf-8', '', text].join('\r\n');
+    }
+    // multipart/alternative : le client email choisit lui-même la version
+    // HTML (avec pixel de suivi) ou texte brut (repli), jamais les deux
+    // affichées à la fois — norme email standard.
+    const altBoundary = `----quickatlas-alt-${crypto.randomBytes(12).toString('hex')}`;
+    const altParts = [
+      `--${altBoundary}`, 'Content-Type: text/plain; charset=utf-8', '', text, '',
+      `--${altBoundary}`, 'Content-Type: text/html; charset=utf-8', '', html, '',
+      `--${altBoundary}--`,
+    ];
+    return [...headersCommon, `Content-Type: multipart/alternative; boundary="${altBoundary}"`, '', ...altParts].join('\r\n');
   }
   const boundary = `----quickatlas-${crypto.randomBytes(12).toString('hex')}`;
-  const parts = [
-    `--${boundary}`,
-    'Content-Type: text/plain; charset=utf-8',
-    '',
-    text,
-    '',
-  ];
+  const parts = [];
+  if (html) {
+    const altBoundary = `----quickatlas-alt-${crypto.randomBytes(12).toString('hex')}`;
+    parts.push(
+      `--${boundary}`,
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+      '',
+      `--${altBoundary}`, 'Content-Type: text/plain; charset=utf-8', '', text, '',
+      `--${altBoundary}`, 'Content-Type: text/html; charset=utf-8', '', html, '',
+      `--${altBoundary}--`,
+      ''
+    );
+  } else {
+    parts.push(`--${boundary}`, 'Content-Type: text/plain; charset=utf-8', '', text, '');
+  }
   for (const att of attachments) {
     const base64Content = att.content.toString('base64');
     // Découpe en lignes de 76 caractères, comme l'exige la norme MIME.
@@ -91,7 +111,7 @@ function buildMimeMessage({ from, fromName, to, subject, text, attachments }) {
   return [...headersCommon, `Content-Type: multipart/mixed; boundary="${boundary}"`, '', ...parts].join('\r\n');
 }
 
-async function sendViaSmtp({ to, subject, text, attachments, host, port, user, pass, from, fromName }) {
+async function sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName }) {
   const socket = tls.connect({ host, port: Number(port) || 465, servername: host });
   await new Promise((resolve, reject) => {
     socket.once('secureConnect', resolve);
@@ -107,7 +127,7 @@ async function sendViaSmtp({ to, subject, text, attachments, host, port, user, p
     await smtpCommand(socket, `MAIL FROM:<${from}>`);
     await smtpCommand(socket, `RCPT TO:<${to}>`);
     await smtpCommand(socket, 'DATA', ['3']);
-    const message = dotStuff(buildMimeMessage({ from, fromName, to, subject, text, attachments })) + '\r\n.';
+    const message = dotStuff(buildMimeMessage({ from, fromName, to, subject, text, html, attachments })) + '\r\n.';
     await smtpCommand(socket, message);
     await smtpCommand(socket, 'QUIT', ['2', '3', '5']);
   } finally {
@@ -126,7 +146,7 @@ async function sendViaSmtp({ to, subject, text, attachments, host, port, user, p
  *   argument, repli sur les variables d'environnement globales
  *   (comportement du site principal, inchangé).
  */
-export async function sendMail({ to, subject, text, link, purpose, attachments, smtpConfig }) {
+export async function sendMail({ to, subject, text, html, link, purpose, attachments, smtpConfig }) {
   const host = smtpConfig?.host || process.env.SMTP_HOST;
   const port = smtpConfig?.port || process.env.SMTP_PORT;
   const user = smtpConfig?.user || process.env.SMTP_USER;
@@ -139,7 +159,7 @@ export async function sendMail({ to, subject, text, link, purpose, attachments, 
 
   if (configured) {
     try {
-      await sendViaSmtp({ to, subject, text, attachments, host, port, user, pass, from, fromName });
+      await sendViaSmtp({ to, subject, text, html, attachments, host, port, user, pass, from, fromName });
       sentOk = 1;
     } catch (err) {
       sendError = err.message;
