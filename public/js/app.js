@@ -4669,7 +4669,7 @@ document.querySelectorAll('[data-super-admin-tab]').forEach((btn) =>
     document.getElementById('superAdminAuditPanel').hidden = btn.dataset.superAdminTab !== 'audit';
     if (btn.dataset.superAdminTab === 'overview') loadGlobalStats();
     if (btn.dataset.superAdminTab === 'sites') loadSuperAdminSites();
-    if (btn.dataset.superAdminTab === 'reservations') loadSuperAdminReservations();
+    if (btn.dataset.superAdminTab === 'reservations') { loadSuperAdminReservations(); loadSuperAdminCampaigns(); }
     if (btn.dataset.superAdminTab === 'plans') loadSuperAdminPlans();
     if (btn.dataset.superAdminTab === 'audit') loadSuperAdminAuditLog();
   })
@@ -4970,6 +4970,66 @@ function populatePlanDropdown(selectEl, currentValue) {
 /** Libellé lisible du statut d'une réservation. */
 function reservationStatusLabel(status) {
   return i18n.t(`admin.reservation_status_${status}`);
+}
+document.getElementById('reservationsBroadcastBtn')?.addEventListener('click', () => {
+  document.getElementById('reservationsBroadcastForm').reset();
+  document.getElementById('reservationsBroadcastError').hidden = true;
+  document.getElementById('reservationsBroadcastSuccess').hidden = true;
+  document.getElementById('reservationsBroadcastModal').hidden = false;
+});
+document.getElementById('reservationsBroadcastForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('reservationsBroadcastError');
+  const successEl = document.getElementById('reservationsBroadcastSuccess');
+  errEl.hidden = true;
+  successEl.hidden = true;
+  try {
+    const result = await api('/super-admin/campaigns', {
+      method: 'POST',
+      body: JSON.stringify({
+        subject: fd.get('subject'),
+        message: fd.get('message'),
+        cta_label: fd.get('cta_label'),
+        cta_url: fd.get('cta_url'),
+        status_filter: fd.get('status_filter'),
+      }),
+    });
+    successEl.textContent = i18n.t('admin.reservations_broadcast_success', { count: result.sent });
+    successEl.hidden = false;
+    e.target.reset();
+    loadSuperAdminCampaigns();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
+async function loadSuperAdminCampaigns() {
+  const tbody = document.getElementById('superAdminCampaignsBody');
+  if (!tbody) return;
+  try {
+    const campaigns = await api('/super-admin/campaigns');
+    tbody.innerHTML = '';
+    if (campaigns.length === 0) {
+      tbody.append(el('tr', {}, el('td', { colspan: '5' }, el('p', { class: 'empty-state' }, i18n.t('admin.campaigns_empty')))));
+      return;
+    }
+    for (const c of campaigns) {
+      const openRate = c.recipient_count ? Math.round((c.opened_count / c.recipient_count) * 100) : 0;
+      const clickRate = c.recipient_count ? Math.round((c.clicked_count / c.recipient_count) * 100) : 0;
+      tbody.append(
+        el('tr', {}, [
+          el('td', {}, c.subject),
+          el('td', {}, String(c.recipient_count)),
+          el('td', {}, `${c.opened_count} (${openRate}%)`),
+          el('td', {}, `${c.clicked_count} (${clickRate}%)`),
+          el('td', {}, new Date(c.sent_at + 'Z').toLocaleDateString()),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
 }
 async function loadSuperAdminReservations() {
   const tbody = document.getElementById('superAdminReservationsBody');
