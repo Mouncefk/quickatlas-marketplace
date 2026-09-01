@@ -1035,6 +1035,7 @@
         <button class="auth-tab active" data-super-admin-tab="overview" data-i18n="admin.tab_overview">Vue d'ensemble</button>
         <button class="auth-tab" data-super-admin-tab="sites" data-i18n="admin.tab_sites">Sites</button>
         <button class="auth-tab" data-super-admin-tab="reservations" data-i18n="admin.tab_reservations">Réservations</button>
+        <button class="auth-tab" data-super-admin-tab="contacts" data-i18n="admin.tab_contacts">Contacts</button>
         <button class="auth-tab" data-super-admin-tab="plans" data-i18n="admin.tab_plans">Formules</button>
         <button class="auth-tab" data-super-admin-tab="promo" data-i18n="admin.tab_promo">Promotion</button>
         <button class="auth-tab" data-super-admin-tab="audit" data-i18n="admin.tab_audit">Journal d'audit</button>
@@ -1090,6 +1091,20 @@
             </tr>
           </thead>
           <tbody id="superAdminCampaignsBody"></tbody>
+        </table>
+      </div>
+      <div id="superAdminContactsPanel" class="admin-panel" hidden>
+        <p class="form-hint" data-i18n="admin.contacts_hint">Réservations et loueurs actifs réunis en une seule liste — cliquez sur une ligne pour voir l'historique d'échanges et écrire à quelqu'un individuellement.</p>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th data-i18n="admin.contacts_col_name">Nom</th>
+              <th data-i18n="admin.contacts_col_email">Email</th>
+              <th data-i18n="admin.contacts_col_status">Statut</th>
+              <th data-i18n="admin.contacts_col_date">Depuis le</th>
+            </tr>
+          </thead>
+          <tbody id="superAdminContactsBody"></tbody>
         </table>
       </div>
       <div id="superAdminPlansPanel" class="admin-panel" hidden>
@@ -1317,6 +1332,38 @@
   </div>
   <!-- ===== Modale : détail / modification d'un prospect ===== -->
   <!-- ===== Modale : message groupé aux réservations ===== -->
+  <!-- ===== Modale : fiche contact (historique + envoi individuel) ===== -->
+  <div class="modal-overlay" id="contactDetailModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="contactDetailModal" aria-label="Fermer">&times;</button>
+      <h2 id="contactDetailName">—</h2>
+      <p class="form-hint" id="contactDetailMeta"></p>
+      <h3 class="admin-subsection-title" data-i18n="admin.contact_history_title">Historique des emails</h3>
+      <div id="contactHistoryList"></div>
+      <h3 class="admin-subsection-title" data-i18n="admin.contact_send_title">Écrire à ce contact</h3>
+      <form id="contactSendForm" class="atlas-form">
+        <input type="hidden" name="to" id="contactSendTo" />
+        <div class="form-row">
+          <label><span data-i18n="admin.reservations_broadcast_subject">Objet</span>
+            <input type="text" name="subject" id="contactSendSubject" required />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.reservations_broadcast_message">Message</span>
+            <textarea name="message" id="contactSendMessage" rows="5" required></textarea>
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.contact_send_bcc">CCI (optionnel)</span>
+            <input type="email" name="bcc" id="contactSendBcc" data-i18n-placeholder="admin.contact_send_bcc_placeholder" placeholder="ex. vous-même en copie invisible" />
+          </label>
+        </div>
+        <p class="form-error" id="contactSendError" hidden></p>
+        <p class="form-success" id="contactSendSuccess" hidden></p>
+        <button type="submit" class="btn btn--primary" data-i18n="admin.reservations_broadcast_submit">Envoyer</button>
+      </form>
+    </div>
+  </div>
   <div class="modal-overlay" id="reservationsBroadcastModal" hidden>
     <div class="modal">
       <button class="modal-close" data-close="reservationsBroadcastModal" aria-label="Fermer">&times;</button>
