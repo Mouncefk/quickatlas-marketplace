@@ -5040,6 +5040,22 @@ function contactStatusLabel(status) {
   if (status === 'active_tenant') return i18n.t('admin.contact_status_active_tenant');
   return reservationStatusLabel(status);
 }
+/** Une ligne d'historique de contact — distingue son origine (campagne
+ * groupée, ou boîte de réception "Administration", dans un sens ou
+ * l'autre) et son statut d'ouverture, réutilisée à chaque affichage de
+ * fiche contact pour ne jamais désynchroniser les deux points d'appel. */
+function renderContactHistoryRow(h) {
+  const sourceLabel = h.source === 'inbox'
+    ? (h.direction === 'received' ? `📥 ${i18n.t('admin.contact_history_received')}` : `📤 ${i18n.t('admin.contact_history_source_inbox')}`)
+    : `📧 ${i18n.t('admin.contact_history_source_campaign')}`;
+  return el('div', { class: 'lead-row' }, [
+    el('span', { class: 'form-hint' }, sourceLabel),
+    el('span', {}, h.subject),
+    el('span', { class: 'form-hint' }, new Date(h.sent_at + 'Z').toLocaleDateString()),
+    el('span', {}, h.direction === 'received' ? '' : (h.open_count > 0 ? `👁️ ${i18n.t('admin.contact_history_opened')}` : `— ${i18n.t('admin.contact_history_not_opened')}`)),
+    el('span', {}, h.click_count > 0 ? `🔗 ${i18n.t('admin.contact_history_clicked')}` : ''),
+  ]);
+}
 async function loadSuperAdminContacts() {
   const tbody = document.getElementById('superAdminContactsBody');
   if (!tbody) return;
@@ -5080,14 +5096,7 @@ async function openContactDetail(contact) {
       historyList.append(el('p', { class: 'empty-state' }, i18n.t('admin.contact_history_empty')));
     } else {
       for (const h of history) {
-        historyList.append(
-          el('div', { class: 'lead-row' }, [
-            el('span', {}, h.subject),
-            el('span', { class: 'form-hint' }, new Date(h.sent_at + 'Z').toLocaleDateString()),
-            el('span', {}, h.open_count > 0 ? `👁️ ${i18n.t('admin.contact_history_opened')}` : `— ${i18n.t('admin.contact_history_not_opened')}`),
-            el('span', {}, h.click_count > 0 ? `🔗 ${i18n.t('admin.contact_history_clicked')}` : ''),
-          ])
-        );
+        historyList.append(renderContactHistoryRow(h));
       }
     }
   } catch (e) {
@@ -5122,14 +5131,7 @@ document.getElementById('contactSendForm')?.addEventListener('submit', async (e)
     const historyList = document.getElementById('contactHistoryList');
     historyList.innerHTML = '';
     for (const h of history) {
-      historyList.append(
-        el('div', { class: 'lead-row' }, [
-          el('span', {}, h.subject),
-          el('span', { class: 'form-hint' }, new Date(h.sent_at + 'Z').toLocaleDateString()),
-          el('span', {}, h.open_count > 0 ? `👁️ ${i18n.t('admin.contact_history_opened')}` : `— ${i18n.t('admin.contact_history_not_opened')}`),
-          el('span', {}, h.click_count > 0 ? `🔗 ${i18n.t('admin.contact_history_clicked')}` : ''),
-        ])
-      );
+      historyList.append(renderContactHistoryRow(h));
     }
   } catch (err) {
     errEl.textContent = friendlyErrorMessage(err);
@@ -5628,6 +5630,7 @@ async function loadAdminInbox() {
             el('span', { class: 'conversation-item-preview' }, mail.subject || i18n.t('admin.inbox_no_subject')),
             el('span', { class: 'conversation-item-date' }, new Date(mail.received_at).toLocaleDateString()),
             !isSent && mail.replied ? el('span', { class: 'conversation-item-badge' }, i18n.t('admin.inbox_replied')) : null,
+            isSent && mail.open_count > 0 ? el('span', { class: 'conversation-item-badge conversation-item-badge--seen' }, `👁️ ${i18n.t('admin.inbox_seen')}`) : null,
             mail.from_spam ? el('span', { class: 'conversation-item-badge conversation-item-badge--spam' }, `⚠️ ${i18n.t('admin.inbox_from_spam')}`) : null,
           ]),
         ])
@@ -5671,7 +5674,10 @@ async function openAdminInboxEmail(id) {
         : el('p', { class: 'inbox-email-body' }, mail.body_text || ''),
       ...(mail.sent_replies || []).map((reply) =>
         el('div', { class: 'inbox-sent-reply' }, [
-          el('p', { class: 'form-hint' }, `↗ ${i18n.t('admin.inbox_replied')} — ${new Date(reply.received_at).toLocaleString()}`),
+          el('p', { class: 'form-hint' }, [
+            `↗ ${i18n.t('admin.inbox_replied')} — ${new Date(reply.received_at).toLocaleString()}`,
+            reply.open_count > 0 ? el('span', { class: 'inbox-seen-badge' }, ` · 👁️ ${i18n.t('admin.inbox_seen')}` + (reply.first_opened_at ? ` (${new Date(reply.first_opened_at + 'Z').toLocaleString()})` : '')) : el('span', { class: 'form-hint' }, ` · ${i18n.t('admin.inbox_not_seen')}`),
+          ]),
           el('p', { class: 'inbox-email-body' }, reply.body_text || ''),
         ])
       ),
