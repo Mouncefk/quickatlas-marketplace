@@ -1063,6 +1063,7 @@
       </div>
       <div id="superAdminReservationsPanel" class="admin-panel" hidden>
         <p class="form-hint" data-i18n="admin.reservations_hint">Demandes de réservation de sous-domaine avant lancement officiel — gratuites, sans engagement.</p>
+        <button type="button" id="reservationsBroadcastBtn" class="btn btn--ghost btn--small" data-i18n="admin.reservations_broadcast_btn">📧 Envoyer un message</button>
         <table class="admin-table">
           <thead>
             <tr>
@@ -1076,6 +1077,19 @@
             </tr>
           </thead>
           <tbody id="superAdminReservationsBody"></tbody>
+        </table>
+        <h3 class="admin-subsection-title" data-i18n="admin.campaigns_title">Campagnes envoyées</h3>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th data-i18n="admin.campaigns_col_subject">Objet</th>
+              <th data-i18n="admin.campaigns_col_recipients">Destinataires</th>
+              <th data-i18n="admin.campaigns_col_opens">Ouvertures</th>
+              <th data-i18n="admin.campaigns_col_clicks">Clics</th>
+              <th data-i18n="admin.campaigns_col_date">Envoyée le</th>
+            </tr>
+          </thead>
+          <tbody id="superAdminCampaignsBody"></tbody>
         </table>
       </div>
       <div id="superAdminPlansPanel" class="admin-panel" hidden>
@@ -1302,6 +1316,46 @@
     </div>
   </div>
   <!-- ===== Modale : détail / modification d'un prospect ===== -->
+  <!-- ===== Modale : message groupé aux réservations ===== -->
+  <div class="modal-overlay" id="reservationsBroadcastModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="reservationsBroadcastModal" aria-label="Fermer">&times;</button>
+      <h2 data-i18n="admin.reservations_broadcast_title">Envoyer un message aux réservations</h2>
+      <form id="reservationsBroadcastForm" class="atlas-form">
+        <div class="form-row">
+          <label><span data-i18n="admin.reservations_broadcast_filter">Destinataires</span>
+            <select name="status_filter" id="reservationsBroadcastFilter">
+              <option value="pending" data-i18n="admin.reservation_status_pending">En attente</option>
+              <option value="converted" data-i18n="admin.reservation_status_converted">Convertie</option>
+              <option value="declined" data-i18n="admin.reservation_status_declined">Refusée</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.reservations_broadcast_subject">Objet</span>
+            <input type="text" name="subject" id="reservationsBroadcastSubject" required />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.reservations_broadcast_message">Message</span>
+            <textarea name="message" id="reservationsBroadcastMessage" rows="6" required></textarea>
+          </label>
+        </div>
+        <div class="form-row form-row--split">
+          <label><span data-i18n="admin.campaign_cta_label">Bouton d'action (optionnel)</span>
+            <input type="text" name="cta_label" id="campaignCtaLabel" data-i18n-placeholder="admin.campaign_cta_label_placeholder" placeholder="Ex. Découvrir" />
+          </label>
+          <label><span data-i18n="admin.campaign_cta_url">Lien du bouton</span>
+            <input type="url" name="cta_url" id="campaignCtaUrl" placeholder="https://…" />
+          </label>
+        </div>
+        <p class="form-hint" data-i18n="admin.campaign_tracking_hint">Cette campagne suit individuellement qui ouvre l'email et clique sur le bouton — consultez les résultats depuis la liste des campagnes ci-dessous.</p>
+        <p class="form-error" id="reservationsBroadcastError" hidden></p>
+        <p class="form-success" id="reservationsBroadcastSuccess" hidden></p>
+        <button type="submit" class="btn btn--primary" data-i18n="admin.reservations_broadcast_submit">Envoyer</button>
+      </form>
+    </div>
+  </div>
   <div class="modal-overlay" id="leadModal" hidden>
     <div class="modal">
       <button class="modal-close" data-close="leadModal" aria-label="Fermer">&times;</button>
