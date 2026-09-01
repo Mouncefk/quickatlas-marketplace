@@ -3196,10 +3196,8 @@ textarea { resize: vertical; }
 .admin-actions-cell { position: relative; }
 .admin-actions-trigger { font-size: 1.1rem; line-height: 1; padding: 4px 10px; }
 .admin-actions-menu {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  z-index: 20;
+  position: fixed;
+  z-index: 60;
   min-width: 180px;
   background: var(--ink-700);
   border: 1px solid rgba(198, 161, 91, 0.35);
