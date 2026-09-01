@@ -380,9 +380,12 @@
             <p class="form-error" id="conditionError" hidden data-i18n="publish.condition_required">Merci de préciser si le produit est neuf ou d'occasion.</p>
           </div>
           <div id="tourismLodgingRow" hidden>
-            <div class="form-row">
+            <div class="form-row form-row--split">
               <label><span data-i18n="publish.label_capacity">Capacité (voyageurs)</span>
                 <input type="number" name="capacity_guests" id="publishCapacityGuests" min="1" step="1" placeholder="2" />
+              </label>
+              <label><span data-i18n="publish.label_capacity_children">dont enfants (optionnel)</span>
+                <input type="number" name="capacity_children" id="publishCapacityChildren" min="0" step="1" placeholder="0" />
               </label>
             </div>
             <fieldset class="amenities-fieldset">
@@ -391,9 +394,51 @@
               <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="pool" /> <span data-i18n="publish.amenity_pool">Piscine</span></label>
               <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="air_conditioning" /> <span data-i18n="publish.amenity_ac">Climatisation</span></label>
               <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="parking" /> <span data-i18n="publish.amenity_parking">Parking</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="ev_charging" /> <span data-i18n="publish.amenity_ev_charging">Recharge véhicule électrique</span></label>
               <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="sea_view" /> <span data-i18n="publish.amenity_sea_view">Vue mer</span></label>
               <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="breakfast" /> <span data-i18n="publish.amenity_breakfast">Petit-déjeuner inclus</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="workspace" /> <span data-i18n="publish.amenity_workspace">Espace de travail</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="pets_allowed" /> <span data-i18n="publish.amenity_pets_allowed">Animaux acceptés</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="smoking_allowed" /> <span data-i18n="publish.amenity_smoking_allowed">Fumeur autorisé</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="family_friendly" /> <span data-i18n="publish.amenity_family_friendly">Adapté aux familles</span></label>
+              <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="accessible" /> <span data-i18n="publish.amenity_accessible">Accessible (PMR)</span></label>
             </fieldset>
+          </div>
+          <div id="activityDetailsRow" hidden>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_activity_duration">Durée</span>
+                <input type="text" name="activity_duration" id="publishActivityDuration" data-i18n-placeholder="publish.activity_duration_placeholder" placeholder="Ex. 4 heures, une demi-journée, 3 jours" />
+              </label>
+              <label><span data-i18n="publish.label_activity_difficulty">Niveau</span>
+                <select name="activity_difficulty" id="publishActivityDifficulty">
+                  <option value="" data-i18n="publish.activity_difficulty_none">— Non précisé —</option>
+                  <option value="facile" data-i18n="publish.activity_difficulty_easy">Facile</option>
+                  <option value="modere" data-i18n="publish.activity_difficulty_moderate">Modéré</option>
+                  <option value="difficile" data-i18n="publish.activity_difficulty_hard">Difficile</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_activity_group_min">Taille de groupe min.</span>
+                <input type="number" name="activity_group_size_min" id="publishActivityGroupMin" min="1" step="1" placeholder="1" />
+              </label>
+              <label><span data-i18n="publish.label_activity_group_max">Taille de groupe max.</span>
+                <input type="number" name="activity_group_size_max" id="publishActivityGroupMax" min="1" step="1" placeholder="15" />
+              </label>
+            </div>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_activity_languages">Langues proposées</span>
+                <input type="text" name="activity_languages" id="publishActivityLanguages" data-i18n-placeholder="publish.activity_languages_placeholder" placeholder="Ex. Français, Anglais, Arabe" />
+              </label>
+              <label><span data-i18n="publish.label_activity_min_age">Âge minimum (optionnel)</span>
+                <input type="number" name="activity_min_age" id="publishActivityMinAge" min="0" step="1" placeholder="0" />
+              </label>
+            </div>
+            <div class="form-row">
+              <label><span data-i18n="publish.label_activity_meeting_point">Point de rendez-vous</span>
+                <input type="text" name="activity_meeting_point" id="publishActivityMeetingPoint" data-i18n-placeholder="publish.activity_meeting_point_placeholder" placeholder="Ex. Place Jemaa el-Fna, devant la fontaine" />
+              </label>
+            </div>
           </div>
           <div id="bedroomsBathroomsRow" hidden>
             <div class="form-row form-row--split">
