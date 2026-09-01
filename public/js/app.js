@@ -807,6 +807,7 @@ async function loadCategories() {
     updateTourismDatesVisibility(findCategoryById(pubCat.value)?.slug, newSubSlug);
     updateTourismPriceExtrasVisibility(findCategoryById(pubCat.value)?.slug, newSubSlug);
     updateTourismLodgingVisibility(newSubSlug);
+    updateActivityDetailsVisibility(newSubSlug);
     updateBedroomsBathroomsVisibility(newSubSlug);
     updateVehicleDetailsVisibility(newSubSlug);
     updateRealEstateDetailsVisibility(newSubSlug);
@@ -895,7 +896,26 @@ function updateTourismLodgingVisibility(subcategorySlug) {
   if (!isLodging) {
     const input = document.getElementById('publishCapacityGuests');
     if (input) input.value = '';
+    const childrenInput = document.getElementById('publishCapacityChildren');
+    if (childrenInput) childrenInput.value = '';
     row.querySelectorAll('input[name="amenities"]').forEach((cb) => { cb.checked = false; });
+  }
+}
+/** Affiche/masque le bloc de champs propres aux Activités & Excursions
+ * (durée, groupe, langues, point de rendez-vous...) — sous-catégorie
+ * distincte de l'hébergement au sein du Tourisme. */
+function updateActivityDetailsVisibility(subcategorySlug) {
+  const row = document.getElementById('activityDetailsRow');
+  if (!row) return;
+  const isActivity = subcategorySlug === 'activites-excursions';
+  row.hidden = !isActivity;
+  if (!isActivity) {
+    ['publishActivityDuration', 'publishActivityGroupMin', 'publishActivityGroupMax', 'publishActivityLanguages', 'publishActivityMeetingPoint'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const difficultySelect = document.getElementById('publishActivityDifficulty');
+    if (difficultySelect) difficultySelect.value = '';
   }
 }
 /** Chambres / salles de bain — extrait du bloc hébergement Tourisme
@@ -1976,10 +1996,18 @@ function amenityLabel(code) {
   const map = {
     wifi: ['📶', 'publish.amenity_wifi'], pool: ['🏊', 'publish.amenity_pool'],
     air_conditioning: ['❄️', 'publish.amenity_ac'], parking: ['🅿️', 'publish.amenity_parking'],
+    ev_charging: ['🔌', 'publish.amenity_ev_charging'],
     sea_view: ['🌊', 'publish.amenity_sea_view'], breakfast: ['🥐', 'publish.amenity_breakfast'],
+    workspace: ['💻', 'publish.amenity_workspace'], pets_allowed: ['🐾', 'publish.amenity_pets_allowed'],
+    smoking_allowed: ['🚬', 'publish.amenity_smoking_allowed'], family_friendly: ['👨‍👩‍👧', 'publish.amenity_family_friendly'],
+    accessible: ['♿', 'publish.amenity_accessible'],
   };
   const entry = map[code];
   return entry ? `${entry[0]} ${i18n.t(entry[1])}` : code;
+}
+function activityDifficultyLabel(code) {
+  const map = { facile: 'publish.activity_difficulty_easy', modere: 'publish.activity_difficulty_moderate', difficile: 'publish.activity_difficulty_hard' };
+  return map[code] ? i18n.t(map[code]) : code;
 }
 function vehicleConditionLabel(code) {
   const map = {
@@ -2919,13 +2947,21 @@ async function openListingDetail(id) {
       l.price_type ? ` / ${priceTypeLabel(l.price_type)}` : '',
     ]) : (l.price_type ? el('p', { class: 'tourism-price-type-detail' }, priceTypeLabel(l.price_type)) : null),
     l.capacity_guests ? el('div', { class: 'tourism-lodging-facts' }, [
-      el('span', {}, `🧑‍🤝‍🧑 ${l.capacity_guests}`),
+      el('span', {}, `🧑‍🤝‍🧑 ${l.capacity_guests}${l.capacity_children ? ` (${i18n.t('publish.capacity_children_display', { count: l.capacity_children })})` : ''}`),
       l.bedrooms ? el('span', {}, `🛏️ ${l.bedrooms}`) : null,
       l.bathrooms ? el('span', {}, `🚿 ${l.bathrooms}`) : null,
     ].filter(Boolean)) : null,
     l.amenities_json ? el('div', { class: 'tourism-amenities' },
       JSON.parse(l.amenities_json).map((a) => el('span', { class: 'tourism-amenity-chip' }, amenityLabel(a)))
     ) : null,
+    (l.activity_duration || l.activity_group_size_min || l.activity_group_size_max || l.activity_languages || l.activity_difficulty || l.activity_min_age) ? el('div', { class: 'tourism-lodging-facts' }, [
+      l.activity_duration ? el('span', {}, `⏱️ ${l.activity_duration}`) : null,
+      (l.activity_group_size_min || l.activity_group_size_max) ? el('span', {}, `👥 ${l.activity_group_size_min || '1'}–${l.activity_group_size_max || '∞'}`) : null,
+      l.activity_difficulty ? el('span', {}, activityDifficultyLabel(l.activity_difficulty)) : null,
+      l.activity_languages ? el('span', {}, `🗣️ ${l.activity_languages}`) : null,
+      l.activity_min_age ? el('span', {}, i18n.t('publish.activity_min_age_display', { count: l.activity_min_age })) : null,
+    ].filter(Boolean)) : null,
+    l.activity_meeting_point ? el('p', { class: 'form-hint' }, `📍 ${i18n.t('publish.label_activity_meeting_point')} : ${l.activity_meeting_point}`) : null,
     (l.vehicle_brand || l.vehicle_model || l.vehicle_year || l.vehicle_mileage || l.vehicle_condition || l.vehicle_transmission || l.vehicle_fuel_type) ? el('div', { class: 'vehicle-facts' }, [
       (l.vehicle_brand || l.vehicle_model) ? el('span', {}, [l.vehicle_brand, l.vehicle_model].filter(Boolean).join(' ')) : null,
       l.vehicle_year ? el('span', {}, String(l.vehicle_year)) : null,
@@ -3354,6 +3390,7 @@ function preparePublishForm() {
   fillSubcategorySelect(document.getElementById('publishSubcategory'), cat, false);
   const initialSubSlug = findSubcategoryById(document.getElementById('publishSubcategory').value)?.slug;
   updateTourismLodgingVisibility(initialSubSlug);
+  updateActivityDetailsVisibility(initialSubSlug);
   updateBedroomsBathroomsVisibility(initialSubSlug);
   updateVehicleDetailsVisibility(initialSubSlug);
   updateRealEstateDetailsVisibility(initialSubSlug);
@@ -3386,6 +3423,7 @@ document.getElementById('publishCategory').addEventListener('change', updateCate
 document.getElementById('publishSubcategory').addEventListener('change', (e) => {
   const subSlug = findSubcategoryById(e.target.value)?.slug;
   updateTourismLodgingVisibility(subSlug);
+  updateActivityDetailsVisibility(subSlug);
   updateBedroomsBathroomsVisibility(subSlug);
   updateVehicleDetailsVisibility(subSlug);
   updateRealEstateDetailsVisibility(subSlug);
@@ -3424,9 +3462,17 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     price_promo: fd.get('price_promo') || null,
     price_type: fd.get('price_type') || null,
     capacity_guests: fd.get('capacity_guests') || null,
+    capacity_children: fd.get('capacity_children') || null,
     bedrooms: fd.get('bedrooms') || null,
     bathrooms: fd.get('bathrooms') || null,
     amenities: fd.getAll('amenities'),
+    activity_duration: fd.get('activity_duration') || null,
+    activity_group_size_min: fd.get('activity_group_size_min') || null,
+    activity_group_size_max: fd.get('activity_group_size_max') || null,
+    activity_languages: fd.get('activity_languages') || null,
+    activity_meeting_point: fd.get('activity_meeting_point') || null,
+    activity_difficulty: fd.get('activity_difficulty') || null,
+    activity_min_age: fd.get('activity_min_age') || null,
     vehicle_brand: fd.get('vehicle_brand') || null,
     vehicle_model: fd.get('vehicle_model') || null,
     vehicle_year: fd.get('vehicle_year') || null,
