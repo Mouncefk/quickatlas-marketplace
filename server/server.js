@@ -2987,6 +2987,79 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
         .all();
       return sendJSON(res, 200, rows);
     }
+    // Contacts unifiés — fusionne réservations et loueurs actifs (sites
+    // réels) en une seule liste, dédupliquée par email : un loueur
+    // converti apparaît comme "loueur actif", pas en double avec sa
+    // réservation d'origine.
+    if (pathname === '/api/super-admin/contacts' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const rows = masterDb
+        .prepare(
+          `SELECT 'site' AS source, brand_name AS name, owner_email AS email, NULL AS phone, NULL AS sector, 'active_tenant' AS status, created_at
+           FROM sites WHERE slug != 'main' AND owner_email IS NOT NULL
+           UNION ALL
+           SELECT 'reservation' AS source, business_name AS name, contact_email AS email, contact_phone AS phone, sector, status, created_at
+           FROM site_reservations sr
+           WHERE NOT EXISTS (SELECT 1 FROM sites s WHERE s.owner_email = sr.contact_email AND s.slug != 'main')
+           ORDER BY created_at DESC`
+        )
+        .all();
+      return sendJSON(res, 200, rows);
+    }
+    // Historique des emails reçus par un contact précis (campagnes
+    // groupées ET envois individuels confondus — les deux utilisent la
+    // même table de suivi, seule la campagne d'origine diffère).
+    if (pathname === '/api/super-admin/contacts/history' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const email = (url.searchParams.get('email') || '').trim();
+      if (!email) return sendJSON(res, 400, { error: 'Email requis.' });
+      const rows = masterDb
+        .prepare(
+          `SELECT c.subject, c.sent_at, r.open_count, r.first_opened_at, r.click_count, r.first_clicked_at
+           FROM email_campaign_recipients r
+           JOIN email_campaigns c ON c.id = r.campaign_id
+           WHERE r.email = ?
+           ORDER BY c.sent_at DESC`
+        )
+        .all(email);
+      return sendJSON(res, 200, rows);
+    }
+    // Email individuel tracé — réutilise exactement le même mécanisme
+    // que les campagnes groupées (une campagne à un seul destinataire),
+    // pour ne pas dupliquer la logique de suivi. Le CCI, lui, n'entre
+    // jamais dans cette logique de suivi : c'est une copie simple, sans
+    // jeton propre.
+    if (pathname === '/api/super-admin/contacts/send' && method === 'POST') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const to = (body.to || '').trim();
+      const subject = (body.subject || '').trim();
+      const message = (body.message || '').trim();
+      if (!to || !subject || !message) return sendJSON(res, 400, { error: 'Destinataire, objet et message requis.' });
+      const bcc = (body.bcc || '').trim();
+      const campaignId = masterDb
+        .prepare("INSERT INTO email_campaigns (subject, message, audience_filter, recipient_count) VALUES (?, ?, 'individual', 1)")
+        .run(subject, message).lastInsertRowid;
+      const token = crypto.randomBytes(24).toString('hex');
+      masterDb.prepare('INSERT INTO email_campaign_recipients (campaign_id, email, tracking_token) VALUES (?, ?, ?)').run(campaignId, to, token);
+      const escapedMessage = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+      const html = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#0E1B2E;line-height:1.5;"><p>${escapedMessage}</p><img src="${SITE_URL}/api/campaigns/track-open/${token}" width="1" height="1" style="display:none;" alt="" /></div>`;
+      await sendMail({
+        smtpConfig: getSiteMailConfig(),
+        to,
+        bcc: bcc ? [bcc] : [],
+        purpose: 'individual',
+        subject,
+        text: message,
+        html,
+        link: SITE_URL,
+      });
+      logAdminAction(masterDb, admin, 'individual_email_sent', 'contact', to, { subject });
+      return sendJSON(res, 200, { ok: true });
+    }
     // Pixel de suivi d'ouverture — route publique (chargée directement
     // par le client email, sans authentification possible), renvoie
     // toujours une image valide même si le jeton est invalide/déjà
