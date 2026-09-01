@@ -209,6 +209,14 @@ function syncListingVisibleCities(listingId) {
         .all(listing.city_id);
       for (const row of countryCities) insertStmt.run(listingId, row.id);
     }
+    // Pays supplémentaires entiers (Tourisme) — rend l'annonce visible
+    // dans TOUTES les villes de chaque pays choisi, au-delà du pays réel
+    // du bien.
+    const extraCountries = db.prepare('SELECT country_id FROM listing_extra_countries WHERE listing_id = ?').all(listingId);
+    for (const country of extraCountries) {
+      const citiesInCountry = db.prepare('SELECT id FROM cities WHERE country_id = ?').all(country.country_id);
+      for (const row of citiesInCountry) insertStmt.run(listingId, row.id);
+    }
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');
@@ -1645,6 +1653,24 @@ async function handleRequest(req, res) {
         .all(countryId);
       return sendJSON(res, 200, rows);
     }
+    // Recherche de villes à travers TOUS les pays — contrairement à la
+    // route ci-dessus (scopée à un seul pays), sert spécifiquement au
+    // Tourisme, transfrontalier par nature : plutôt qu'une liste
+    // complète (des dizaines de milliers de villes potentielles), une
+    // recherche par nom, limitée à 30 résultats.
+    if (pathname === '/api/cities/search-global' && method === 'GET') {
+      const q = (url.searchParams.get('q') || '').trim();
+      if (q.length < 2) return sendJSON(res, 200, []);
+      const rows = db
+        .prepare(
+          `SELECT ci.id, ci.name, co.name AS country_name
+           FROM cities ci JOIN countries co ON co.id = ci.country_id
+           WHERE ci.name LIKE ? AND ci.country_id NOT IN (SELECT country_id FROM disabled_countries)
+           ORDER BY ci.name LIMIT 30`
+        )
+        .all(`%${q}%`);
+      return sendJSON(res, 200, rows);
+    }
     if ((m = pathname.match(/^\/api\/countries\/(\d+)\/states$/)) && method === 'GET') {
       const countryId = Number(m[1]);
       const rows = db
@@ -1938,14 +1964,25 @@ async function handleRequest(req, res) {
         .run(user.id, city_id, category_id, subcategoryId, title.trim(), (description || '').trim(), listing_type, finalPrice, currency || 'EUR', imagesJson, open_to_trade ? 1 : 0, open_to_trade ? (trade_description || '').trim() || null : null, listingLang, is_secondhand ? 1 : 0, (date_start || '').trim() || null, (date_end || '').trim() || null, price_promo === null || price_promo === undefined || price_promo === '' ? null : Number(price_promo), (price_type || '').trim() || null, capacity_guests === null || capacity_guests === undefined || capacity_guests === '' ? null : Number(capacity_guests), bedrooms === null || bedrooms === undefined || bedrooms === '' ? null : Number(bedrooms), bathrooms === null || bathrooms === undefined || bathrooms === '' ? null : Number(bathrooms), Array.isArray(amenities) && amenities.length ? JSON.stringify(amenities) : null, (vehicle_brand || '').trim() || null, (vehicle_model || '').trim() || null, vehicle_year === null || vehicle_year === undefined || vehicle_year === '' ? null : Number(vehicle_year), vehicle_mileage === null || vehicle_mileage === undefined || vehicle_mileage === '' ? null : Number(vehicle_mileage), (vehicle_condition || '').trim() || null, (vehicle_transmission || '').trim() || null, (vehicle_fuel_type || '').trim() || null, surface_m2 === null || surface_m2 === undefined || surface_m2 === '' ? null : Number(surface_m2), num_rooms === null || num_rooms === undefined || num_rooms === '' ? null : Number(num_rooms), (floor_number || '').trim() || null, (furnished || '').trim() || null, construction_year === null || construction_year === undefined || construction_year === '' ? null : Number(construction_year), (job_contract_type || '').trim() || null, (job_remote_type || '').trim() || null, (job_experience_level || '').trim() || null, (job_education_level || '').trim() || null, (job_sector || '').trim() || null, (job_cv_url || '').trim() || null, visible_all_cities ? 1 : 0)
         .lastInsertRowid;
       // Villes supplémentaires choisies — restreintes au même pays que la
-      // ville réelle du bien (pas de sens à cross-lister une voiture au
-      // Maroc vers une ville française), cohérent avec la portée retenue
-      // pour "toutes les villes du pays".
+      // ville réelle du bien pour la plupart des catégories (pas de sens
+      // à cross-lister une voiture au Maroc vers une ville française),
+      // sauf le Tourisme, transfrontalier par nature.
+      const isTourism = category.slug === 'tourisme-voyages';
       if (Array.isArray(extra_city_ids) && extra_city_ids.length) {
         const insertExtraCity = db.prepare('INSERT OR IGNORE INTO listing_extra_cities (listing_id, city_id) VALUES (?, ?)');
         for (const extraCityId of extra_city_ids) {
-          const extraCity = db.prepare('SELECT id FROM cities WHERE id = ? AND country_id = ?').get(Number(extraCityId), city.country_id);
+          const extraCity = isTourism
+            ? db.prepare('SELECT id FROM cities WHERE id = ?').get(Number(extraCityId))
+            : db.prepare('SELECT id FROM cities WHERE id = ? AND country_id = ?').get(Number(extraCityId), city.country_id);
           if (extraCity) insertExtraCity.run(id, extraCity.id);
+        }
+      }
+      // Pays supplémentaires entiers — Tourisme uniquement.
+      if (isTourism && Array.isArray(body.extra_country_ids) && body.extra_country_ids.length) {
+        const insertExtraCountry = db.prepare('INSERT OR IGNORE INTO listing_extra_countries (listing_id, country_id) VALUES (?, ?)');
+        for (const extraCountryId of body.extra_country_ids) {
+          const extraCountry = db.prepare('SELECT id FROM countries WHERE id = ?').get(Number(extraCountryId));
+          if (extraCountry) insertExtraCountry.run(id, extraCountry.id);
         }
       }
       syncListingVisibleCities(id);
@@ -2180,11 +2217,14 @@ async function handleRequest(req, res) {
       }
       // Villes supplémentaires : remplacées intégralement si transmises
       // (tableau vide = les retirer toutes), restreintes au même pays que
-      // la ville réelle — même règle qu'à la publication. Puis
-      // resynchronisation de listing_visible_cities si l'un des trois
-      // éléments qui la déterminent a été touché (ville, villes
+      // la ville réelle — sauf Tourisme, transfrontalier par nature. Puis
+      // resynchronisation de listing_visible_cities si l'un des éléments
+      // qui la déterminent a été touché (ville, villes/pays
       // supplémentaires, ou portée "tout le pays").
       let visibilityTouched = body.city_id !== undefined || body.visible_all_cities !== undefined;
+      const finalCategoryId = body.category_id !== undefined ? body.category_id : listing.category_id;
+      const finalCategory = db.prepare('SELECT slug FROM categories WHERE id = ?').get(finalCategoryId);
+      const isTourismUpdate = finalCategory?.slug === 'tourisme-voyages';
       if (Array.isArray(body.extra_city_ids)) {
         const finalCityId = body.city_id !== undefined ? body.city_id : listing.city_id;
         const finalCity = db.prepare('SELECT country_id FROM cities WHERE id = ?').get(finalCityId);
@@ -2192,9 +2232,22 @@ async function handleRequest(req, res) {
         if (finalCity) {
           const insertExtraCity = db.prepare('INSERT OR IGNORE INTO listing_extra_cities (listing_id, city_id) VALUES (?, ?)');
           for (const extraCityId of body.extra_city_ids) {
-            const extraCity = db.prepare('SELECT id FROM cities WHERE id = ? AND country_id = ?').get(Number(extraCityId), finalCity.country_id);
+            const extraCity = isTourismUpdate
+              ? db.prepare('SELECT id FROM cities WHERE id = ?').get(Number(extraCityId))
+              : db.prepare('SELECT id FROM cities WHERE id = ? AND country_id = ?').get(Number(extraCityId), finalCity.country_id);
             if (extraCity) insertExtraCity.run(listingId, extraCity.id);
           }
+        }
+        visibilityTouched = true;
+      }
+      // Pays supplémentaires entiers — Tourisme uniquement, remplacés
+      // intégralement si transmis.
+      if (isTourismUpdate && Array.isArray(body.extra_country_ids)) {
+        db.prepare('DELETE FROM listing_extra_countries WHERE listing_id = ?').run(listingId);
+        const insertExtraCountry = db.prepare('INSERT OR IGNORE INTO listing_extra_countries (listing_id, country_id) VALUES (?, ?)');
+        for (const extraCountryId of body.extra_country_ids) {
+          const extraCountry = db.prepare('SELECT id FROM countries WHERE id = ?').get(Number(extraCountryId));
+          if (extraCountry) insertExtraCountry.run(listingId, extraCountry.id);
         }
         visibilityTouched = true;
       }
