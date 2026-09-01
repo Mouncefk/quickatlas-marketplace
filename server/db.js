@@ -820,6 +820,19 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
     );
     CREATE INDEX IF NOT EXISTS idx_listing_visible_cities_city ON listing_visible_cities(city_id);
   `);
+  // Pays supplémentaires entiers — spécifique au Tourisme, transfrontalier
+  // par nature (un circuit ou une agence peut viser plusieurs pays à la
+  // fois). Sélectionner un pays ici rend l'annonce visible dans TOUTES
+  // ses villes, sans restriction au pays réel du bien (contrairement aux
+  // villes/pays supplémentaires des autres catégories). Pris en compte
+  // par syncListingVisibleCities() au même titre que le reste.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS listing_extra_countries (
+      listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+      country_id INTEGER NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
+      PRIMARY KEY (listing_id, country_id)
+    );
+  `);
   return db;
 }
 
