@@ -3015,15 +3015,26 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
       if (!admin) return;
       const email = (url.searchParams.get('email') || '').trim();
       if (!email) return sendJSON(res, 400, { error: 'Email requis.' });
-      const rows = masterDb
+      const campaignRows = masterDb
         .prepare(
-          `SELECT c.subject, c.sent_at, r.open_count, r.first_opened_at, r.click_count, r.first_clicked_at
+          `SELECT 'campaign' AS source, c.subject, c.sent_at, r.open_count, r.first_opened_at, r.click_count, r.first_clicked_at, NULL AS direction
            FROM email_campaign_recipients r
            JOIN email_campaigns c ON c.id = r.campaign_id
-           WHERE r.email = ?
-           ORDER BY c.sent_at DESC`
+           WHERE r.email = ?`
         )
         .all(email);
+      // Correspondance avec la boîte de réception du site principal —
+      // dans les deux sens (ce que la personne nous a écrit, et ce
+      // qu'on lui a envoyé depuis "Administration"), pour une vraie
+      // vue unifiée de la relation, pas seulement les campagnes.
+      const inboxRows = db
+        .prepare(
+          `SELECT 'inbox' AS source, subject, received_at AS sent_at, open_count, first_opened_at, NULL AS click_count, NULL AS first_clicked_at, direction
+           FROM inbox_emails
+           WHERE from_address = ? OR to_address = ?`
+        )
+        .all(email, email);
+      const rows = [...campaignRows, ...inboxRows].sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
       return sendJSON(res, 200, rows);
     }
     // Email individuel tracé — réutilise exactement le même mécanisme
@@ -3069,6 +3080,19 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
       const recipient = masterDb.prepare('SELECT id FROM email_campaign_recipients WHERE tracking_token = ?').get(m[1]);
       if (recipient) {
         masterDb.prepare("UPDATE email_campaign_recipients SET open_count = open_count + 1, first_opened_at = COALESCE(first_opened_at, datetime('now')) WHERE id = ?").run(recipient.id);
+      }
+      const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7', 'base64');
+      res.writeHead(200, { 'Content-Type': 'image/gif', 'Content-Length': pixel.length, 'Cache-Control': 'no-store' });
+      return res.end(pixel);
+    }
+    // Même principe, pour un email envoyé (composé ou en réponse) depuis
+    // la boîte de réception d'un site — accusé de lecture "informel" :
+    // sait si le destinataire a ouvert l'email, sans notification
+    // formelle envoyée à qui que ce soit.
+    if ((m = pathname.match(/^\/api\/inbox\/track-open\/([a-f0-9]+)$/)) && method === 'GET') {
+      const email = db.prepare('SELECT id FROM inbox_emails WHERE tracking_token = ?').get(m[1]);
+      if (email) {
+        db.prepare("UPDATE inbox_emails SET open_count = open_count + 1, first_opened_at = COALESCE(first_opened_at, datetime('now')) WHERE id = ?").run(email.id);
       }
       const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7', 'base64');
       res.writeHead(200, { 'Content-Type': 'image/gif', 'Content-Length': pixel.length, 'Cache-Control': 'no-store' });
@@ -4077,11 +4101,13 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
         return sendJSON(res, 400, { error: 'Destinataire, sujet et message sont requis.' });
       }
       const attachments = readAttachmentFromUrl(body.attachment_url, body.attachment_filename, body.attachment_mime);
+      const composeToken = crypto.randomBytes(24).toString('hex');
+      const composeHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#0E1B2E;line-height:1.5;"><p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p><img src="${SITE_URL}/api/inbox/track-open/${composeToken}" width="1" height="1" style="display:none;" alt="" /></div>`;
       await sendMail({
-        smtpConfig: getSiteMailConfig(), to, purpose: 'admin_compose', subject, text, link: SITE_URL, attachments });
+        smtpConfig: getSiteMailConfig(), to, purpose: 'admin_compose', subject, text, html: composeHtml, link: SITE_URL, attachments });
       db.prepare(
-        "INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read) VALUES (?, ?, ?, ?, ?, ?, 'sent', 1)"
-      ).run(-Date.now() - Math.floor(Math.random() * 1000), admin.email || 'contact@quickatlas.net', to, subject, text, new Date().toISOString());
+        "INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read, tracking_token) VALUES (?, ?, ?, ?, ?, ?, 'sent', 1, ?)"
+      ).run(-Date.now() - Math.floor(Math.random() * 1000), admin.email || 'contact@quickatlas.net', to, subject, text, new Date().toISOString(), composeToken);
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/admin/inbox' && method === 'GET') {
@@ -4089,7 +4115,7 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       if (!admin) return;
       const view = url.searchParams.get('view') === 'sent' ? 'sent' : 'received';
       const rows = db
-        .prepare('SELECT id, from_address, from_name, to_address, subject, received_at, is_read, replied, direction, from_spam FROM inbox_emails WHERE direction = ? ORDER BY received_at DESC LIMIT 200')
+        .prepare('SELECT id, from_address, from_name, to_address, subject, received_at, is_read, replied, direction, from_spam, open_count, first_opened_at FROM inbox_emails WHERE direction = ? ORDER BY received_at DESC LIMIT 200')
         .all(view);
       return sendJSON(res, 200, rows);
     }
@@ -4145,26 +4171,31 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       const replyText = (body.text || '').trim();
       if (!replyText) return sendJSON(res, 400, { error: 'Message vide.' });
       const attachments = readAttachmentFromUrl(body.attachment_url, body.attachment_filename, body.attachment_mime);
+      const replyToken = crypto.randomBytes(24).toString('hex');
+      const replySubject = email.subject && email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`;
+      const replyHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#0E1B2E;line-height:1.5;"><p>${replyText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p><img src="${SITE_URL}/api/inbox/track-open/${replyToken}" width="1" height="1" style="display:none;" alt="" /></div>`;
       await sendMail({
         smtpConfig: getSiteMailConfig(),
         to: email.from_address,
         purpose: 'admin_reply',
-        subject: email.subject && email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
+        subject: replySubject,
         text: replyText,
+        html: replyHtml,
         link: SITE_URL,
         attachments,
       });
       db.prepare('UPDATE inbox_emails SET replied = 1 WHERE id = ?').run(email.id);
       db.prepare(
-        "INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read, in_reply_to_id) VALUES (?, ?, ?, ?, ?, ?, 'sent', 1, ?)"
+        "INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read, in_reply_to_id, tracking_token) VALUES (?, ?, ?, ?, ?, ?, 'sent', 1, ?, ?)"
       ).run(
         -Date.now() - Math.floor(Math.random() * 1000),
         admin.email || 'contact@quickatlas.net',
         email.from_address,
-        email.subject && email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
+        replySubject,
         replyText,
         new Date().toISOString(),
-        email.id
+        email.id,
+        replyToken
       );
       return sendJSON(res, 200, { ok: true });
     }
