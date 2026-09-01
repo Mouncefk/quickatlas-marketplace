@@ -622,6 +622,25 @@ db.exec(`
     db.exec('ALTER TABLE inbox_emails ADD COLUMN body_html TEXT');
   }
 }
+// Migration : accusé de réception — sait si un email ENVOYÉ depuis
+// cette boîte (compose ou réponse) a été ouvert par son destinataire.
+// Même principe que le suivi des campagnes (jeton unique + pixel
+// invisible), appliqué ici directement sur inbox_emails plutôt que sur
+// la table des campagnes, puisque ces envois sont propres à ce site et
+// pas à la promotion réseau du Super Admin.
+{
+  const inboxTrackingColumns = db.prepare("PRAGMA table_info(inbox_emails)").all();
+  const newTrackingColumns = [
+    ['tracking_token', 'TEXT'],
+    ['open_count', 'INTEGER NOT NULL DEFAULT 0'],
+    ['first_opened_at', 'TEXT'],
+  ];
+  for (const [name, type] of newTrackingColumns) {
+    if (!inboxTrackingColumns.some((c) => c.name === name)) {
+      db.exec(`ALTER TABLE inbox_emails ADD COLUMN ${name} ${type}`);
+    }
+  }
+}
 // Migration : marque les emails récupérés depuis le dossier Spam plutôt
 // que la boîte de réception normale — pour ne rien manquer (un vrai
 // prospect peut y atterrir par erreur), tout en gardant la distinction
