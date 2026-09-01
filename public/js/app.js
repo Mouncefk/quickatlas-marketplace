@@ -5277,7 +5277,16 @@ function billingStatusLabel(status) {
   return map[status] ? i18n.t(map[status]) : status;
 }
 function closeAllActionsMenus() {
-  document.querySelectorAll('.admin-actions-menu').forEach((m) => { m.hidden = true; });
+  document.querySelectorAll('.admin-actions-menu').forEach((m) => {
+    m.hidden = true;
+    // Remet le menu à sa place d'origine dans le tableau — évite de
+    // laisser traîner des éléments orphelins à la racine de la page
+    // une fois refermés.
+    if (m.dataset.originalParent) {
+      const originalParent = document.getElementById(m.dataset.originalParent);
+      if (originalParent) originalParent.appendChild(m);
+    }
+  });
 }
 function toggleActionsMenu(e, id) {
   e.stopPropagation();
@@ -5285,11 +5294,19 @@ function toggleActionsMenu(e, id) {
   const wasHidden = menu.hidden;
   closeAllActionsMenus();
   if (wasHidden) {
-    // Position calculée à partir du bouton cliqué plutôt que du CSS
-    // relatif habituel — nécessaire depuis que le menu est passé en
-    // position fixe (voir style.css), pour échapper au découpage du
-    // tableau de sites, dont le conteneur défile horizontalement.
+    // Position calculée à partir du bouton cliqué, ET le menu déplacé
+    // physiquement à la racine de la page (document.body) — élimine
+    // toute ambiguïté liée à sa position d'origine imbriquée dans le
+    // tableau (défilement horizontal, transformation d'un ancêtre...),
+    // seul un vrai déplacement du nœud DOM garantit un positionnement
+    // fiable en toutes circonstances.
     const rect = e.currentTarget.getBoundingClientRect();
+    if (!menu.dataset.originalParent) {
+      const parent = menu.parentElement;
+      if (parent && !parent.id) parent.id = `actionsMenuParent-${id}`;
+      menu.dataset.originalParent = parent ? parent.id : '';
+    }
+    document.body.appendChild(menu);
     const menuWidth = 180; // doit rester cohérent avec min-width en CSS
     let left = rect.right - menuWidth;
     if (left < 8) left = 8;
