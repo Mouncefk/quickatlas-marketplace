@@ -1071,6 +1071,7 @@ textarea { resize: vertical; }
   color: rgba(241,233,216,0.7);
   line-height: 1.4;
 }
+.terms-checkbox[hidden] { display: none !important; }
 .terms-checkbox input { margin-top: 3px; flex-shrink: 0; width: auto; }
 /* ---------- Équipements (Tourisme — Hébergement) ---------- */
 .amenities-fieldset {
