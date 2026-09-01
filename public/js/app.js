@@ -906,13 +906,29 @@ function updateTourismLodgingVisibility(subcategorySlug) {
     if (numBedsInput) numBedsInput.value = '';
   }
 }
+/** Sous-catégories Tourisme de type "activité/expérience" — partagent
+ * toutes le même bloc de champs (durée, groupe, langues, inclus/
+ * non-inclus, point de rendez-vous...), qu'il s'agisse d'une excursion
+ * classique, d'une activité nautique, d'un atelier, d'un guide à
+ * l'heure ou d'un séjour organisé sur plusieurs jours — la structure
+ * de l'information recherchée par un voyageur reste la même dans tous
+ * les cas, seul le contenu change. Transports & Transferts partage
+ * aussi ce bloc (le point de rendez-vous sert alors de point de
+ * départ), plutôt que d'ajouter un jeu de champs séparé pour un besoin
+ * très proche.
+ */
+const TOURISM_ACTIVITY_SUBCATEGORIES = [
+  'activites-excursions', 'activites-aventure', 'ateliers-immersion',
+  'excursions-visites', 'guides-accompagnateurs', 'voyages-organises',
+  'transports-transferts',
+];
 /** Affiche/masque le bloc de champs propres aux Activités & Excursions
  * (durée, groupe, langues, point de rendez-vous...) — sous-catégorie
  * distincte de l'hébergement au sein du Tourisme. */
 function updateActivityDetailsVisibility(subcategorySlug) {
   const row = document.getElementById('activityDetailsRow');
   if (!row) return;
-  const isActivity = subcategorySlug === 'activites-excursions';
+  const isActivity = TOURISM_ACTIVITY_SUBCATEGORIES.includes(subcategorySlug);
   row.hidden = !isActivity;
   if (!isActivity) {
     ['publishActivityDuration', 'publishActivityGroupMin', 'publishActivityGroupMax', 'publishActivityLanguages', 'publishActivityMeetingPoint', 'publishActivityIncluded', 'publishActivityExcluded'].forEach((id) => {
@@ -931,7 +947,7 @@ function updateActivityDetailsVisibility(subcategorySlug) {
 function updateTourismCancellationVisibility(subcategorySlug) {
   const row = document.getElementById('tourismCancellationRow');
   if (!row) return;
-  const applies = ['locations-vacances', 'hotellerie-insolite', 'activites-excursions'].includes(subcategorySlug);
+  const applies = ['locations-vacances', 'hotellerie-insolite', 'location-vehicules', ...TOURISM_ACTIVITY_SUBCATEGORIES].includes(subcategorySlug);
   row.hidden = !applies;
   if (!applies) {
     const select = document.getElementById('publishCancellationPolicy');
@@ -965,7 +981,7 @@ function updateBedroomsBathroomsVisibility(subcategorySlug) {
 function updateVehicleDetailsVisibility(subcategorySlug) {
   const row = document.getElementById('vehicleDetailsRow');
   if (!row) return;
-  const VEHICLE_SUBCATEGORIES = ['auto', 'bateau', 'camion', 'caravane', 'moto', 'quad-buggy', 'remorque', 'utilitaire', 'velo'];
+  const VEHICLE_SUBCATEGORIES = ['auto', 'bateau', 'camion', 'caravane', 'moto', 'quad-buggy', 'remorque', 'utilitaire', 'velo', 'location-vehicules'];
   const showFields = VEHICLE_SUBCATEGORIES.includes(subcategorySlug);
   row.hidden = !showFields;
   if (!showFields) {
