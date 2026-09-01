@@ -1011,6 +1011,36 @@ function initializeMasterDatabase(dbPath) {
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `);
+    // Campagnes d'emailing intégrées, avec traçabilité — solution
+    // interne plutôt qu'un service externe (Listmonk/Mautic), cohérente
+    // avec le reste du réseau. Une campagne cible un ensemble de
+    // réservations (par statut) ; chaque destinataire a son propre
+    // jeton de suivi, permettant de savoir individuellement qui a
+    // ouvert l'email et cliqué sur le lien, sans dépendre d'un tiers.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS email_campaigns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject TEXT NOT NULL,
+        message TEXT NOT NULL,
+        cta_label TEXT,
+        cta_url TEXT,
+        audience_filter TEXT NOT NULL DEFAULT 'pending',
+        recipient_count INTEGER NOT NULL DEFAULT 0,
+        sent_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS email_campaign_recipients (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        campaign_id INTEGER NOT NULL REFERENCES email_campaigns(id) ON DELETE CASCADE,
+        email TEXT NOT NULL,
+        tracking_token TEXT NOT NULL UNIQUE,
+        open_count INTEGER NOT NULL DEFAULT 0,
+        first_opened_at TEXT,
+        click_count INTEGER NOT NULL DEFAULT 0,
+        first_clicked_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_campaign_recipients_campaign ON email_campaign_recipients(campaign_id);
+      CREATE INDEX IF NOT EXISTS idx_campaign_recipients_token ON email_campaign_recipients(tracking_token);
+    `);
   }
   // Le site principal (celui déjà en place) figure lui-même comme
   // première entrée du registre, avec quickatlas.net comme domaine
