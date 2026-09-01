@@ -388,6 +388,19 @@
                 <input type="number" name="capacity_children" id="publishCapacityChildren" min="0" step="1" placeholder="0" />
               </label>
             </div>
+            <div class="form-row form-row--split">
+              <label><span data-i18n="publish.label_property_room_type">Type de logement</span>
+                <select name="property_room_type" id="publishPropertyRoomType">
+                  <option value="" data-i18n="publish.property_room_type_none">— Non précisé —</option>
+                  <option value="entire_place" data-i18n="publish.property_room_type_entire">Logement entier</option>
+                  <option value="private_room" data-i18n="publish.property_room_type_private">Chambre privée</option>
+                  <option value="shared_room" data-i18n="publish.property_room_type_shared">Chambre partagée</option>
+                </select>
+              </label>
+              <label><span data-i18n="publish.label_num_beds">Nombre de lits</span>
+                <input type="number" name="num_beds" id="publishNumBeds" min="1" step="1" placeholder="1" />
+              </label>
+            </div>
             <fieldset class="amenities-fieldset">
               <legend data-i18n="publish.label_amenities">Équipements</legend>
               <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="wifi" /> <span data-i18n="publish.amenity_wifi">Wi-Fi</span></label>
@@ -403,6 +416,16 @@
               <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="family_friendly" /> <span data-i18n="publish.amenity_family_friendly">Adapté aux familles</span></label>
               <label class="amenity-checkbox"><input type="checkbox" name="amenities" value="accessible" /> <span data-i18n="publish.amenity_accessible">Accessible (PMR)</span></label>
             </fieldset>
+          </div>
+          <div class="form-row" id="tourismCancellationRow" hidden>
+            <label><span data-i18n="publish.label_cancellation_policy">Politique d'annulation</span>
+              <select name="cancellation_policy" id="publishCancellationPolicy">
+                <option value="" data-i18n="publish.cancellation_policy_none">— Non précisé —</option>
+                <option value="flexible" data-i18n="publish.cancellation_policy_flexible">Flexible</option>
+                <option value="moderee" data-i18n="publish.cancellation_policy_moderate">Modérée</option>
+                <option value="stricte" data-i18n="publish.cancellation_policy_strict">Stricte</option>
+              </select>
+            </label>
           </div>
           <div id="activityDetailsRow" hidden>
             <div class="form-row form-row--split">
@@ -437,6 +460,22 @@
             <div class="form-row">
               <label><span data-i18n="publish.label_activity_meeting_point">Point de rendez-vous</span>
                 <input type="text" name="activity_meeting_point" id="publishActivityMeetingPoint" data-i18n-placeholder="publish.activity_meeting_point_placeholder" placeholder="Ex. Place Jemaa el-Fna, devant la fontaine" />
+              </label>
+            </div>
+            <div class="form-row">
+              <label class="terms-checkbox">
+                <input type="checkbox" name="activity_pickup_included" id="publishActivityPickupIncluded" />
+                <span data-i18n="publish.label_activity_pickup_included">Prise en charge (transport) incluse</span>
+              </label>
+            </div>
+            <div class="form-row">
+              <label><span data-i18n="publish.label_activity_included">Ce qui est inclus</span>
+                <textarea name="activity_included" id="publishActivityIncluded" rows="2" data-i18n-placeholder="publish.activity_included_placeholder" placeholder="Ex. Guide francophone, déjeuner, équipement de sécurité"></textarea>
+              </label>
+            </div>
+            <div class="form-row">
+              <label><span data-i18n="publish.label_activity_excluded">Ce qui n'est pas inclus</span>
+                <textarea name="activity_excluded" id="publishActivityExcluded" rows="2" data-i18n-placeholder="publish.activity_excluded_placeholder" placeholder="Ex. Boissons, pourboires, droits d'entrée"></textarea>
               </label>
             </div>
           </div>
