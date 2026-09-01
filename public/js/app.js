@@ -4664,12 +4664,14 @@ document.querySelectorAll('[data-super-admin-tab]').forEach((btn) =>
     document.getElementById('superAdminOverviewPanel').hidden = btn.dataset.superAdminTab !== 'overview';
     document.getElementById('superAdminSitesPanel').hidden = btn.dataset.superAdminTab !== 'sites';
     document.getElementById('superAdminReservationsPanel').hidden = btn.dataset.superAdminTab !== 'reservations';
+    document.getElementById('superAdminContactsPanel').hidden = btn.dataset.superAdminTab !== 'contacts';
     document.getElementById('superAdminPlansPanel').hidden = btn.dataset.superAdminTab !== 'plans';
     document.getElementById('superAdminPromoPanel').hidden = btn.dataset.superAdminTab !== 'promo';
     document.getElementById('superAdminAuditPanel').hidden = btn.dataset.superAdminTab !== 'audit';
     if (btn.dataset.superAdminTab === 'overview') loadGlobalStats();
     if (btn.dataset.superAdminTab === 'sites') loadSuperAdminSites();
     if (btn.dataset.superAdminTab === 'reservations') { loadSuperAdminReservations(); loadSuperAdminCampaigns(); }
+    if (btn.dataset.superAdminTab === 'contacts') loadSuperAdminContacts();
     if (btn.dataset.superAdminTab === 'plans') loadSuperAdminPlans();
     if (btn.dataset.superAdminTab === 'audit') loadSuperAdminAuditLog();
   })
@@ -5031,6 +5033,109 @@ async function loadSuperAdminCampaigns() {
     showToast(e.message);
   }
 }
+/** Libellé lisible du statut d'un contact unifié — 'active_tenant' est
+ * calculé côté serveur (loueur avec un vrai site), les autres
+ * reprennent les statuts de réservation déjà connus. */
+function contactStatusLabel(status) {
+  if (status === 'active_tenant') return i18n.t('admin.contact_status_active_tenant');
+  return reservationStatusLabel(status);
+}
+async function loadSuperAdminContacts() {
+  const tbody = document.getElementById('superAdminContactsBody');
+  if (!tbody) return;
+  try {
+    const contacts = await api('/super-admin/contacts');
+    tbody.innerHTML = '';
+    if (contacts.length === 0) {
+      tbody.append(el('tr', {}, el('td', { colspan: '4' }, el('p', { class: 'empty-state' }, i18n.t('admin.contacts_empty')))));
+      return;
+    }
+    for (const c of contacts) {
+      tbody.append(
+        el('tr', { onclick: () => openContactDetail(c) }, [
+          el('td', {}, c.name),
+          el('td', {}, c.email),
+          el('td', {}, el('span', { class: 'role-badge' }, contactStatusLabel(c.status))),
+          el('td', {}, new Date(c.created_at + 'Z').toLocaleDateString()),
+        ])
+      );
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+async function openContactDetail(contact) {
+  document.getElementById('contactDetailName').textContent = contact.name;
+  document.getElementById('contactDetailMeta').textContent = [contact.email, contact.phone, contact.sector].filter(Boolean).join(' — ');
+  document.getElementById('contactSendTo').value = contact.email;
+  document.getElementById('contactSendForm').reset();
+  document.getElementById('contactSendTo').value = contact.email;
+  document.getElementById('contactSendError').hidden = true;
+  document.getElementById('contactSendSuccess').hidden = true;
+  const historyList = document.getElementById('contactHistoryList');
+  historyList.innerHTML = '';
+  try {
+    const history = await api(`/super-admin/contacts/history?email=${encodeURIComponent(contact.email)}`);
+    if (history.length === 0) {
+      historyList.append(el('p', { class: 'empty-state' }, i18n.t('admin.contact_history_empty')));
+    } else {
+      for (const h of history) {
+        historyList.append(
+          el('div', { class: 'lead-row' }, [
+            el('span', {}, h.subject),
+            el('span', { class: 'form-hint' }, new Date(h.sent_at + 'Z').toLocaleDateString()),
+            el('span', {}, h.open_count > 0 ? `👁️ ${i18n.t('admin.contact_history_opened')}` : `— ${i18n.t('admin.contact_history_not_opened')}`),
+            el('span', {}, h.click_count > 0 ? `🔗 ${i18n.t('admin.contact_history_clicked')}` : ''),
+          ])
+        );
+      }
+    }
+  } catch (e) {
+    showToast(e.message);
+  }
+  document.getElementById('contactDetailModal').hidden = false;
+}
+document.getElementById('contactSendForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('contactSendError');
+  const successEl = document.getElementById('contactSendSuccess');
+  errEl.hidden = true;
+  successEl.hidden = true;
+  try {
+    await api('/super-admin/contacts/send', {
+      method: 'POST',
+      body: JSON.stringify({
+        to: fd.get('to'),
+        subject: fd.get('subject'),
+        message: fd.get('message'),
+        bcc: fd.get('bcc'),
+      }),
+    });
+    successEl.textContent = i18n.t('admin.contact_send_success');
+    successEl.hidden = false;
+    const to = fd.get('to');
+    e.target.reset();
+    document.getElementById('contactSendTo').value = to;
+    // Rafraîchit l'historique pour refléter l'envoi qu'on vient de faire.
+    const history = await api(`/super-admin/contacts/history?email=${encodeURIComponent(to)}`);
+    const historyList = document.getElementById('contactHistoryList');
+    historyList.innerHTML = '';
+    for (const h of history) {
+      historyList.append(
+        el('div', { class: 'lead-row' }, [
+          el('span', {}, h.subject),
+          el('span', { class: 'form-hint' }, new Date(h.sent_at + 'Z').toLocaleDateString()),
+          el('span', {}, h.open_count > 0 ? `👁️ ${i18n.t('admin.contact_history_opened')}` : `— ${i18n.t('admin.contact_history_not_opened')}`),
+          el('span', {}, h.click_count > 0 ? `🔗 ${i18n.t('admin.contact_history_clicked')}` : ''),
+        ])
+      );
+    }
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
 async function loadSuperAdminReservations() {
   const tbody = document.getElementById('superAdminReservationsBody');
   if (!tbody) return;
