@@ -3328,3 +3328,13 @@ textarea { resize: vertical; }
 .reserve-status--taken { color: var(--rust-text); }
 /* ---------- Échéance des sites de démonstration ---------- */
 .form-hint--demo { color: var(--brass-300); }
+/* ---------- Inclus / non-inclus (Tourisme, Activités & Excursions) ---------- */
+.tourism-included-block, .tourism-excluded-block {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.tourism-included-block { background: rgba(93, 151, 142, 0.12); border: 1px solid rgba(93, 151, 142, 0.3); }
+.tourism-excluded-block { background: rgba(181, 72, 46, 0.1); border: 1px solid rgba(181, 72, 46, 0.25); margin-top: 8px; }
+.tourism-included-block p, .tourism-excluded-block p { margin: 4px 0 0; white-space: pre-line; }
