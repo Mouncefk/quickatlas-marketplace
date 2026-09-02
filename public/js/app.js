@@ -4738,8 +4738,15 @@ function openAdminInboxCompose() {
       el('div', { class: 'form-row' }, [
         el('label', {}, [
           el('span', {}, i18n.t('admin.inbox_compose_to')),
-          el('input', { type: 'email', id: 'adminInboxComposeTo', required: true }),
+          el('input', { type: 'email', id: 'adminInboxComposeTo' }),
         ]),
+      ]),
+      el('div', { class: 'form-row' }, [
+        el('label', {}, [
+          el('span', {}, i18n.t('admin.inbox_compose_bcc')),
+          el('textarea', { id: 'adminInboxComposeBcc', rows: '2', 'data-i18n-placeholder': 'admin.inbox_compose_bcc_placeholder', placeholder: i18n.t('admin.inbox_compose_bcc_placeholder') }),
+        ]),
+        el('p', { class: 'form-hint' }, i18n.t('admin.inbox_compose_bcc_hint')),
       ]),
       el('div', { class: 'form-row' }, [
         el('label', {}, [
@@ -4760,15 +4767,22 @@ function openAdminInboxCompose() {
   document.getElementById('adminInboxComposeForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const to = document.getElementById('adminInboxComposeTo').value.trim();
+    const bccRaw = document.getElementById('adminInboxComposeBcc').value.trim();
+    const bcc = bccRaw ? bccRaw.split(/[,\n]/).map((addr) => addr.trim()).filter(Boolean) : [];
     const subject = document.getElementById('adminInboxComposeSubject').value.trim();
     const text = document.getElementById('adminInboxComposeText').value.trim();
-    if (!to || !subject || !text) return;
+    if (!subject || !text) return;
+    if (!to && bcc.length === 0) { showToast(i18n.t('admin.inbox_compose_recipient_required')); return; }
+    // Sans destinataire "À" explicite (envoi CCI pur), l'email part à
+    // sa propre adresse — technique, jamais vue par les destinataires
+    // réels, tous placés en copie invisible sans se voir entre eux.
+    const finalTo = to || state.user?.email;
     const attachment = attachmentField.getAttachment();
     try {
       await api('/admin/inbox/compose', {
         method: 'POST',
         body: JSON.stringify({
-          to, subject, text,
+          to: finalTo, bcc, subject, text,
           attachment_url: attachment?.url || null,
           attachment_filename: attachment?.filename || null,
           attachment_mime: attachment?.mime || null,
