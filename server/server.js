@@ -3002,10 +3002,42 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
            SELECT 'reservation' AS source, business_name AS name, contact_email AS email, contact_phone AS phone, sector, status, created_at
            FROM site_reservations sr
            WHERE NOT EXISTS (SELECT 1 FROM sites s WHERE s.owner_email = sr.contact_email AND s.slug != 'main')
+           UNION ALL
+           SELECT 'cold_prospect' AS source, business_name AS name, email, phone, sector, 'cold_prospect' AS status, created_at
+           FROM cold_prospects cp
+           WHERE NOT EXISTS (SELECT 1 FROM sites s WHERE s.owner_email = cp.email AND s.slug != 'main')
+             AND NOT EXISTS (SELECT 1 FROM site_reservations sr WHERE sr.contact_email = cp.email)
            ORDER BY created_at DESC`
         )
         .all();
       return sendJSON(res, 200, rows);
+    }
+    // Ajout groupé de prospects froids — pensé pour coller directement
+    // un lot copié depuis un annuaire d'entreprises (Kerix, Charika...),
+    // une ligne par prospect, plutôt qu'une saisie un par un. Le secteur
+    // et la source sont communs à tout le lot collé en une fois.
+    if (pathname === '/api/super-admin/prospects/bulk-add' && method === 'POST') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const rawLines = (body.raw || '').split('\n').map((l) => l.trim()).filter(Boolean);
+      if (rawLines.length === 0) return sendJSON(res, 400, { error: 'Aucune ligne à traiter.' });
+      const sector = (body.sector || '').trim() || null;
+      const source = (body.source || '').trim() || null;
+      const insertStmt = masterDb.prepare('INSERT INTO cold_prospects (business_name, email, phone, sector, source) VALUES (?, ?, ?, ?, ?)');
+      let added = 0;
+      let skipped = 0;
+      for (const line of rawLines) {
+        const parts = line.split(',').map((p) => p.trim());
+        const emailPart = parts.find((p) => p.includes('@'));
+        if (!emailPart) { skipped++; continue; }
+        const businessName = parts.find((p) => p !== emailPart) || emailPart;
+        const phonePart = parts.find((p) => p !== emailPart && p !== businessName && /\d{6,}/.test(p)) || null;
+        insertStmt.run(businessName, emailPart, phonePart, sector, source);
+        added++;
+      }
+      logAdminAction(masterDb, admin, 'prospects_bulk_added', 'cold_prospect', null, { added, skipped, sector });
+      return sendJSON(res, 200, { ok: true, added, skipped });
     }
     // Historique des emails reçus par un contact précis (campagnes
     // groupées ET envois individuels confondus — les deux utilisent la
