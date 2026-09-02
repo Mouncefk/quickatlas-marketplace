@@ -4094,20 +4094,22 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       const admin = requireAdmin(req, res);
       if (!admin) return;
       const body = await readBody(req);
-      const to = (body.to || '').trim();
+      const bcc = Array.isArray(body.bcc) ? body.bcc.map((addr) => (addr || '').trim()).filter(Boolean) : [];
+      const to = (body.to || '').trim() || (bcc.length ? admin.email : '');
       const subject = (body.subject || '').trim();
       const text = (body.text || '').trim();
-      if (!to || !subject || !text) {
-        return sendJSON(res, 400, { error: 'Destinataire, sujet et message sont requis.' });
+      if ((!to && bcc.length === 0) || !subject || !text) {
+        return sendJSON(res, 400, { error: 'Un destinataire (À ou CCI), un sujet et un message sont requis.' });
       }
       const attachments = readAttachmentFromUrl(body.attachment_url, body.attachment_filename, body.attachment_mime);
       const composeToken = crypto.randomBytes(24).toString('hex');
       const composeHtml = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#0E1B2E;line-height:1.5;"><p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p><img src="${SITE_URL}/api/inbox/track-open/${composeToken}" width="1" height="1" style="display:none;" alt="" /></div>`;
       await sendMail({
-        smtpConfig: getSiteMailConfig(), to, purpose: 'admin_compose', subject, text, html: composeHtml, link: SITE_URL, attachments });
+        smtpConfig: getSiteMailConfig(), to, bcc, purpose: 'admin_compose', subject, text, html: composeHtml, link: SITE_URL, attachments });
+      const recordedTo = bcc.length ? `${to}${bcc.length ? ` (CCI: ${bcc.length})` : ''}` : to;
       db.prepare(
         "INSERT INTO inbox_emails (uid, from_address, to_address, subject, body_text, received_at, direction, is_read, tracking_token) VALUES (?, ?, ?, ?, ?, ?, 'sent', 1, ?)"
-      ).run(-Date.now() - Math.floor(Math.random() * 1000), admin.email || 'contact@quickatlas.net', to, subject, text, new Date().toISOString(), composeToken);
+      ).run(-Date.now() - Math.floor(Math.random() * 1000), admin.email || 'contact@quickatlas.net', recordedTo, subject, text, new Date().toISOString(), composeToken);
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/admin/inbox' && method === 'GET') {
