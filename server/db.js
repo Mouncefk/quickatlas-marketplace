@@ -1060,6 +1060,25 @@ function initializeMasterDatabase(dbPath) {
       CREATE INDEX IF NOT EXISTS idx_campaign_recipients_campaign ON email_campaign_recipients(campaign_id);
       CREATE INDEX IF NOT EXISTS idx_campaign_recipients_token ON email_campaign_recipients(tracking_token);
     `);
+    // Prospects "froids" — sourcés manuellement depuis un annuaire
+    // d'entreprises (Kerix, Charika...) avant tout contact, distincts
+    // des réservations (qui elles supposent une démarche volontaire du
+    // professionnel). Un prospect qui finit par réserver ou devenir
+    // loueur actif disparaît automatiquement de cette liste (voir la
+    // requête de contacts unifiés), sans jamais être dupliqué.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS cold_prospects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        business_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT,
+        sector TEXT,
+        source TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_cold_prospects_email ON cold_prospects(email);
+    `);
   }
   // Le site principal (celui déjà en place) figure lui-même comme
   // première entrée du registre, avec quickatlas.net comme domaine
