@@ -1095,6 +1095,10 @@
       </div>
       <div id="superAdminContactsPanel" class="admin-panel" hidden>
         <p class="form-hint" data-i18n="admin.contacts_hint">Réservations et loueurs actifs réunis en une seule liste — cliquez sur une ligne pour voir l'historique d'échanges et écrire à quelqu'un individuellement.</p>
+        <div class="leads-toolbar">
+          <button type="button" id="contactsBulkAddBtn" class="btn btn--primary btn--small" data-i18n="admin.prospects_bulk_add_btn">+ Ajouter des prospects (annuaire)</button>
+          <button type="button" id="contactsCopyColdEmailsBtn" class="btn btn--ghost btn--small" data-i18n="admin.prospects_copy_emails_btn">📋 Copier les emails des prospects froids</button>
+        </div>
         <table class="admin-table">
           <thead>
             <tr>
@@ -1361,6 +1365,32 @@
         <p class="form-error" id="contactSendError" hidden></p>
         <p class="form-success" id="contactSendSuccess" hidden></p>
         <button type="submit" class="btn btn--primary" data-i18n="admin.reservations_broadcast_submit">Envoyer</button>
+      </form>
+    </div>
+  </div>
+  <!-- ===== Modale : ajout groupé de prospects froids ===== -->
+  <div class="modal-overlay" id="prospectsBulkAddModal" hidden>
+    <div class="modal">
+      <button class="modal-close" data-close="prospectsBulkAddModal" aria-label="Fermer">&times;</button>
+      <h2 data-i18n="admin.prospects_bulk_add_title">Ajouter des prospects depuis un annuaire</h2>
+      <form id="prospectsBulkAddForm" class="atlas-form">
+        <div class="form-row form-row--split">
+          <label><span data-i18n="admin.prospects_field_sector">Secteur (optionnel)</span>
+            <input type="text" name="sector" id="prospectsBulkSector" data-i18n-placeholder="admin.prospects_sector_placeholder" placeholder="Ex. immobilier" />
+          </label>
+          <label><span data-i18n="admin.prospects_field_source">Source (optionnel)</span>
+            <input type="text" name="source" id="prospectsBulkSource" data-i18n-placeholder="admin.prospects_source_placeholder" placeholder="Ex. Kerix.net" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label><span data-i18n="admin.prospects_field_raw">Un prospect par ligne</span>
+            <textarea name="raw" id="prospectsBulkRaw" rows="8" data-i18n-placeholder="admin.prospects_raw_placeholder" placeholder="Agence Atlas Immo, contact@atlasimmo.ma, 0522334455"></textarea>
+          </label>
+          <p class="form-hint" data-i18n="admin.prospects_raw_hint">Format libre — nom, email, téléphone séparés par des virgules. Seul l'email est obligatoire ; les lignes sans email sont ignorées.</p>
+        </div>
+        <p class="form-error" id="prospectsBulkError" hidden></p>
+        <p class="form-success" id="prospectsBulkSuccess" hidden></p>
+        <button type="submit" class="btn btn--primary" data-i18n="admin.prospects_bulk_add_submit">Ajouter</button>
       </form>
     </div>
   </div>
