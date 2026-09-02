@@ -5052,8 +5052,51 @@ async function loadSuperAdminCampaigns() {
  * reprennent les statuts de réservation déjà connus. */
 function contactStatusLabel(status) {
   if (status === 'active_tenant') return i18n.t('admin.contact_status_active_tenant');
+  if (status === 'cold_prospect') return i18n.t('admin.contact_status_cold_prospect');
   return reservationStatusLabel(status);
 }
+document.getElementById('contactsBulkAddBtn')?.addEventListener('click', () => {
+  document.getElementById('prospectsBulkAddForm').reset();
+  document.getElementById('prospectsBulkError').hidden = true;
+  document.getElementById('prospectsBulkSuccess').hidden = true;
+  document.getElementById('prospectsBulkAddModal').hidden = false;
+});
+document.getElementById('prospectsBulkAddForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const errEl = document.getElementById('prospectsBulkError');
+  const successEl = document.getElementById('prospectsBulkSuccess');
+  errEl.hidden = true;
+  successEl.hidden = true;
+  try {
+    const result = await api('/super-admin/prospects/bulk-add', {
+      method: 'POST',
+      body: JSON.stringify({
+        raw: fd.get('raw'),
+        sector: fd.get('sector'),
+        source: fd.get('source'),
+      }),
+    });
+    successEl.textContent = i18n.t('admin.prospects_bulk_add_success', { added: result.added, skipped: result.skipped });
+    successEl.hidden = false;
+    e.target.reset();
+    loadSuperAdminContacts();
+  } catch (err) {
+    errEl.textContent = friendlyErrorMessage(err);
+    errEl.hidden = false;
+  }
+});
+/** Copie les emails des prospects froids affichés, prêts à coller dans
+ * le champ CCI de "Administration → Boîte de réception → Composer" —
+ * le pont entre le suivi des prospects et l'envoi réel, qui reste
+ * volontairement dans la boîte de réception plutôt que dupliqué ici. */
+document.getElementById('contactsCopyColdEmailsBtn')?.addEventListener('click', () => {
+  const emails = (currentContactsData || []).filter((c) => c.source === 'cold_prospect').map((c) => c.email);
+  if (emails.length === 0) { showToast(i18n.t('admin.prospects_no_cold_emails')); return; }
+  navigator.clipboard.writeText(emails.join(', '))
+    .then(() => showToast(i18n.t('admin.prospects_emails_copied', { count: emails.length })))
+    .catch(() => showToast(i18n.t('admin.prospects_emails_copied', { count: emails.length })));
+});
 /** Une ligne d'historique de contact — distingue son origine (campagne
  * groupée, ou boîte de réception "Administration", dans un sens ou
  * l'autre) et son statut d'ouverture, réutilisée à chaque affichage de
@@ -5070,11 +5113,13 @@ function renderContactHistoryRow(h) {
     el('span', {}, h.click_count > 0 ? `🔗 ${i18n.t('admin.contact_history_clicked')}` : ''),
   ]);
 }
+let currentContactsData = [];
 async function loadSuperAdminContacts() {
   const tbody = document.getElementById('superAdminContactsBody');
   if (!tbody) return;
   try {
     const contacts = await api('/super-admin/contacts');
+    currentContactsData = contacts;
     tbody.innerHTML = '';
     if (contacts.length === 0) {
       tbody.append(el('tr', {}, el('td', { colspan: '4' }, el('p', { class: 'empty-state' }, i18n.t('admin.contacts_empty')))));
