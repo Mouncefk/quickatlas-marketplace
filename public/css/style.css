@@ -97,6 +97,7 @@ button, input, select, textarea { font-family: inherit; }
   gap: 2px;
   order: 3;
   flex: 1 1 100%;
+  margin-left: -10px;
 }
 .main-nav::-webkit-scrollbar { display: none; }
 .nav-link {
