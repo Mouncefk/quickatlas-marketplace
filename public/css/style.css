@@ -91,11 +91,14 @@ button, input, select, textarea { font-family: inherit; }
 }
 .main-nav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 2px;
   order: 3;
   flex: 1 1 100%;
 }
+.main-nav::-webkit-scrollbar { display: none; }
 .nav-link {
   background: none;
   border: none;
@@ -3365,3 +3368,12 @@ textarea { resize: vertical; }
 /* ---------- Accusé de lecture (boîte de réception) ---------- */
 .conversation-item-badge--seen { background: rgba(93, 151, 142, 0.25); }
 .inbox-seen-badge { color: var(--teal-500); }
+/* ---------- Bouton dossier de présentation (page /reserve) ---------- */
+.reserve-brochure-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  margin: 4px 0 24px;
+  width: fit-content;
+}
