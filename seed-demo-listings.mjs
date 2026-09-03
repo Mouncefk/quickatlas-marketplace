@@ -84,17 +84,52 @@ function findSubcategory(categoryId, name) {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Images "carousel" — illustrations propres à chaque sujet, générées
-//    à la marque QuickAtlas (plus de photos aléatoires sans rapport,
-//    voir demo-images.zip livré séparément). Chaque annonce précise son
-//    "subject" (ex. 'vehicule-berline') pour récupérer ses 2 images.
+// 3. Images "carousel" — vraies photos Unsplash, recherchées par sujet.
+//    Clé lue depuis une variable d'environnement (jamais écrite en dur
+//    dans ce fichier, pour ne pas l'exposer sur GitHub). L'attribution
+//    (photographe + lien vers son profil) est obligatoire selon les
+//    conditions d'utilisation Unsplash (section 9) — ajoutée
+//    automatiquement à la fin de la description de chaque annonce.
 // ---------------------------------------------------------------------------
-function carousel(subject) {
-  if (!subject) throw new Error('Chaque annonce doit préciser un "subject" pour ses images (voir demo-images.zip).');
-  return JSON.stringify([
-    `/demo-images/${subject}-1.jpg`,
-    `/demo-images/${subject}-2.jpg`,
-  ]);
+const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
+if (!UNSPLASH_KEY) {
+  throw new Error("Variable d'environnement UNSPLASH_ACCESS_KEY manquante — définissez-la dans Render (Environment) avant de relancer ce script.");
+}
+// Mot-clé de recherche anglais par sujet — Unsplash indexe surtout en
+// anglais, les résultats sont bien plus pertinents ainsi qu'en français.
+const SUBJECT_QUERIES = {
+  'immobilier-appartement': 'modern apartment interior',
+  'immobilier-riad': 'moroccan riad courtyard',
+  'vehicule-berline': 'hybrid sedan car',
+  'vehicule-suv': 'family suv car',
+  'mode-sac': 'leather handbag',
+  'maison-canape': 'sofa living room',
+  'multimedia-ordinateur': 'laptop computer',
+  'famille-poussette': 'baby stroller',
+  'loisirs-surf': 'surfboard beach',
+  'materiel-photocopieur': 'office printer',
+  'services-cours': 'tutoring student',
+  'emploi-developpeur': 'developer coding workspace',
+  'affaires-cafe': 'coffee shop interior',
+  'autres-livres': 'old books collection',
+  'tourisme-villa': 'luxury villa pool',
+  'tourisme-excursion': 'desert camel excursion',
+  'tourisme-riad': 'riad boutique hotel morocco',
+};
+async function fetchUnsplashPhotos(subject, count = 2) {
+  const query = SUBJECT_QUERIES[subject];
+  if (!query) throw new Error(`Aucun mot-clé de recherche défini pour le sujet : ${subject}`);
+  const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=${count}&orientation=landscape`;
+  const res = await fetch(url, { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` } });
+  if (!res.ok) throw new Error(`Erreur Unsplash (${res.status}) pour "${query}" — vérifiez la clé et le quota (50/heure en mode développement).`);
+  const data = await res.json();
+  const results = data.results || [];
+  if (results.length === 0) throw new Error(`Aucun résultat Unsplash pour "${query}".`);
+  return results.map((p) => ({
+    url: p.urls.regular,
+    photographerName: p.user.name,
+    photographerLink: `${p.user.links.html}?utm_source=quickatlas&utm_medium=referral`,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -116,10 +151,14 @@ const insertListing = db.prepare(`
   )
 `);
 
-function seed(l) {
+async function seed(l) {
+  const photos = await fetchUnsplashPhotos(l.subject, 2);
+  const imagesJson = JSON.stringify(photos.map((p) => p.url));
+  const attribution = photos.map((p) => `${p.photographerName} (${p.photographerLink})`).join(', ');
+  const fullDescription = `${l.description}\n\n📷 Photos : ${attribution} — via Unsplash`;
   insertListing.run(
-    demoUser.id, l.city, l.category, l.subcategory || null, l.title, l.description,
-    l.listing_type, l.price ?? null, l.currency || 'MAD', carousel(l.subject), 'fr',
+    demoUser.id, l.city, l.category, l.subcategory || null, l.title, fullDescription,
+    l.listing_type, l.price ?? null, l.currency || 'MAD', imagesJson, 'fr',
     l.capacity_guests ?? null, l.bedrooms ?? null, l.bathrooms ?? null, l.surface_m2 ?? null, l.num_rooms ?? null,
     l.vehicle_brand ?? null, l.vehicle_model ?? null, l.vehicle_year ?? null, l.vehicle_mileage ?? null, l.vehicle_condition ?? null,
     l.vehicle_transmission ?? null, l.vehicle_fuel_type ?? null, l.job_contract_type ?? null, l.job_remote_type ?? null,
@@ -133,75 +172,75 @@ function seed(l) {
 console.log('\n--- Immobilier ---');
 {
   const cat = findCategory('Immobilier');
-  seed({ city: CASABLANCA, category: cat, title: 'Appartement 3 pièces, vue dégagée', description: 'Bel appartement lumineux de 85 m², proche des commerces et transports. Cuisine équipée, double exposition.', listing_type: 'vente', price: 1250000, surface_m2: 85, num_rooms: 3, subject: 'immobilier-appartement' });
-  seed({ city: MARRAKECH, category: cat, title: 'Riad rénové, cœur de médina', description: 'Riad traditionnel entièrement rénové, patio central, 4 chambres, terrasse panoramique.', listing_type: 'vente', price: 3200000, surface_m2: 220, num_rooms: 4, subject: 'immobilier-riad' });
+  await seed({ city: CASABLANCA, category: cat, title: 'Appartement 3 pièces, vue dégagée', description: 'Bel appartement lumineux de 85 m², proche des commerces et transports. Cuisine équipée, double exposition.', listing_type: 'vente', price: 1250000, surface_m2: 85, num_rooms: 3, subject: 'immobilier-appartement' });
+  await seed({ city: MARRAKECH, category: cat, title: 'Riad rénové, cœur de médina', description: 'Riad traditionnel entièrement rénové, patio central, 4 chambres, terrasse panoramique.', listing_type: 'vente', price: 3200000, surface_m2: 220, num_rooms: 4, subject: 'immobilier-riad' });
 }
 
 console.log('\n--- Véhicules ---');
 {
   const cat = findCategory('Véhicules');
-  seed({ city: RABAT, category: cat, title: 'Berline hybride, faible kilométrage', description: 'Véhicule entretenu, carnet à jour, première main. Consommation très économique.', listing_type: 'vente', price: 245000, vehicle_brand: 'Toyota', vehicle_model: 'Corolla Hybride', vehicle_year: 2022, vehicle_mileage: 32000, vehicle_condition: 'tres_bon_etat', vehicle_transmission: 'automatique', vehicle_fuel_type: 'hybride', subject: 'vehicule-berline' });
-  seed({ city: TANGER, category: cat, title: 'SUV familial 7 places', description: 'Spacieux et confortable, idéal grande famille. Climatisation, régulateur de vitesse.', listing_type: 'vente', price: 312000, vehicle_brand: 'Hyundai', vehicle_model: 'Santa Fe', vehicle_year: 2021, vehicle_mileage: 48000, vehicle_condition: 'bon_etat', vehicle_transmission: 'automatique', vehicle_fuel_type: 'diesel', subject: 'vehicule-suv' });
+  await seed({ city: RABAT, category: cat, title: 'Berline hybride, faible kilométrage', description: 'Véhicule entretenu, carnet à jour, première main. Consommation très économique.', listing_type: 'vente', price: 245000, vehicle_brand: 'Toyota', vehicle_model: 'Corolla Hybride', vehicle_year: 2022, vehicle_mileage: 32000, vehicle_condition: 'tres_bon_etat', vehicle_transmission: 'automatique', vehicle_fuel_type: 'hybride', subject: 'vehicule-berline' });
+  await seed({ city: TANGER, category: cat, title: 'SUV familial 7 places', description: 'Spacieux et confortable, idéal grande famille. Climatisation, régulateur de vitesse.', listing_type: 'vente', price: 312000, vehicle_brand: 'Hyundai', vehicle_model: 'Santa Fe', vehicle_year: 2021, vehicle_mileage: 48000, vehicle_condition: 'bon_etat', vehicle_transmission: 'automatique', vehicle_fuel_type: 'diesel', subject: 'vehicule-suv' });
 }
 
 console.log('\n--- Mode & Accessoires ---');
 {
   const cat = findCategory('Mode & Accessoires');
-  seed({ city: CASABLANCA, category: cat, title: 'Sac à main cuir véritable, neuf', description: 'Sac élégant en cuir pleine fleur, jamais porté, avec dustbag d\u2019origine.', listing_type: 'vente', price: 890, subject: 'mode-sac' });
+  await seed({ city: CASABLANCA, category: cat, title: 'Sac à main cuir véritable, neuf', description: 'Sac élégant en cuir pleine fleur, jamais porté, avec dustbag d\u2019origine.', listing_type: 'vente', price: 890, subject: 'mode-sac' });
 }
 
 console.log('\n--- Maison & Jardin ---');
 {
   const cat = findCategory('Maison & Jardin');
-  seed({ city: RABAT, category: cat, title: 'Canapé d\u2019angle convertible', description: 'Très bon état, tissu gris anthracite, coffre de rangement intégré.', listing_type: 'vente', price: 3400, subject: 'maison-canape' });
+  await seed({ city: RABAT, category: cat, title: 'Canapé d\u2019angle convertible', description: 'Très bon état, tissu gris anthracite, coffre de rangement intégré.', listing_type: 'vente', price: 3400, subject: 'maison-canape' });
 }
 
 console.log('\n--- Multimédia & Électronique ---');
 {
   const cat = findCategory('Multimédia & Électronique');
-  seed({ city: MARRAKECH, category: cat, title: 'Ordinateur portable, usage bureautique', description: 'Excellent état, batterie encore performante, livré avec chargeur d\u2019origine.', listing_type: 'vente', price: 4200, subject: 'multimedia-ordinateur' });
+  await seed({ city: MARRAKECH, category: cat, title: 'Ordinateur portable, usage bureautique', description: 'Excellent état, batterie encore performante, livré avec chargeur d\u2019origine.', listing_type: 'vente', price: 4200, subject: 'multimedia-ordinateur' });
 }
 
 console.log('\n--- Famille & Enfants ---');
 {
   const cat = findCategory('Famille & Enfants');
-  seed({ city: FES, category: cat, title: 'Poussette 3 roues, tout-terrain', description: 'Très maniable, panier de rangement, capote anti-UV. État impeccable.', listing_type: 'vente', price: 1600, subject: 'famille-poussette' });
+  await seed({ city: FES, category: cat, title: 'Poussette 3 roues, tout-terrain', description: 'Très maniable, panier de rangement, capote anti-UV. État impeccable.', listing_type: 'vente', price: 1600, subject: 'famille-poussette' });
 }
 
 console.log('\n--- Loisirs & Sport ---');
 {
   const cat = findCategory('Loisirs & Sport');
-  seed({ city: AGADIR, category: cat, title: 'Planche de surf débutant/intermédiaire', description: '7\u20192, mousse renforcée, idéale pour progresser rapidement.', listing_type: 'vente', price: 1800, subject: 'loisirs-surf' });
+  await seed({ city: AGADIR, category: cat, title: 'Planche de surf débutant/intermédiaire', description: '7\u20192, mousse renforcée, idéale pour progresser rapidement.', listing_type: 'vente', price: 1800, subject: 'loisirs-surf' });
 }
 
 console.log('\n--- Matériel professionnel ---');
 {
   const cat = findCategory('Matériel professionnel');
-  seed({ city: CASABLANCA, category: cat, title: 'Photocopieur multifonction professionnel', description: 'Faible compteur, révisé récemment, idéal petite structure ou cabinet.', listing_type: 'vente', price: 8500, subject: 'materiel-photocopieur' });
+  await seed({ city: CASABLANCA, category: cat, title: 'Photocopieur multifonction professionnel', description: 'Faible compteur, révisé récemment, idéal petite structure ou cabinet.', listing_type: 'vente', price: 8500, subject: 'materiel-photocopieur' });
 }
 
 console.log('\n--- Services ---');
 {
   const cat = findCategory('Services');
-  seed({ city: RABAT, category: cat, title: 'Cours particuliers de mathématiques', description: 'Professeur expérimenté, collège et lycée, déplacement possible ou en ligne.', listing_type: 'vente', price: 150, subject: 'services-cours' });
+  await seed({ city: RABAT, category: cat, title: 'Cours particuliers de mathématiques', description: 'Professeur expérimenté, collège et lycée, déplacement possible ou en ligne.', listing_type: 'vente', price: 150, subject: 'services-cours' });
 }
 
 console.log('\n--- Emploi ---');
 {
   const cat = findCategory('Emploi');
-  seed({ city: CASABLANCA, category: cat, title: 'Développeur web full-stack', description: 'Rejoignez une équipe dynamique, stack moderne, télétravail partiel possible.', listing_type: 'offre_emploi', job_contract_type: 'cdi', job_remote_type: 'hybride', job_sector: 'Technologie', subject: 'emploi-developpeur' });
+  await seed({ city: CASABLANCA, category: cat, title: 'Développeur web full-stack', description: 'Rejoignez une équipe dynamique, stack moderne, télétravail partiel possible.', listing_type: 'offre_emploi', job_contract_type: 'cdi', job_remote_type: 'hybride', job_sector: 'Technologie', subject: 'emploi-developpeur' });
 }
 
 console.log('\n--- Opportunités d\u2019affaires ---');
 {
   const cat = findCategory('Opportunités d\u2019affaires');
-  seed({ city: TANGER, category: cat, title: 'Fonds de commerce, café bien situé', description: 'Emplacement passant, clientèle fidélisée, murs non inclus. Idéal repreneur.', listing_type: 'vente', price: 450000, subject: 'affaires-cafe' });
+  await seed({ city: TANGER, category: cat, title: 'Fonds de commerce, café bien situé', description: 'Emplacement passant, clientèle fidélisée, murs non inclus. Idéal repreneur.', listing_type: 'vente', price: 450000, subject: 'affaires-cafe' });
 }
 
 console.log('\n--- Autres ---');
 {
   const cat = findCategory('Autres');
-  seed({ city: FES, category: cat, title: 'Collection de livres anciens', description: 'Une trentaine d\u2019ouvrages, bon état de conservation, vente en lot uniquement.', listing_type: 'vente', price: 600, subject: 'autres-livres' });
+  await seed({ city: FES, category: cat, title: 'Collection de livres anciens', description: 'Une trentaine d\u2019ouvrages, bon état de conservation, vente en lot uniquement.', listing_type: 'vente', price: 600, subject: 'autres-livres' });
 }
 
 console.log('\n--- Tourisme & Voyages ---');
@@ -211,13 +250,13 @@ console.log('\n--- Tourisme & Voyages ---');
   const subActivites = findSubcategory(cat, 'Activités & Excursions');
   const subInsolite = findSubcategory(cat, 'Hôtellerie & Hébergements insolites');
 
-  seed({
+  await seed({
     city: MARRAKECH, category: cat, subcategory: subLocations,
     title: 'Villa avec piscine, 4 chambres', description: 'Villa spacieuse avec jardin et piscine privée, idéale séjour en famille ou entre amis.',
     listing_type: 'location', price: 1800, price_type: 'nuit', capacity_guests: 8, bedrooms: 4, bathrooms: 3,
     property_room_type: 'entire_place', num_beds: 5, cancellation_policy: 'moderee', subject: 'tourisme-villa',
   });
-  seed({
+  await seed({
     city: AGADIR, category: cat, subcategory: subActivites,
     title: 'Excursion quad dans le désert', description: 'Sortie encadrée d\u2019une demi-journée à travers les dunes, coucher de soleil inclus.',
     listing_type: 'vente', price: 450, activity_duration: 'Demi-journée', activity_group_size_min: 2, activity_group_size_max: 12,
@@ -225,7 +264,7 @@ console.log('\n--- Tourisme & Voyages ---');
     activity_difficulty: 'facile', activity_included: 'Guide, équipement de sécurité, collation', activity_excluded: 'Boissons, pourboires',
     cancellation_policy: 'flexible', subject: 'tourisme-excursion',
   });
-  seed({
+  await seed({
     city: FES, category: cat, subcategory: subInsolite,
     title: 'Nuit dans un riad-boutique, médina', description: 'Hébergement de charme au cœur de la médina classée, petit-déjeuner traditionnel inclus.',
     listing_type: 'location', price: 950, price_type: 'nuit', capacity_guests: 2, bedrooms: 1, bathrooms: 1,
