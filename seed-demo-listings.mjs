@@ -42,6 +42,11 @@ if (!demoUser) {
   console.log('ℹ️  Compte démo déjà existant, id =', demoUser.id);
 }
 
+// Nettoyage préalable — rend le script sûr à relancer plusieurs fois
+// (par exemple après une interruption), sans jamais créer de doublons.
+const cleaned = db.prepare('DELETE FROM listings WHERE user_id = ?').run(demoUser.id);
+if (cleaned.changes > 0) console.log(`🧹 ${cleaned.changes} ancienne(s) annonce(s) démo supprimée(s) avant réinjection.`);
+
 // ---------------------------------------------------------------------------
 // 2. Villes marocaines utilisées — recherchées par nom, jamais par id
 //    en dur (l'ordre d'insertion peut varier).
@@ -58,14 +63,24 @@ const TANGER = findCity('Tanger');
 const FES = findCity('Fès');
 const AGADIR = findCity('Agadir');
 
+// Normalise les apostrophes (courbe ’ vs droite ') avant comparaison —
+// les noms de catégories peuvent avoir été saisis avec l'une ou
+// l'autre selon le moment de leur création.
+function normalizeApostrophes(s) {
+  return s.replace(/[\u2018\u2019\u02BC]/g, "'");
+}
 function findCategory(name) {
-  const row = db.prepare('SELECT id FROM categories WHERE name = ? LIMIT 1').get(name);
-  if (!row) throw new Error(`Catégorie introuvable : ${name}`);
-  return row.id;
+  const target = normalizeApostrophes(name);
+  const rows = db.prepare('SELECT id, name FROM categories').all();
+  const match = rows.find((r) => normalizeApostrophes(r.name) === target);
+  if (!match) throw new Error(`Catégorie introuvable : ${name} (catégories disponibles : ${rows.map((r) => r.name).join(', ')})`);
+  return match.id;
 }
 function findSubcategory(categoryId, name) {
-  const row = db.prepare('SELECT id FROM subcategories WHERE category_id = ? AND name = ? LIMIT 1').get(categoryId, name);
-  return row ? row.id : null;
+  const target = normalizeApostrophes(name);
+  const rows = db.prepare('SELECT id, name FROM subcategories WHERE category_id = ?').all(categoryId);
+  const match = rows.find((r) => normalizeApostrophes(r.name) === target);
+  return match ? match.id : null;
 }
 
 // ---------------------------------------------------------------------------
