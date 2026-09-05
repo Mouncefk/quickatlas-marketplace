@@ -707,36 +707,55 @@
       <div class="listing-grid" id="myListingGrid"></div>
     </div>
   </section>
-  <!-- ===== Comment ça marche ===== -->
-  <section class="how-it-works">
-    <div class="how-inner">
-      <p class="eyebrow" data-i18n="how.eyebrow">LE PARCOURS</p>
-      <h2 data-i18n="how.title">Quatre étapes, un point sur la carte</h2>
-      <ol class="how-steps">
-        <li>
-          <span class="how-num">01</span>
-          <h3 data-i18n="how.step1_title">Rejoignez-nous</h3>
-          <p data-i18n="how.step1_text">Créez votre compte en quelques secondes pour acheter, louer ou vendre votre bien en ligne, où qu'il se trouve dans le monde.</p>
-        </li>
-        <li>
-          <span class="how-num">02</span>
-          <h3 data-i18n="how.step2_title">Explorez</h3>
-          <p data-i18n="how.step2_text">Sélectionnez votre pays ou un pays sur la carte, puis une ville — ou utilisez la recherche globale pour aller droit au but.</p>
-        </li>
-        <li>
-          <span class="how-num">03</span>
-          <h3 data-i18n="how.step3_title">Ciblez</h3>
-          <p data-i18n="how.step3_text">Affinez les résultats par catégorie, type de transaction et mots-clés afin d'identifier le bien ou le service recherché.</p>
-        </li>
-        <li>
-          <span class="how-num">04</span>
-          <h3 data-i18n="how.step4_title">Connectez</h3>
-          <p data-i18n="how.step4_text">Échangez en toute confidentialité avec votre interlocuteur via la messagerie à votre disposition. Convenez des modalités en toute sérénité, puis partagez vos coordonnées en toute sécurité.</p>
-        </li>
-      </ol>
-    </div>
+  <!-- ===== Réservation de sous-domaine — remontée en haut de page pour ==
+       une meilleure visibilité, à la place de l'ancien bloc "Le Parcours" ==
+       (toujours accessible via /reserve, qui fait défiler jusqu'ici). ===== -->
+  <section id="reserveSection" class="form-page">
+    <p class="eyebrow" data-i18n="reserve.eyebrow">AVANT LE LANCEMENT OFFICIEL</p>
+    <h1 data-i18n="reserve.title">Réservez votre marketplace, gratuitement</h1>
+    <p data-i18n="reserve.intro">Vous êtes professionnel de l'immobilier, de l'automobile ou d'un autre secteur ? Réservez dès maintenant le nom de votre future marketplace — sans engagement, sans paiement. Nous vous recontacterons personnellement à l'approche du lancement.</p>
+    <a href="/QuickAtlas_Dossier_Presentation_FR.pdf" target="_blank" rel="noopener" class="btn btn--ghost reserve-brochure-btn" data-i18n="reserve.brochure_btn">📄 Consulter le dossier de présentation complet</a>
+    <form id="reserveForm" class="atlas-form">
+      <div class="form-row">
+        <label><span data-i18n="reserve.field_subdomain">Nom de sous-domaine souhaité</span>
+          <div class="reserve-subdomain-row">
+            <input type="text" name="subdomain" id="reserveSubdomain" required pattern="[a-z0-9-]{3,40}" data-i18n-placeholder="reserve.subdomain_placeholder" placeholder="immo-atlas, auto-prime, voyage-sud..." />
+            <span class="reserve-subdomain-suffix">.quickatlas.net</span>
+          </div>
+          <span id="reserveSubdomainStatus" class="form-hint"></span>
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="reserve.field_business_name">Nom de votre entreprise</span>
+          <input type="text" name="business_name" required />
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="reserve.field_sector">Secteur d'activité (optionnel)</span>
+          <select name="sector">
+            <option value="" data-i18n="reserve.sector_none">— Non précisé —</option>
+            <option value="immobilier" data-i18n="category.immobilier">Immobilier</option>
+            <option value="vehicules" data-i18n="category.vehicules">Véhicules</option>
+            <option value="tourisme-voyages" data-i18n="category.tourisme-voyages">Tourisme &amp; Voyages</option>
+            <option value="autre" data-i18n="reserve.sector_other">Autre</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-row form-row--split">
+        <label><span data-i18n="reserve.field_email">Email de contact</span>
+          <input type="email" name="contact_email" required />
+        </label>
+        <label><span data-i18n="reserve.field_phone">Téléphone (optionnel)</span>
+          <input type="tel" name="contact_phone" />
+        </label>
+      </div>
+      <p class="form-error" id="reserveError" hidden></p>
+      <p class="form-success" id="reserveSuccess" hidden></p>
+      <button type="submit" class="btn btn--primary" id="reserveSubmitBtn" data-i18n="reserve.submit">Réserver gratuitement</button>
+    </form>
   </section>
   <!-- ===== PASSPORT ===== -->
+
   <section id="view-passport" class="view" hidden>
     <div class="form-page">
       <p class="eyebrow" data-i18n="passport.eyebrow">VOTRE PARCOURS</p>
@@ -1500,52 +1519,6 @@
     </div>
   </div>
   <!-- ===== Réservation de sous-domaine (pré-lancement) ===== -->
-  <section id="view-reserve" class="view" hidden>
-    <div class="form-page">
-      <p class="eyebrow" data-i18n="reserve.eyebrow">AVANT LE LANCEMENT OFFICIEL</p>
-      <h1 data-i18n="reserve.title">Réservez votre marketplace, gratuitement</h1>
-      <p data-i18n="reserve.intro">Vous êtes professionnel de l'immobilier, de l'automobile ou d'un autre secteur ? Réservez dès maintenant le nom de votre future marketplace — sans engagement, sans paiement. Nous vous recontacterons personnellement à l'approche du lancement.</p>
-      <a href="/QuickAtlas_Dossier_Presentation_FR.pdf" target="_blank" rel="noopener" class="btn btn--ghost reserve-brochure-btn" data-i18n="reserve.brochure_btn">📄 Consulter le dossier de présentation complet</a>
-      <form id="reserveForm" class="atlas-form">
-        <div class="form-row">
-          <label><span data-i18n="reserve.field_subdomain">Nom de sous-domaine souhaité</span>
-            <div class="reserve-subdomain-row">
-              <input type="text" name="subdomain" id="reserveSubdomain" required pattern="[a-z0-9-]{3,40}" data-i18n-placeholder="reserve.subdomain_placeholder" placeholder="auto-maroc" />
-              <span class="reserve-subdomain-suffix">.quickatlas.net</span>
-            </div>
-            <span id="reserveSubdomainStatus" class="form-hint"></span>
-          </label>
-        </div>
-        <div class="form-row">
-          <label><span data-i18n="reserve.field_business_name">Nom de votre entreprise</span>
-            <input type="text" name="business_name" required />
-          </label>
-        </div>
-        <div class="form-row">
-          <label><span data-i18n="reserve.field_sector">Secteur d'activité (optionnel)</span>
-            <select name="sector">
-              <option value="" data-i18n="reserve.sector_none">— Non précisé —</option>
-              <option value="immobilier" data-i18n="category.immobilier">Immobilier</option>
-              <option value="vehicules" data-i18n="category.vehicules">Véhicules</option>
-              <option value="tourisme-voyages" data-i18n="category.tourisme-voyages">Tourisme &amp; Voyages</option>
-              <option value="autre" data-i18n="reserve.sector_other">Autre</option>
-            </select>
-          </label>
-        </div>
-        <div class="form-row form-row--split">
-          <label><span data-i18n="reserve.field_email">Email de contact</span>
-            <input type="email" name="contact_email" required />
-          </label>
-          <label><span data-i18n="reserve.field_phone">Téléphone (optionnel)</span>
-            <input type="tel" name="contact_phone" />
-          </label>
-        </div>
-        <p class="form-error" id="reserveError" hidden></p>
-        <p class="form-success" id="reserveSuccess" hidden></p>
-        <button type="submit" class="btn btn--primary" id="reserveSubmitBtn" data-i18n="reserve.submit">Réserver gratuitement</button>
-      </form>
-    </div>
-  </section>
   <!-- ===== TERMS ===== -->
   <section id="view-terms" class="view" hidden>
     <div class="form-page">
