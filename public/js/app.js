@@ -706,6 +706,16 @@ async function loadAllListings() {
   }
 }
 function navigate(view) {
+  // Le formulaire de réservation n'est plus une vue séparée — il vit
+  // désormais en haut de la page d'accueil (voir #reserveSection), pour
+  // une meilleure visibilité. On bascule donc vers l'accueil, puis on
+  // défile jusqu'à lui, plutôt que d'essayer d'afficher une vue qui
+  // n'existe plus.
+  if (view === 'reserve') {
+    navigate('explore');
+    document.getElementById('reserveSection')?.scrollIntoView({ behavior: 'smooth' });
+    return;
+  }
   document.getElementById('authModal').hidden = true;
   document.getElementById('listingModal').hidden = true;
   document.getElementById('countryModal').hidden = true;
@@ -6556,15 +6566,12 @@ document.getElementById('cityRequestForm')?.addEventListener('submit', async (e)
   }
 });
 async function boot() {
-  // Bascule immédiate vers la réservation si c'est la page demandée —
-  // avant même le chargement de la carte du monde (assez lourde), pour
-  // qu'un visiteur arrivant via un lien direct ou un QR code voie tout
-  // de suite le bon contenu, sans que la carte ne s'affiche d'abord
-  // pendant que le reste charge encore en arrière-plan.
+  // Le formulaire de réservation vit maintenant en haut de la page
+  // d'accueil (#reserveSection, dans view-explore, visible par défaut)
+  // — on défile directement dessus pour qu'un visiteur arrivant via un
+  // lien direct ou un QR code voie tout de suite le bon contenu.
   if (window.location.pathname === '/reserve') {
-    document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
-    document.getElementById('view-reserve').hidden = false;
-    window.scrollTo(0, 0);
+    document.getElementById('reserveSection')?.scrollIntoView();
   }
   await applySiteBranding();
   initLanguagePicker();
