@@ -4130,7 +4130,7 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
     // adresse, sans être rattaché à un message reçu (contrairement à
     // /reply). Utilise le même mécanisme d'envoi que le reste du site.
     if (pathname === '/api/admin/inbox/compose' && method === 'POST') {
-      const admin = requireAdmin(req, res);
+      const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const body = await readBody(req);
       const bcc = Array.isArray(body.bcc) ? body.bcc.map((addr) => (addr || '').trim()).filter(Boolean) : [];
@@ -4152,7 +4152,7 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       return sendJSON(res, 200, { ok: true });
     }
     if (pathname === '/api/admin/inbox' && method === 'GET') {
-      const admin = requireAdmin(req, res);
+      const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const view = url.searchParams.get('view') === 'sent' ? 'sent' : 'received';
       const rows = db
@@ -4161,7 +4161,7 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       return sendJSON(res, 200, rows);
     }
     if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)$/)) && method === 'GET') {
-      const admin = requireAdmin(req, res);
+      const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const email = db.prepare('SELECT * FROM inbox_emails WHERE id = ?').get(Number(m[1]));
       if (!email) return sendJSON(res, 404, { error: 'Email introuvable.' });
@@ -4175,7 +4175,7 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
     // (voir checkInboxEmails), donc l'email ne réapparaîtra pas au
     // prochain cycle.
     if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)$/)) && method === 'DELETE') {
-      const admin = requireAdmin(req, res);
+      const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const email = db.prepare('SELECT id FROM inbox_emails WHERE id = ?').get(Number(m[1]));
       if (!email) return sendJSON(res, 404, { error: 'Email introuvable.' });
@@ -4187,7 +4187,7 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
     // soit { all: true, view: 'received'|'sent' } pour tout vider d'un
     // coup (utilisé par le bouton "Sélectionner tout").
     if (pathname === '/api/admin/inbox/bulk-delete' && method === 'POST') {
-      const admin = requireAdmin(req, res);
+      const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const body = await readBody(req);
       let ids = [];
@@ -4204,7 +4204,7 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       return sendJSON(res, 200, { ok: true, deleted: ids.length });
     }
     if ((m = pathname.match(/^\/api\/admin\/inbox\/(\d+)\/reply$/)) && method === 'POST') {
-      const admin = requireAdmin(req, res);
+      const admin = requireSuperAdmin(req, res);
       if (!admin) return;
       const email = db.prepare('SELECT * FROM inbox_emails WHERE id = ?').get(Number(m[1]));
       if (!email) return sendJSON(res, 404, { error: 'Email introuvable.' });
