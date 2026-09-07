@@ -6234,20 +6234,21 @@ function renderAdminUsers(users) {
     return;
   }
   for (const u of users) {
-    const isAdmin = u.role === 'admin';
+    const isAdmin = u.role === 'admin' || u.role === 'super_admin';
+    const isSuperAdmin = u.role === 'super_admin';
     const isSelf = state.user && state.user.id === u.id;
     body.append(
       el('tr', {}, [
         el('td', {}, u.name),
         el('td', {}, u.email),
-        el('td', {}, el('span', { class: `role-badge ${isAdmin ? 'role-badge--admin' : ''}` }, i18n.t(isAdmin ? 'admin.role_admin' : 'admin.role_user'))),
+        el('td', {}, el('span', { class: `role-badge ${isAdmin ? 'role-badge--admin' : ''}` }, isSuperAdmin ? 'Super Admin' : i18n.t(isAdmin ? 'admin.role_admin' : 'admin.role_user'))),
         el('td', {}, String(u.listing_count)),
         el('td', {}, new Date(u.created_at).toLocaleDateString()),
         el('td', {}, el('div', { class: 'admin-actions' }, [
           isAdmin
-            ? el('button', { class: 'btn btn--ghost btn--small', onclick: () => setUserRole(u.id, 'user'), disabled: isSelf ? 'true' : null }, i18n.t('admin.demote'))
+            ? el('button', { class: 'btn btn--ghost btn--small', onclick: () => setUserRole(u.id, 'user'), disabled: (isSelf || isSuperAdmin) ? 'true' : null, title: isSuperAdmin ? 'Protégé — un compte super admin ne peut être ni rétrogradé ni supprimé depuis ce panneau' : null }, i18n.t('admin.demote'))
             : el('button', { class: 'btn btn--ghost btn--small', onclick: () => setUserRole(u.id, 'admin') }, i18n.t('admin.promote')),
-          el('button', { class: 'btn btn--danger btn--small', onclick: () => deleteUser(u.id), disabled: isSelf ? 'true' : null }, i18n.t('admin.delete_user')),
+          el('button', { class: 'btn btn--danger btn--small', onclick: () => deleteUser(u.id), disabled: (isSelf || isSuperAdmin) ? 'true' : null, title: isSuperAdmin ? 'Protégé — un compte super admin ne peut être ni rétrogradé ni supprimé depuis ce panneau' : null }, i18n.t('admin.delete_user')),
         ])),
       ])
     );
