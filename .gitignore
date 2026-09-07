@@ -1,19 +1,5 @@
-# Base de données locale et clé de session — jamais versionnées
-data/
-
-# Configuration secrète (identifiants SMTP, etc.) — jamais versionnée
-.env
-
-# Images envoyées par les utilisateurs (contenu généré, pas du code)
-public/uploads/
-
-# Dépendances (aucune ici, mais au cas où)
 node_modules/
-
-# Fichiers système
-.DS_Store
-Thumbs.db
-
-# Logs
+data/
+public/uploads/
 *.log
-npm-debug.log*
+.env
