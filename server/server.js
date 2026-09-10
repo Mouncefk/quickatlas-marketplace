@@ -682,6 +682,30 @@ async function checkCityRequestFulfillments() {
  * l'adresse IP elle-même en base (seuls pays/ville sont stockés).
  * Reste totalement silencieuse en cas d'échec : la vue est comptée
  * normalement même si la géolocalisation échoue. */
+// Limitation de fréquence en mémoire, par clé (ex. adresse IP) — sans
+// dépendance externe (pas de Redis), suffisant pour un serveur unique.
+// La mémoire se vide progressivement : un identifiant sans nouvelle
+// tentative depuis la fenêtre de temps n'est simplement plus présent
+// au prochain nettoyage, pas besoin d'expiration explicite complexe.
+const rateLimitAttempts = new Map();
+function checkRateLimit(key, maxAttempts, windowMs) {
+  const now = Date.now();
+  const attempts = (rateLimitAttempts.get(key) || []).filter((t) => now - t < windowMs);
+  if (attempts.length >= maxAttempts) return false;
+  attempts.push(now);
+  rateLimitAttempts.set(key, attempts);
+  return true;
+}
+// Nettoyage périodique pour éviter une croissance illimitée de la
+// mémoire au fil du temps (purge tout ce qui n'a plus été touché
+// depuis 24h, largement au-delà de toute fenêtre utilisée).
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, attempts] of rateLimitAttempts) {
+    if (attempts.every((t) => now - t > 24 * 3600 * 1000)) rateLimitAttempts.delete(key);
+  }
+}, 3600 * 1000).unref();
+
 async function geolocateIp(ip) {
   if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) return null;
   try {
@@ -2976,6 +3000,19 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
     }
     if (pathname === '/api/reservations' && method === 'POST') {
       const body = await readBody(req);
+      // Piège à robots — un champ caché par CSS, invisible pour un vrai
+      // visiteur mais souvent rempli automatiquement par un robot qui
+      // remplit tous les champs du formulaire sans distinction. Réponse
+      // en apparence normale, pour ne jamais révéler au robot que sa
+      // soumission a été repérée et rejetée.
+      if (body.website_url) {
+        return sendJSON(res, 201, { ok: true });
+      }
+      const forwardedForReservation = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+      const reservationIp = forwardedForReservation || req.socket.remoteAddress || 'inconnu';
+      if (!checkRateLimit(`reservation:${reservationIp}`, 3, 24 * 3600 * 1000)) {
+        return sendJSON(res, 429, { error: 'Trop de demandes depuis cette adresse — réessayez plus tard.' });
+      }
       const subdomain = (body.subdomain || '').trim().toLowerCase();
       const businessName = (body.business_name || '').trim();
       const contactEmail = (body.contact_email || '').trim().toLowerCase();
