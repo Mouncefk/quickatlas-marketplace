@@ -5279,6 +5279,52 @@ document.getElementById('contactSendForm')?.addEventListener('submit', async (e)
     errEl.hidden = false;
   }
 });
+let fakeReservationCandidates = [];
+
+document.getElementById('detectFakeReservationsBtn').addEventListener('click', async () => {
+  const panel = document.getElementById('fakeReservationsPanel');
+  const summary = document.getElementById('fakeReservationsSummary');
+  const listEl = document.getElementById('fakeReservationsList');
+  try {
+    const { candidates } = await api('/super-admin/detect-fake-reservations');
+    fakeReservationCandidates = candidates;
+    panel.hidden = false;
+    listEl.innerHTML = '';
+    if (candidates.length === 0) {
+      summary.textContent = 'Aucun faux compte détecté pour le moment.';
+      return;
+    }
+    summary.textContent = `${candidates.length} compte(s) suspect(s) détecté(s) — vérifiez la liste avant de confirmer.`;
+    for (const c of candidates) {
+      const row = el('label', { class: 'fake-reservation-row' }, [
+        el('input', { type: 'checkbox', 'data-fake-id': String(c.id), checked: 'checked' }),
+        el('span', {}, `${c.subdomain} — ${c.business_name} (${c.contact_email})`),
+      ]);
+      listEl.append(row);
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById('cancelFakeReviewBtn').addEventListener('click', () => {
+  document.getElementById('fakeReservationsPanel').hidden = true;
+});
+
+document.getElementById('confirmDeleteFakeBtn').addEventListener('click', async () => {
+  const checked = Array.from(document.querySelectorAll('[data-fake-id]:checked')).map((el) => Number(el.dataset.fakeId));
+  if (checked.length === 0) return alert('Aucun compte coché.');
+  if (!confirm(`Supprimer définitivement ${checked.length} compte(s) et leur site associé ? Cette action est irréversible.`)) return;
+  try {
+    const result = await api('/super-admin/bulk-delete-reservations', { method: 'POST', body: JSON.stringify({ reservation_ids: checked }) });
+    alert(`${result.deleted_reservations} réservation(s) et ${result.deleted_sites} site(s) supprimés.`);
+    document.getElementById('fakeReservationsPanel').hidden = true;
+    loadSuperAdminReservations();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
 async function loadSuperAdminReservations() {
   const tbody = document.getElementById('superAdminReservationsBody');
   if (!tbody) return;
