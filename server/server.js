@@ -1580,6 +1580,45 @@ async function handleRequest(req, res) {
       const result = db.prepare('UPDATE categories SET is_active = 1 WHERE is_active = 0').run();
       return sendJSON(res, 200, { reactivated: result.changes });
     }
+    // Origine des inscriptions — pays, page de provenance, campagnes UTM,
+    // pour le site actuellement consulté (chaque site a sa propre base,
+    // donc cette vue reste naturellement scopée au bon site sans filtre
+    // supplémentaire à ajouter).
+    if (pathname === '/api/admin/user-origins-stats' && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+
+      const byCountry = db.prepare(`
+        SELECT signup_country AS country, COUNT(*) AS count FROM users
+        WHERE signup_country IS NOT NULL GROUP BY signup_country ORDER BY count DESC LIMIT 15
+      `).all();
+
+      const byUtmSource = db.prepare(`
+        SELECT signup_utm_source AS source, signup_utm_medium AS medium, signup_utm_campaign AS campaign, COUNT(*) AS count
+        FROM users WHERE signup_utm_source IS NOT NULL
+        GROUP BY signup_utm_source, signup_utm_medium, signup_utm_campaign ORDER BY count DESC LIMIT 15
+      `).all();
+
+      // Regroupé par nom d'hôte plutôt que par URL complète — deux visites
+      // depuis des pages différentes du même site (ex. deux articles de
+      // blog) doivent compter comme une seule source.
+      const referrerRows = db.prepare(`SELECT signup_referrer FROM users WHERE signup_referrer IS NOT NULL`).all();
+      const referrerCounts = {};
+      for (const { signup_referrer } of referrerRows) {
+        let host;
+        try { host = new URL(signup_referrer).hostname; } catch { host = signup_referrer; }
+        referrerCounts[host] = (referrerCounts[host] || 0) + 1;
+      }
+      const byReferrer = Object.entries(referrerCounts)
+        .map(([referrer, count]) => ({ referrer, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 15);
+
+      const totalWithOrigin = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE signup_country IS NOT NULL OR signup_utm_source IS NOT NULL OR signup_referrer IS NOT NULL`).get().n;
+      const totalUsers = db.prepare(`SELECT COUNT(*) AS n FROM users`).get().n;
+
+      return sendJSON(res, 200, { by_country: byCountry, by_utm_source: byUtmSource, by_referrer: byReferrer, total_users: totalUsers, total_with_origin: totalWithOrigin });
+    }
     // Bascule activer/désactiver une catégorie — les annonces déjà publiées
     // dessus ne sont jamais touchées, seule sa disponibilité pour de
     // nouvelles publications et son apparition dans les filtres changent.
