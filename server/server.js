@@ -1347,6 +1347,9 @@ async function handleRequest(req, res) {
       if (!checkRateLimit(`signup:${signupIp}`, 5, 3600 * 1000)) {
         return sendJSON(res, 429, { error: 'Trop de comptes créés depuis cette adresse — réessayez plus tard.' });
       }
+      if (!checkRateLimit('signup:global', 20, 10 * 60 * 1000)) {
+        return sendJSON(res, 429, { error: 'Trop de comptes créés en peu de temps — réessayez dans quelques minutes.' });
+      }
       const { name, email, password, terms_accepted, referral_code, is_professional, company_name, company_website, language, signup_referrer, utm_source, utm_medium, utm_campaign } = await readBody(req);
       if (!name || !isValidEmail(email)) {
         return sendJSON(res, 400, { error: 'Nom et email valide requis.' });
@@ -3017,6 +3020,13 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
       const reservationIp = forwardedForReservation || req.socket.remoteAddress || 'inconnu';
       if (!checkRateLimit(`reservation:${reservationIp}`, 3, 24 * 3600 * 1000)) {
         return sendJSON(res, 429, { error: 'Trop de demandes depuis cette adresse — réessayez plus tard.' });
+      }
+      // Coupe-circuit global — protège contre un robot qui changerait
+      // d'adresse IP à chaque tentative pour contourner la limite
+      // ci-dessus. Un afflux légitime de ce volume en si peu de temps
+      // est très improbable pour ce formulaire précis.
+      if (!checkRateLimit('reservation:global', 10, 10 * 60 * 1000)) {
+        return sendJSON(res, 429, { error: 'Trop de demandes reçues en peu de temps — réessayez dans quelques minutes.' });
       }
       const subdomain = (body.subdomain || '').trim().toLowerCase();
       const businessName = (body.business_name || '').trim();
