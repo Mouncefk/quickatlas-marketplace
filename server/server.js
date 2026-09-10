@@ -1342,6 +1342,11 @@ async function handleRequest(req, res) {
   }
   try {
     if (pathname === '/api/auth/register' && method === 'POST') {
+      const forwardedForSignup = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+      const signupIp = forwardedForSignup || req.socket.remoteAddress || 'inconnu';
+      if (!checkRateLimit(`signup:${signupIp}`, 5, 3600 * 1000)) {
+        return sendJSON(res, 429, { error: 'Trop de comptes créés depuis cette adresse — réessayez plus tard.' });
+      }
       const { name, email, password, terms_accepted, referral_code, is_professional, company_name, company_website, language, signup_referrer, utm_source, utm_medium, utm_campaign } = await readBody(req);
       if (!name || !isValidEmail(email)) {
         return sendJSON(res, 400, { error: 'Nom et email valide requis.' });
