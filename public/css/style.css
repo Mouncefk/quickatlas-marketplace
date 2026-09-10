@@ -2689,6 +2689,37 @@ textarea { resize: vertical; }
   border-top: 1px solid var(--ink-line);
   margin: 20px 0 16px;
 }
+/* ---------- Origine des inscriptions ---------- */
+.admin-origins-summary {
+  color: rgba(241,233,216,0.65);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+.admin-origins-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+.admin-origins-block h3 {
+  font-size: 1rem;
+  color: var(--brass-300);
+  margin: 0 0 10px;
+}
+.admin-origins-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.admin-origins-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ink-line);
+}
+.admin-origins-count {
+  text-align: right;
+  font-weight: 600;
+  color: var(--parchment-100);
+  white-space: nowrap;
+}
 /* ---------- Tableau de bord vendeur : détail par annonce & clients intéressés ---------- */
 .dashboard-detail-toggle {
   display: flex;
