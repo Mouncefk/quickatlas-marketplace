@@ -716,6 +716,14 @@
     <p data-i18n="reserve.intro">Vous êtes professionnel de l'immobilier, de l'automobile ou d'un autre secteur ? Réservez dès maintenant le nom de votre future marketplace — sans engagement, sans paiement. Nous vous recontacterons personnellement à l'approche du lancement.</p>
     <a href="/QuickAtlas_Dossier_Presentation_FR.pdf" target="_blank" rel="noopener" class="btn btn--ghost reserve-brochure-btn" data-i18n="reserve.brochure_btn">📄 Consulter le dossier de présentation complet</a>
     <form id="reserveForm" class="atlas-form">
+      <!-- Piège à robots — champ invisible pour un vrai visiteur (masqué
+           par CSS ci-dessous), que les robots remplissent souvent sans
+           distinction avec le reste du formulaire. -->
+      <div class="reserve-honeypot" aria-hidden="true">
+        <label>Site web
+          <input type="text" name="website_url" tabindex="-1" autocomplete="off" />
+        </label>
+      </div>
       <div class="form-row">
         <label><span data-i18n="reserve.field_subdomain">Nom de sous-domaine souhaité</span>
           <div class="reserve-subdomain-row">
