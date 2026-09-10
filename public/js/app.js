@@ -2,6 +2,29 @@
    QuickAtlas — logique front-end (vanilla JS, sans framework)
    ========================================================== */
 const API = '/api';
+
+// Capture des UTM et du referrer dès l'arrivée sur le site — conservés
+// en sessionStorage (pas localStorage, volontairement : reflète la
+// session de visite en cours, pas un attribut permanent du navigateur)
+// pour survivre à une éventuelle navigation avant l'inscription
+// elle-même, qui peut intervenir plusieurs pages plus tard.
+(function captureSignupOrigin() {
+  const params = new URLSearchParams(window.location.search);
+  const utmSource = params.get('utm_source');
+  const utmMedium = params.get('utm_medium');
+  const utmCampaign = params.get('utm_campaign');
+  // Ne remplace jamais une capture déjà faite plus tôt dans la même
+  // session — sinon, une navigation interne sans paramètres UTM
+  // effacerait l'origine réelle de la visite.
+  if (utmSource && !sessionStorage.getItem('signup_utm_source')) {
+    sessionStorage.setItem('signup_utm_source', utmSource);
+    if (utmMedium) sessionStorage.setItem('signup_utm_medium', utmMedium);
+    if (utmCampaign) sessionStorage.setItem('signup_utm_campaign', utmCampaign);
+  }
+  if (document.referrer && !sessionStorage.getItem('signup_referrer')) {
+    sessionStorage.setItem('signup_referrer', document.referrer);
+  }
+})();
 function categoryLabel(cat) {
   return cat && cat.slug ? i18n.t('category.' + cat.slug) : (cat ? cat.name : '');
 }
@@ -4020,6 +4043,10 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
         referral_code: new URLSearchParams(window.location.search).get('ref') || null,
         is_professional: isPro, company_name: fd.get('company_name'), company_website: fd.get('company_website'),
         language: i18n.effectiveLang(),
+        signup_referrer: sessionStorage.getItem('signup_referrer') || null,
+        utm_source: sessionStorage.getItem('signup_utm_source') || null,
+        utm_medium: sessionStorage.getItem('signup_utm_medium') || null,
+        utm_campaign: sessionStorage.getItem('signup_utm_campaign') || null,
       }),
     });
     onAuthSuccess(data);
