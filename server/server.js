@@ -3093,6 +3093,61 @@ if (pathname === '/api/reservations/check-subdomain' && method === 'GET') {
       }
       return sendJSON(res, 201, { ok: true });
     }
+    // Détection heuristique de faux comptes créés par un robot —
+    // sous-domaine à l'allure aléatoire (long, avec des chiffres
+    // mélangés) ou nom d'entreprise se terminant en "LLC" (suffixe
+    // rarement utilisé par une vraie entreprise marocaine, contrairement
+    // à "SARL"). Ne fait que lister les candidats — la suppression
+    // effective reste une action séparée, explicitement confirmée par
+    // l'administrateur.
+    if (pathname === '/api/super-admin/detect-fake-reservations' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const candidates = masterDb
+        .prepare(
+          `SELECT sr.*, s.id AS site_id FROM site_reservations sr
+           LEFT JOIN sites s ON s.subdomain = sr.subdomain
+           WHERE (LENGTH(sr.subdomain) >= 12 AND sr.subdomain GLOB '*[0-9]*')
+              OR sr.business_name LIKE '% LLC'
+           ORDER BY sr.created_at DESC`
+        )
+        .all();
+      return sendJSON(res, 200, { candidates });
+    }
+    // Suppression groupée — prend une liste explicite d'identifiants de
+    // réservations à supprimer (jamais une re-détection interne côté
+    // serveur), pour que seule la liste effectivement vue et confirmée
+    // par l'administrateur soit affectée. Supprime aussi le site
+    // provisionné et sa base de données s'il existe, comme le fait déjà
+    // la suppression individuelle d'un site.
+    if (pathname === '/api/super-admin/bulk-delete-reservations' && method === 'POST') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const ids = Array.isArray(body.reservation_ids) ? body.reservation_ids.map(Number).filter(Number.isInteger) : [];
+      if (ids.length === 0) return sendJSON(res, 400, { error: 'Aucun identifiant fourni.' });
+
+      let deletedSites = 0;
+      let deletedReservations = 0;
+      for (const id of ids) {
+        const reservation = masterDb.prepare('SELECT * FROM site_reservations WHERE id = ?').get(id);
+        if (!reservation) continue;
+
+        const site = masterDb.prepare('SELECT * FROM sites WHERE subdomain = ?').get(reservation.subdomain);
+        if (site && site.slug !== 'main') {
+          closeTenantDatabase(site.db_filename);
+          for (const suffix of ['', '-wal', '-shm']) {
+            try { fs.unlinkSync(path.join(DATA_DIR, site.db_filename + suffix)); } catch { /* absence normale la plupart du temps */ }
+          }
+          masterDb.prepare('DELETE FROM sites WHERE id = ?').run(site.id);
+          deletedSites++;
+        }
+        masterDb.prepare('DELETE FROM site_reservations WHERE id = ?').run(id);
+        deletedReservations++;
+      }
+      logAdminAction(masterDb, admin, 'bulk_fake_reservations_deleted', 'site_reservations', null, { count: deletedReservations, sites_deleted: deletedSites });
+      return sendJSON(res, 200, { ok: true, deleted_reservations: deletedReservations, deleted_sites: deletedSites });
+    }
     if (pathname === '/api/super-admin/reservations' && method === 'GET') {
       const admin = requireSuperAdmin(req, res);
       if (!admin) return;
