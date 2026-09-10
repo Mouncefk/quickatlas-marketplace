@@ -861,6 +861,7 @@
         <button class="auth-tab" data-admin-tab="city-requests" data-i18n="admin.tab_city_requests">Villes demandées</button>
         <button class="auth-tab" data-admin-tab="appearance" data-i18n="admin.tab_appearance">Apparence</button>
         <button class="auth-tab" data-admin-tab="inbox" data-i18n="admin.tab_inbox">Boîte de réception</button>
+        <button class="auth-tab" data-admin-tab="origins" data-i18n="admin.tab_origins">Origine des inscriptions</button>
       </div>
       <div id="adminDashboardPanel" class="admin-panel">
         <div class="dashboard-cards" id="dashboardCards"></div>
@@ -1040,6 +1041,23 @@
           <aside class="conversations-list" id="adminInboxList"></aside>
           <div class="conversation-thread" id="adminInboxThread">
             <p class="empty-state" data-i18n="admin.inbox_select">Sélectionnez un email à gauche.</p>
+          </div>
+        </div>
+      </div>
+      <div id="adminOriginsPanel" class="admin-panel" hidden>
+        <p class="admin-origins-summary" id="adminOriginsSummary"></p>
+        <div class="admin-origins-grid">
+          <div class="admin-origins-block">
+            <h3>Par pays</h3>
+            <table class="admin-origins-table" id="adminOriginsCountryTable"></table>
+          </div>
+          <div class="admin-origins-block">
+            <h3>Par source (UTM)</h3>
+            <table class="admin-origins-table" id="adminOriginsUtmTable"></table>
+          </div>
+          <div class="admin-origins-block">
+            <h3>Par site référent</h3>
+            <table class="admin-origins-table" id="adminOriginsReferrerTable"></table>
           </div>
         </div>
       </div>
