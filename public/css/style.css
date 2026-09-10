@@ -2720,6 +2720,25 @@ textarea { resize: vertical; }
   color: var(--parchment-100);
   white-space: nowrap;
 }
+/* ---------- Révision des faux comptes détectés ---------- */
+.admin-origins-list {
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 12px 0;
+  border: 1px solid var(--ink-line);
+  border-radius: 8px;
+}
+.fake-reservation-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--ink-line);
+  cursor: pointer;
+}
+.fake-reservation-row:last-child { border-bottom: none; }
+.fake-reservation-row:hover { background: rgba(198,161,91,0.06); }
 /* ---------- Tableau de bord vendeur : détail par annonce & clients intéressés ---------- */
 .dashboard-detail-toggle {
   display: flex;
