@@ -6817,6 +6817,7 @@ document.getElementById('reserveForm')?.addEventListener('submit', async (e) => 
         sector: fd.get('sector'),
         contact_email: fd.get('contact_email'),
         contact_phone: fd.get('contact_phone'),
+        website_url: fd.get('website_url'),
       }),
     });
     successEl.textContent = i18n.t('reserve.success', { subdomain: fd.get('subdomain') });
