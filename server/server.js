@@ -710,6 +710,19 @@ function logListingViewAsync(listingId, req, source) {
     })
     .catch((err) => console.error('[géolocalisation] échec silencieux :', err.message));
 }
+/** Même principe que logListingViewAsync, pour l'origine géographique
+ * d'une inscription — en tâche de fond, ne retarde jamais la réponse
+ * d'inscription ni n'échoue celle-ci en cas de souci de géolocalisation. */
+function logSignupOriginAsync(userId, req) {
+  const forwarded = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const ip = forwarded || req.socket.remoteAddress || '';
+  geolocateIp(ip)
+    .then((geo) => {
+      if (!geo) return;
+      db.prepare('UPDATE users SET signup_country = ?, signup_city = ? WHERE id = ?').run(geo.country || null, geo.city || null, userId);
+    })
+    .catch((err) => console.error('[géolocalisation inscription] échec silencieux :', err.message));
+}
 /** Lit un fichier joint précédemment téléversé (via /api/admin/uploads/attachment)
  * à partir de son URL relative, pour le transmettre à sendMail(). Retourne
  * null si l'URL est absente ou invalide, plutôt que de faire échouer tout
@@ -1303,7 +1316,7 @@ async function handleRequest(req, res) {
   }
   try {
     if (pathname === '/api/auth/register' && method === 'POST') {
-      const { name, email, password, terms_accepted, referral_code, is_professional, company_name, company_website, language } = await readBody(req);
+      const { name, email, password, terms_accepted, referral_code, is_professional, company_name, company_website, language, signup_referrer, utm_source, utm_medium, utm_campaign } = await readBody(req);
       if (!name || !isValidEmail(email)) {
         return sendJSON(res, 400, { error: 'Nom et email valide requis.' });
       }
@@ -1327,16 +1340,18 @@ async function handleRequest(req, res) {
       if (referral_code) referrer = db.prepare('SELECT id FROM users WHERE referral_code = ?').get(referral_code.trim().toUpperCase());
       const id = db
         .prepare(
-          `INSERT INTO users (name, email, password_hash, password_salt, terms_accepted_at, referral_code, referred_by_user_id, is_professional, company_name, company_website, language)
-           VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO users (name, email, password_hash, password_salt, terms_accepted_at, referral_code, referred_by_user_id, is_professional, company_name, company_website, language, signup_referrer, signup_utm_source, signup_utm_medium, signup_utm_campaign)
+           VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           name.trim(), email.toLowerCase(), hash, salt, myReferralCode, referrer ? referrer.id : null,
-          is_professional ? 1 : 0, is_professional ? company_name.trim() : null, is_professional ? (company_website || '').trim() || null : null, userLanguage
+          is_professional ? 1 : 0, is_professional ? company_name.trim() : null, is_professional ? (company_website || '').trim() || null : null, userLanguage,
+          (signup_referrer || '').slice(0, 500) || null, (utm_source || '').slice(0, 100) || null, (utm_medium || '').slice(0, 100) || null, (utm_campaign || '').slice(0, 100) || null
         ).lastInsertRowid;
       if (referrer) {
         db.prepare('UPDATE users SET free_boost_credits = free_boost_credits + 1 WHERE id = ?').run(referrer.id);
       }
+      logSignupOriginAsync(id, req);
       const token = signToken({ sub: id });
       await sendVerificationEmail(id, name.trim(), email.toLowerCase());
       sendWelcomeEmail(name.trim(), email.toLowerCase(), userLanguage).catch((err) => console.error('[welcome-email] échec :', err.message));
@@ -1479,6 +1494,7 @@ async function handleRequest(req, res) {
             "INSERT INTO users (name, email, password_hash, password_salt, terms_accepted_at, email_verified_at, google_sub, referral_code) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'), ?, ?)"
           )
           .run(payload.name || email.split('@')[0], email, hash, salt, payload.sub, myReferralCode).lastInsertRowid;
+        logSignupOriginAsync(id, req);
         user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       } else if (!user.google_sub) {
         db.prepare("UPDATE users SET google_sub = ?, email_verified_at = COALESCE(email_verified_at, datetime('now')) WHERE id = ?").run(payload.sub, user.id);
