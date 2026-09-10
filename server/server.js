@@ -716,8 +716,10 @@ function logListingViewAsync(listingId, req, source) {
 function logSignupOriginAsync(userId, req) {
   const forwarded = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
   const ip = forwarded || req.socket.remoteAddress || '';
+  console.log(`[origine inscription] IP captée : "${ip}" (x-forwarded-for brut : "${req.headers['x-forwarded-for'] || ''}")`);
   geolocateIp(ip)
     .then((geo) => {
+      console.log(`[origine inscription] résultat géolocalisation pour "${ip}" :`, geo);
       if (!geo) return;
       db.prepare('UPDATE users SET signup_country = ?, signup_city = ? WHERE id = ?').run(geo.country || null, geo.city || null, userId);
     })
@@ -4630,4 +4632,4 @@ server.listen(PORT, () => {
       console.error('[demo-expiration] échec de la vérification périodique :', err.message);
     }
   }, 24 * 60 * 60 * 1000);
-});       
+});
