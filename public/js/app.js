@@ -4690,9 +4690,11 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminCityRequestsPanel').hidden = btn.dataset.adminTab !== 'city-requests';
     document.getElementById('adminAppearancePanel').hidden = btn.dataset.adminTab !== 'appearance';
     document.getElementById('adminInboxPanel').hidden = btn.dataset.adminTab !== 'inbox';
+    document.getElementById('adminOriginsPanel').hidden = btn.dataset.adminTab !== 'origins';
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
     if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); loadSiteEmailSettings(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
+    if (btn.dataset.adminTab === 'origins') loadAdminOrigins();
   })
 );
 document.querySelectorAll('[data-super-admin-tab]').forEach((btn) =>
@@ -5716,6 +5718,47 @@ document.getElementById('newSiteForm')?.addEventListener('submit', async (e) => 
     errEl.hidden = false;
   }
 });
+async function loadAdminOrigins() {
+  const summaryEl = document.getElementById('adminOriginsSummary');
+  const countryTable = document.getElementById('adminOriginsCountryTable');
+  const utmTable = document.getElementById('adminOriginsUtmTable');
+  const referrerTable = document.getElementById('adminOriginsReferrerTable');
+  summaryEl.textContent = '';
+  countryTable.innerHTML = '';
+  utmTable.innerHTML = '';
+  referrerTable.innerHTML = '';
+  try {
+    const stats = await api('/admin/user-origins-stats');
+    summaryEl.textContent = `${stats.total_with_origin} / ${stats.total_users} utilisateurs ont une origine connue.`;
+
+    if (stats.by_country.length === 0) {
+      countryTable.append(el('tr', {}, el('td', {}, 'Aucune donnée pour le moment.')));
+    } else {
+      for (const row of stats.by_country) {
+        countryTable.append(el('tr', {}, [el('td', {}, row.country), el('td', { class: 'admin-origins-count' }, String(row.count))]));
+      }
+    }
+
+    if (stats.by_utm_source.length === 0) {
+      utmTable.append(el('tr', {}, el('td', {}, 'Aucune donnée pour le moment.')));
+    } else {
+      for (const row of stats.by_utm_source) {
+        const label = [row.source, row.medium, row.campaign].filter(Boolean).join(' / ');
+        utmTable.append(el('tr', {}, [el('td', {}, label), el('td', { class: 'admin-origins-count' }, String(row.count))]));
+      }
+    }
+
+    if (stats.by_referrer.length === 0) {
+      referrerTable.append(el('tr', {}, el('td', {}, 'Aucune donnée pour le moment.')));
+    } else {
+      for (const row of stats.by_referrer) {
+        referrerTable.append(el('tr', {}, [el('td', {}, row.referrer), el('td', { class: 'admin-origins-count' }, String(row.count))]));
+      }
+    }
+  } catch (err) {
+    summaryEl.textContent = err.message;
+  }
+}
 async function loadAdminInbox() {
   adminInboxSelectedIds = new Set();
   const list = document.getElementById('adminInboxList');
