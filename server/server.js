@@ -1619,6 +1619,14 @@ async function handleRequest(req, res) {
 
       return sendJSON(res, 200, { by_country: byCountry, by_utm_source: byUtmSource, by_referrer: byReferrer, total_users: totalUsers, total_with_origin: totalWithOrigin });
     }
+    // Même statistique que ci-dessus, mais fusionnée sur l'ensemble du
+    // réseau de sites — réservée au super admin, consultable uniquement
+    // depuis le site principal.
+    if (pathname === '/api/super-admin/origins-stats' && method === 'GET') {
+      const admin = requireSuperAdmin(req, res);
+      if (!admin) return;
+      return sendJSON(res, 200, computeGlobalOriginsStats());
+    }
     // Bascule activer/désactiver une catégorie — les annonces déjà publiées
     // dessus ne sont jamais touchées, seule sa disponibilité pour de
     // nouvelles publications et son apparition dans les filtres changent.
@@ -2738,6 +2746,64 @@ function computeSiteStats(site) {
     listingCount: siteDb.prepare('SELECT COUNT(*) AS c FROM listings').get().c,
     activeListingCount: siteDb.prepare("SELECT COUNT(*) AS c FROM listings WHERE status = 'active'").get().c,
   };
+}
+/** Fusionne les statistiques d'origine des inscriptions (pays, source
+ * UTM, site référent) sur l'ensemble des sites du réseau — parcourt
+ * chaque base de site une par une (même principe que computeSiteStats),
+ * puisqu'aucune requête unique ne peut interroger plusieurs bases
+ * SQLite séparées à la fois. Un site dont la base ne s'ouvre pas
+ * (fichier manquant, site supprimé entre-temps) est silencieusement
+ * ignoré plutôt que de faire échouer la vue globale entière. */
+function computeGlobalOriginsStats() {
+  const sites = masterDb.prepare('SELECT * FROM sites').all();
+  const countryCounts = {};
+  const utmCounts = {};
+  const referrerCounts = {};
+  let totalUsers = 0;
+  let totalWithOrigin = 0;
+
+  for (const site of sites) {
+    let siteDb;
+    try {
+      siteDb = getTenantDatabase(site.db_filename);
+    } catch {
+      continue;
+    }
+    totalUsers += siteDb.prepare('SELECT COUNT(*) AS c FROM users').get().c;
+    totalWithOrigin += siteDb
+      .prepare('SELECT COUNT(*) AS c FROM users WHERE signup_country IS NOT NULL OR signup_utm_source IS NOT NULL OR signup_referrer IS NOT NULL')
+      .get().c;
+
+    const countryRows = siteDb
+      .prepare("SELECT signup_country AS country, COUNT(*) AS count FROM users WHERE signup_country IS NOT NULL GROUP BY signup_country")
+      .all();
+    for (const { country, count } of countryRows) countryCounts[country] = (countryCounts[country] || 0) + count;
+
+    const utmRows = siteDb
+      .prepare(
+        `SELECT signup_utm_source AS source, signup_utm_medium AS medium, signup_utm_campaign AS campaign, COUNT(*) AS count
+         FROM users WHERE signup_utm_source IS NOT NULL GROUP BY signup_utm_source, signup_utm_medium, signup_utm_campaign`
+      )
+      .all();
+    for (const row of utmRows) {
+      const key = [row.source, row.medium, row.campaign].join('\u0001');
+      if (!utmCounts[key]) utmCounts[key] = { source: row.source, medium: row.medium, campaign: row.campaign, count: 0 };
+      utmCounts[key].count += row.count;
+    }
+
+    const referrerRows = siteDb.prepare('SELECT signup_referrer FROM users WHERE signup_referrer IS NOT NULL').all();
+    for (const { signup_referrer } of referrerRows) {
+      let host;
+      try { host = new URL(signup_referrer).hostname; } catch { host = signup_referrer; }
+      referrerCounts[host] = (referrerCounts[host] || 0) + 1;
+    }
+  }
+
+  const byCountry = Object.entries(countryCounts).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count).slice(0, 15);
+  const byUtmSource = Object.values(utmCounts).sort((a, b) => b.count - a.count).slice(0, 15);
+  const byReferrer = Object.entries(referrerCounts).map(([referrer, count]) => ({ referrer, count })).sort((a, b) => b.count - a.count).slice(0, 15);
+
+  return { by_country: byCountry, by_utm_source: byUtmSource, by_referrer: byReferrer, total_users: totalUsers, total_with_origin: totalWithOrigin, sites_scanned: sites.length };
 }
 /** Enregistre, une fois par jour, un instantané des compteurs de chaque
  * site actif — la table daily_site_stats accumule ainsi un historique
@@ -4564,4 +4630,4 @@ server.listen(PORT, () => {
       console.error('[demo-expiration] échec de la vérification périodique :', err.message);
     }
   }, 24 * 60 * 60 * 1000);
-});
+});       
