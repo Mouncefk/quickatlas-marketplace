@@ -2738,6 +2738,17 @@ textarea { resize: vertical; }
   cursor: pointer;
 }
 .fake-reservation-row:last-child { border-bottom: none; }
+/* Piège à robots — masqué visuellement mais présent dans le DOM (pas
+   display:none ni visibility:hidden, que certains robots détectent
+   et évitent spécifiquement) ; positionné hors champ plutôt que
+   simplement invisible sur place. */
+.reserve-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
 .fake-reservation-row:hover { background: rgba(198,161,91,0.06); }
 /* ---------- Tableau de bord vendeur : détail par annonce & clients intéressés ---------- */
 .dashboard-detail-toggle {
