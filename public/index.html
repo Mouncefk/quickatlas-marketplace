@@ -1103,6 +1103,15 @@
       <div id="superAdminReservationsPanel" class="admin-panel" hidden>
         <p class="form-hint" data-i18n="admin.reservations_hint">Demandes de réservation de sous-domaine avant lancement officiel — gratuites, sans engagement.</p>
         <button type="button" id="reservationsBroadcastBtn" class="btn btn--ghost btn--small" data-i18n="admin.reservations_broadcast_btn">📧 Envoyer un message</button>
+        <button type="button" id="detectFakeReservationsBtn" class="btn btn--ghost btn--small">🕵️ Détecter les faux comptes</button>
+        <div id="fakeReservationsPanel" hidden>
+          <p class="form-hint" id="fakeReservationsSummary"></p>
+          <div id="fakeReservationsList" class="admin-origins-list"></div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn--danger btn--small" id="confirmDeleteFakeBtn">Supprimer les comptes cochés</button>
+            <button type="button" class="btn btn--ghost btn--small" id="cancelFakeReviewBtn">Annuler</button>
+          </div>
+        </div>
         <table class="admin-table">
           <thead>
             <tr>
