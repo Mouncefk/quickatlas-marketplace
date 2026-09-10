@@ -1076,6 +1076,7 @@
         <button class="auth-tab" data-super-admin-tab="plans" data-i18n="admin.tab_plans">Formules</button>
         <button class="auth-tab" data-super-admin-tab="promo" data-i18n="admin.tab_promo">Promotion</button>
         <button class="auth-tab" data-super-admin-tab="audit" data-i18n="admin.tab_audit">Journal d'audit</button>
+        <button class="auth-tab" data-super-admin-tab="origins" data-i18n="admin.tab_origins">Origine des inscriptions</button>
       </div>
       <div id="superAdminOverviewPanel" class="admin-panel">
         <p class="form-hint" data-i18n="admin.super_admin_intro">Créez et gérez les sites du réseau QuickAtlas. Chaque site dispose de sa propre base de données, totalement indépendante des autres — ses utilisateurs, ses annonces, son administrateur.</p>
@@ -1198,6 +1199,24 @@
           </thead>
           <tbody id="superAdminAuditBody"></tbody>
         </table>
+      </div>
+      <div id="superAdminOriginsPanel" class="admin-panel" hidden>
+        <p class="form-hint">Statistiques d'origine des inscriptions, fusionnées sur l'ensemble du réseau de sites.</p>
+        <p class="admin-origins-summary" id="superAdminOriginsSummary"></p>
+        <div class="admin-origins-grid">
+          <div class="admin-origins-block">
+            <h3>Par pays</h3>
+            <table class="admin-origins-table" id="superAdminOriginsCountryTable"></table>
+          </div>
+          <div class="admin-origins-block">
+            <h3>Par source (UTM)</h3>
+            <table class="admin-origins-table" id="superAdminOriginsUtmTable"></table>
+          </div>
+          <div class="admin-origins-block">
+            <h3>Par site référent</h3>
+            <table class="admin-origins-table" id="superAdminOriginsReferrerTable"></table>
+          </div>
+        </div>
       </div>
     </div>
   </section>
