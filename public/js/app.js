@@ -4707,12 +4707,14 @@ document.querySelectorAll('[data-super-admin-tab]').forEach((btn) =>
     document.getElementById('superAdminPlansPanel').hidden = btn.dataset.superAdminTab !== 'plans';
     document.getElementById('superAdminPromoPanel').hidden = btn.dataset.superAdminTab !== 'promo';
     document.getElementById('superAdminAuditPanel').hidden = btn.dataset.superAdminTab !== 'audit';
+    document.getElementById('superAdminOriginsPanel').hidden = btn.dataset.superAdminTab !== 'origins';
     if (btn.dataset.superAdminTab === 'overview') loadGlobalStats();
     if (btn.dataset.superAdminTab === 'sites') loadSuperAdminSites();
     if (btn.dataset.superAdminTab === 'reservations') { loadSuperAdminReservations(); loadSuperAdminCampaigns(); }
     if (btn.dataset.superAdminTab === 'contacts') loadSuperAdminContacts();
     if (btn.dataset.superAdminTab === 'plans') loadSuperAdminPlans();
     if (btn.dataset.superAdminTab === 'audit') loadSuperAdminAuditLog();
+    if (btn.dataset.superAdminTab === 'origins') loadSuperAdminOrigins();
   })
 );
 /** Charge la liste des emails reçus dans l'onglet admin "Boîte de
@@ -4931,6 +4933,47 @@ function formatAuditDetails(action, details) {
     }
     default:
       return '';
+  }
+}
+async function loadSuperAdminOrigins() {
+  const summaryEl = document.getElementById('superAdminOriginsSummary');
+  const countryTable = document.getElementById('superAdminOriginsCountryTable');
+  const utmTable = document.getElementById('superAdminOriginsUtmTable');
+  const referrerTable = document.getElementById('superAdminOriginsReferrerTable');
+  summaryEl.textContent = '';
+  countryTable.innerHTML = '';
+  utmTable.innerHTML = '';
+  referrerTable.innerHTML = '';
+  try {
+    const stats = await api('/super-admin/origins-stats');
+    summaryEl.textContent = `${stats.total_with_origin} / ${stats.total_users} utilisateurs ont une origine connue, sur ${stats.sites_scanned} site(s).`;
+
+    if (stats.by_country.length === 0) {
+      countryTable.append(el('tr', {}, el('td', {}, 'Aucune donnée pour le moment.')));
+    } else {
+      for (const row of stats.by_country) {
+        countryTable.append(el('tr', {}, [el('td', {}, row.country), el('td', { class: 'admin-origins-count' }, String(row.count))]));
+      }
+    }
+
+    if (stats.by_utm_source.length === 0) {
+      utmTable.append(el('tr', {}, el('td', {}, 'Aucune donnée pour le moment.')));
+    } else {
+      for (const row of stats.by_utm_source) {
+        const label = [row.source, row.medium, row.campaign].filter(Boolean).join(' / ');
+        utmTable.append(el('tr', {}, [el('td', {}, label), el('td', { class: 'admin-origins-count' }, String(row.count))]));
+      }
+    }
+
+    if (stats.by_referrer.length === 0) {
+      referrerTable.append(el('tr', {}, el('td', {}, 'Aucune donnée pour le moment.')));
+    } else {
+      for (const row of stats.by_referrer) {
+        referrerTable.append(el('tr', {}, [el('td', {}, row.referrer), el('td', { class: 'admin-origins-count' }, String(row.count))]));
+      }
+    }
+  } catch (err) {
+    summaryEl.textContent = err.message;
   }
 }
 async function loadSuperAdminAuditLog() {
