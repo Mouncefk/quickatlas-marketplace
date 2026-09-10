@@ -74,6 +74,15 @@ export function initializeDatabase(dbPath) {
     company_logo_url TEXT,
     company_website TEXT,
     pro_tier TEXT NOT NULL DEFAULT 'nouveau' CHECK (pro_tier IN ('nouveau','actif','confirme','expert')),
+    -- Origine de l'inscription — géolocalisation IP (même méthode que
+    -- pour les vues d'annonces), page de provenance, et paramètres UTM
+    -- si l'utilisateur est arrivé via un lien de campagne marketing.
+    signup_country TEXT,
+    signup_city TEXT,
+    signup_referrer TEXT,
+    signup_utm_source TEXT,
+    signup_utm_medium TEXT,
+    signup_utm_campaign TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE TABLE IF NOT EXISTS countries (
@@ -905,6 +914,28 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
       PRIMARY KEY (listing_id, country_id)
     );
   `);
+  // Migration : origine de l'inscription (pays via géolocalisation IP,
+  // page de provenance, paramètres UTM) — permet de savoir d'où
+  // viennent les nouveaux comptes, sans jamais conserver l'adresse IP
+  // elle-même. S'applique à chaque base de site (principal et
+  // sous-domaines), puisque initializeDatabase() est appelée pour
+  // chacune d'elles.
+  {
+    const userColumns2 = db.prepare("PRAGMA table_info(users)").all();
+    const originColumns = [
+      ['signup_country', 'TEXT'],
+      ['signup_city', 'TEXT'],
+      ['signup_referrer', 'TEXT'],
+      ['signup_utm_source', 'TEXT'],
+      ['signup_utm_medium', 'TEXT'],
+      ['signup_utm_campaign', 'TEXT'],
+    ];
+    for (const [name, type] of originColumns) {
+      if (!userColumns2.some((c) => c.name === name)) {
+        db.exec(`ALTER TABLE users ADD COLUMN ${name} ${type}`);
+      }
+    }
+  }
   return db;
 }
 
