@@ -4993,9 +4993,9 @@ function resetProspectForm() {
 document.getElementById('newProspectBtn').addEventListener('click', () => {
   resetProspectForm();
   document.getElementById('prospectModalTitle').textContent = 'Ajouter un prospect';
-  openModal('prospectModal');
+  document.getElementById('prospectModal').hidden = false;
 });
-document.getElementById('prospectModalClose').addEventListener('click', () => closeModal('prospectModal'));
+document.getElementById('prospectModalClose').addEventListener('click', () => { document.getElementById('prospectModal').hidden = true; });
 
 async function openProspectModal(id) {
   resetProspectForm();
@@ -5032,7 +5032,7 @@ async function openProspectModal(id) {
       invitationBlock.hidden = true;
       document.getElementById('prepareInvitationBtn').hidden = false;
     }
-    openModal('prospectModal');
+    document.getElementById('prospectModal').hidden = false;
   } catch (err) {
     alert(err.message);
   }
@@ -5060,7 +5060,7 @@ document.getElementById('prospectForm').addEventListener('submit', async (e) => 
     } else {
       await api('/admin/prospects', { method: 'POST', body: JSON.stringify(payload) });
     }
-    closeModal('prospectModal');
+    document.getElementById('prospectModal').hidden = true;
     loadProspects(currentProspectStatusFilter);
   } catch (err) {
     errEl.textContent = err.message;
