@@ -4919,6 +4919,49 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       return sendJSON(res, 200, { status: invitation.status, message_body: invitation.message_body, prospect });
     }
 
+    // Acceptation — crée ou relie le compte, transforme le prospect en
+    // membre. Passe par la vérification d'email standard, exactement
+    // comme une inscription classique (voir parcours section 10 :
+    // accepter n'accorde pas immédiatement un statut de membre actif,
+    // la vérification d'email et la complétion du profil restent des
+    // étapes à part entière, gérées ensuite via les écrans habituels
+    // du compte).
+    if ((m = pathname.match(/^\/api\/invitations\/([A-Za-z0-9_-]+)\/accept$/)) && method === 'POST') {
+      const invitation = db.prepare('SELECT * FROM professional_invitations WHERE invitation_token = ?').get(m[1]);
+      if (!invitation) return sendJSON(res, 404, { error: 'Invitation introuvable.' });
+      if (invitation.status !== 'invitation_sent') return sendJSON(res, 400, { error: 'Cette invitation ne peut plus être acceptée.' });
+      if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
+        return sendJSON(res, 410, { error: 'Cette invitation a expiré.' });
+      }
+      const prospect = db.prepare('SELECT * FROM professional_prospects WHERE id = ?').get(invitation.prospect_id);
+      const body = await readBody(req);
+
+      let user = db.prepare('SELECT * FROM users WHERE email = ?').get(prospect.professional_email.toLowerCase());
+      if (!user) {
+        const pwIssues = passwordIssues(body.password);
+        if (pwIssues.length) return sendJSON(res, 400, { error: 'Mot de passe trop faible : 8 caractères minimum, avec au moins une lettre et un chiffre.' });
+        const { salt, hash } = hashPassword(body.password);
+        const myReferralCode = generateReferralCode();
+        const newId = db
+          .prepare(
+            `INSERT INTO users (name, email, password_hash, password_salt, terms_accepted_at, referral_code, is_professional, company_name)
+             VALUES (?, ?, ?, ?, datetime('now'), ?, 1, ?)`
+          )
+          .run(prospect.public_name, prospect.professional_email.toLowerCase(), hash, salt, myReferralCode, prospect.company_name || null).lastInsertRowid;
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(newId);
+        await sendVerificationEmail(newId, prospect.public_name, prospect.professional_email.toLowerCase());
+      }
+
+      db.prepare(`UPDATE professional_invitations SET status = 'converted', accepted_at = datetime('now') WHERE id = ?`).run(invitation.id);
+      db.prepare(`UPDATE professional_prospects SET invitation_status = 'converted', converted_user_id = ? WHERE id = ?`).run(user.id, prospect.id);
+
+      const token = signToken({ sub: user.id });
+      return sendJSON(res, 200, {
+        token,
+        user: { id: user.id, name: user.name, email: user.email, role: user.role || 'user', email_verified: Boolean(user.email_verified_at) },
+      });
+    }
+
     if ((m = pathname.match(/^\/api\/invitations\/([A-Za-z0-9_-]+)\/decline$/)) && method === 'POST') {
       const invitation = db.prepare('SELECT * FROM professional_invitations WHERE invitation_token = ?').get(m[1]);
       if (!invitation) return sendJSON(res, 404, { error: 'Invitation introuvable.' });
