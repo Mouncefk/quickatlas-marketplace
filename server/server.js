@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { db, DATA_DIR, masterDb, mainDb, getTenantDatabase, closeTenantDatabase, tenantContext, siteInfoContext, initializeDatabase, copyReferenceData } from './db.js';
 import { hashPassword, verifyPassword, signToken, verifyToken, generateRawToken, hashRawToken, passwordIssues, encryptApiKey, decryptApiKey } from './auth.js';
 import { sendMail } from './mailer.js';
-import { translateListing, draftListing, analyzeFraudRisk, translateText } from './ai.js';
+import { translateListing, draftListing, analyzeFraudRisk, translateText, qualifyProspect } from './ai.js';
 import { translateListingFree } from './free-translate.js';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
@@ -4662,6 +4662,141 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       db.prepare('UPDATE saved_search_matches SET seen = 1 WHERE saved_search_id = ?').run(search.id);
       return sendJSON(res, 200, rows);
     }
+
+    // ==================================================================
+    // Réseau professionnel — prospects (section 4 de la spécification).
+    // Un prospect est toujours saisi manuellement par un administrateur
+    // (jamais collecté automatiquement) — voir la décision prise avec
+    // l'utilisateur sur ce point précis.
+    // ==================================================================
+    if (pathname === '/api/admin/prospects' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const publicName = (body.public_name || '').trim();
+      if (!publicName) return sendJSON(res, 400, { error: 'Le nom du prospect est requis.' });
+      const result = db
+        .prepare(
+          `INSERT INTO professional_prospects
+             (public_name, professional_title, company_name, country, region, city, professional_area, website, professional_email, professional_phone, source, source_url)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          publicName,
+          (body.professional_title || '').trim() || null,
+          (body.company_name || '').trim() || null,
+          (body.country || '').trim() || null,
+          (body.region || '').trim() || null,
+          (body.city || '').trim() || null,
+          (body.professional_area || '').trim() || null,
+          (body.website || '').trim() || null,
+          (body.professional_email || '').trim() || null,
+          (body.professional_phone || '').trim() || null,
+          (body.source || 'saisie manuelle').trim(),
+          (body.source_url || '').trim() || null
+        );
+      const prospect = db.prepare('SELECT * FROM professional_prospects WHERE id = ?').get(result.lastInsertRowid);
+      logAdminAction(masterDb, admin, 'prospect_created', 'professional_prospect', String(prospect.id), { public_name: publicName });
+      return sendJSON(res, 201, prospect);
+    }
+
+    if (pathname === '/api/admin/prospects' && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const statusFilter = url.searchParams.get('status');
+      const rows = statusFilter
+        ? db.prepare('SELECT * FROM professional_prospects WHERE invitation_status = ? ORDER BY discovered_at DESC').all(statusFilter)
+        : db.prepare('SELECT * FROM professional_prospects ORDER BY discovered_at DESC').all();
+      return sendJSON(res, 200, rows);
+    }
+
+    if ((m = pathname.match(/^\/api\/admin\/prospects\/(\d+)$/)) && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const prospect = db.prepare('SELECT * FROM professional_prospects WHERE id = ?').get(Number(m[1]));
+      if (!prospect) return sendJSON(res, 404, { error: 'Prospect introuvable.' });
+      const invitations = db.prepare('SELECT * FROM professional_invitations WHERE prospect_id = ? ORDER BY created_at DESC').all(prospect.id);
+      return sendJSON(res, 200, { ...prospect, invitations });
+    }
+
+    if ((m = pathname.match(/^\/api\/admin\/prospects\/(\d+)$/)) && method === 'PUT') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const prospect = db.prepare('SELECT * FROM professional_prospects WHERE id = ?').get(Number(m[1]));
+      if (!prospect) return sendJSON(res, 404, { error: 'Prospect introuvable.' });
+      const body = await readBody(req);
+      const editable = [
+        'public_name', 'professional_title', 'company_name', 'country', 'region', 'city',
+        'professional_area', 'website', 'professional_email', 'professional_phone',
+        'category_id', 'subcategory_id', 'activity_id', 'specialty_id',
+      ];
+      const updates = [];
+      const values = [];
+      for (const field of editable) {
+        if (body[field] !== undefined) { updates.push(`${field} = ?`); values.push(body[field] || null); }
+      }
+      if (updates.length === 0) return sendJSON(res, 400, { error: 'Aucun champ à mettre à jour.' });
+      values.push(prospect.id);
+      db.prepare(`UPDATE professional_prospects SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+      return sendJSON(res, 200, db.prepare('SELECT * FROM professional_prospects WHERE id = ?').get(prospect.id));
+    }
+
+    if ((m = pathname.match(/^\/api\/admin\/prospects\/(\d+)$/)) && method === 'DELETE') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const prospect = db.prepare('SELECT * FROM professional_prospects WHERE id = ?').get(Number(m[1]));
+      if (!prospect) return sendJSON(res, 404, { error: 'Prospect introuvable.' });
+      db.prepare('DELETE FROM professional_prospects WHERE id = ?').run(prospect.id);
+      logAdminAction(masterDb, admin, 'prospect_deleted', 'professional_prospect', String(prospect.id), { public_name: prospect.public_name });
+      return sendJSON(res, 200, { ok: true });
+    }
+
+    // Qualification IA — propose un classement dans la taxonomie
+    // existante, jamais présenté comme vérifié (voir professional_prospects.verified_at,
+    // toujours vide à ce stade).
+    if ((m = pathname.match(/^\/api\/admin\/prospects\/(\d+)\/qualify$/)) && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const prospect = db.prepare('SELECT * FROM professional_prospects WHERE id = ?').get(Number(m[1]));
+      if (!prospect) return sendJSON(res, 404, { error: 'Prospect introuvable.' });
+      const account = db.prepare('SELECT ai_provider, ai_api_key_encrypted FROM users WHERE id = ?').get(admin.id);
+      if (!account.ai_api_key_encrypted) return sendJSON(res, 400, { error: 'AI_NOT_CONFIGURED' });
+
+      const body = await readBody(req);
+      const categories = db.prepare('SELECT c.name AS cat, sc.name AS sub FROM subcategories sc JOIN categories c ON c.id = sc.category_id').all();
+      const categoryTree = categories.map((r) => `${r.cat} > ${r.sub}`).join('\n');
+
+      try {
+        const apiKey = decryptApiKey(account.ai_api_key_encrypted);
+        const result = await qualifyProspect({
+          provider: account.ai_provider,
+          apiKey,
+          publicName: prospect.public_name,
+          companyName: prospect.company_name,
+          professionalTitle: prospect.professional_title,
+          rawText: body.notes || '',
+          categoryTree,
+        });
+
+        const category = db.prepare('SELECT id FROM categories WHERE name = ?').get(result.category);
+        const subcategory = category
+          ? db.prepare('SELECT id FROM subcategories WHERE category_id = ? AND name = ?').get(category.id, result.subcategory)
+          : null;
+
+        db.prepare(
+          `UPDATE professional_prospects SET category_id = ?, subcategory_id = ?, confidence_score = ?, ai_classification_explanation = ? WHERE id = ?`
+        ).run(category ? category.id : null, subcategory ? subcategory.id : null, result.confidence, result.explanation, prospect.id);
+
+        return sendJSON(res, 200, {
+          ...result,
+          category_matched: Boolean(category),
+          subcategory_matched: Boolean(subcategory),
+        });
+      } catch (err) {
+        return sendJSON(res, 502, { error: `La qualification a échoué : ${err.message}` });
+      }
+    }
+
     return sendJSON(res, 404, { error: 'Route API inconnue' });
   } catch (err) {
     console.error(err);
