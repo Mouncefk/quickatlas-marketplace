@@ -4986,6 +4986,7 @@ function resetProspectForm() {
   document.getElementById('prospectQualificationResult').textContent = '';
   document.getElementById('qualifyProspectBtn').hidden = true;
   document.getElementById('prepareInvitationBtn').hidden = true;
+  document.getElementById('currentInvitationBlock').hidden = true;
   currentProspectDetail = null;
 }
 
@@ -5016,7 +5017,21 @@ async function openProspectModal(id) {
       document.getElementById('prospectQualificationResult').textContent = `Dernière qualification IA : ${p.confidence_score}% de confiance — ${p.ai_classification_explanation || ''}`;
     }
     document.getElementById('qualifyProspectBtn').hidden = false;
-    document.getElementById('prepareInvitationBtn').hidden = p.invitation_status !== 'discovered' && p.invitation_status !== 'invitation_prepared';
+
+    const activeInvitation = (p.invitations || []).find((inv) => ['discovered', 'invitation_prepared', 'invitation_sent'].includes(inv.status));
+    const invitationBlock = document.getElementById('currentInvitationBlock');
+    if (activeInvitation) {
+      document.getElementById('prepareInvitationBtn').hidden = true;
+      invitationBlock.hidden = false;
+      invitationBlock.dataset.invitationId = activeInvitation.id;
+      document.getElementById('currentInvitationStatus').textContent = PROSPECT_STATUS_LABELS[activeInvitation.status] || activeInvitation.status;
+      document.getElementById('currentInvitationMessage').textContent = activeInvitation.message_body || '';
+      document.getElementById('sendInvitationBtn').hidden = activeInvitation.status !== 'invitation_prepared';
+      document.getElementById('cancelInvitationBtn').hidden = false;
+    } else {
+      invitationBlock.hidden = true;
+      document.getElementById('prepareInvitationBtn').hidden = false;
+    }
     openModal('prospectModal');
   } catch (err) {
     alert(err.message);
@@ -5080,8 +5095,33 @@ document.getElementById('prepareInvitationBtn').addEventListener('click', async 
   if (!confirm('Préparer une invitation pour ce prospect ?')) return;
   try {
     await api(`/admin/prospects/${id}/invitation`, { method: 'POST' });
-    alert('Invitation préparée — retrouvez-la pour l\u2019envoyer depuis la fiche du prospect.');
-    closeModal('prospectModal');
+    openProspectModal(id); // recharge la fiche — le bloc invitation apparaît directement
+    loadProspects(currentProspectStatusFilter);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById('sendInvitationBtn').addEventListener('click', async () => {
+  const invId = document.getElementById('currentInvitationBlock').dataset.invitationId;
+  const prospectId = document.getElementById('prospectId').value;
+  if (!invId || !confirm('Envoyer cette invitation par email dès maintenant ?')) return;
+  try {
+    await api(`/admin/invitations/${invId}/send`, { method: 'POST' });
+    openProspectModal(prospectId);
+    loadProspects(currentProspectStatusFilter);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById('cancelInvitationBtn').addEventListener('click', async () => {
+  const invId = document.getElementById('currentInvitationBlock').dataset.invitationId;
+  const prospectId = document.getElementById('prospectId').value;
+  if (!invId || !confirm('Annuler cette invitation ? Cette action est définitive.')) return;
+  try {
+    await api(`/admin/invitations/${invId}/cancel`, { method: 'POST' });
+    openProspectModal(prospectId);
     loadProspects(currentProspectStatusFilter);
   } catch (err) {
     alert(err.message);
