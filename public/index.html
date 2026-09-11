@@ -1688,6 +1688,36 @@
       <p data-i18n="privacy.rights_text">Vous pouvez modifier vos informations à tout moment depuis votre profil. Pour toute demande de suppression complète de compte, contactez un·e administrateur·rice du site.</p>
     </div>
   </section>
+
+  <!-- ===== Vue publique : acceptation d'invitation (réseau professionnel) ===== -->
+  <section id="view-invitation" class="view" hidden>
+    <div class="form-page" id="invitationLoading">
+      <p>Chargement de votre invitation...</p>
+    </div>
+    <div class="form-page" id="invitationError" hidden>
+      <h1>Invitation introuvable</h1>
+      <p id="invitationErrorMessage"></p>
+    </div>
+    <div class="form-page" id="invitationContent" hidden>
+      <p class="eyebrow">INVITATION PROFESSIONNELLE</p>
+      <h1 id="invitationProspectName"></h1>
+      <p class="form-hint" id="invitationProspectCompany"></p>
+      <p class="invitation-message-body" id="invitationMessageBody"></p>
+
+      <div id="invitationDeclinedNotice" hidden>
+        <p>Vous avez décliné cette invitation.</p>
+      </div>
+
+      <form id="invitationAcceptForm" class="atlas-form">
+        <label id="invitationPasswordLabel">Choisissez un mot de passe pour votre compte
+          <input type="password" id="invitationPassword" minlength="8" />
+        </label>
+        <p class="form-error" id="invitationFormError" hidden></p>
+        <button type="submit" class="btn btn--primary btn--block">Accepter et créer mon profil</button>
+      </form>
+      <button type="button" class="btn btn--ghost btn--block" id="declineInvitationBtn" style="margin-top: 10px;">Décliner cette invitation</button>
+    </div>
+  </section>
 </main>
 <footer class="site-footer">
   <div class="footer-inner">
