@@ -4691,10 +4691,12 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminAppearancePanel').hidden = btn.dataset.adminTab !== 'appearance';
     document.getElementById('adminInboxPanel').hidden = btn.dataset.adminTab !== 'inbox';
     document.getElementById('adminOriginsPanel').hidden = btn.dataset.adminTab !== 'origins';
+    document.getElementById('adminProspectsPanel').hidden = btn.dataset.adminTab !== 'prospects';
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
     if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); loadSiteEmailSettings(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
     if (btn.dataset.adminTab === 'origins') loadAdminOrigins();
+    if (btn.dataset.adminTab === 'prospects') loadProspects('');
   })
 );
 document.querySelectorAll('[data-super-admin-tab]').forEach((btn) =>
@@ -4935,6 +4937,157 @@ function formatAuditDetails(action, details) {
       return '';
   }
 }
+// ---------------------------------------------------------------------------
+// Réseau professionnel — prospects et invitations.
+// ---------------------------------------------------------------------------
+const PROSPECT_STATUS_LABELS = {
+  discovered: 'Repéré', invitation_prepared: 'Invitation préparée', invitation_sent: 'Invitation envoyée',
+  accepted: 'Acceptée', declined: 'Refusée', cancelled: 'Annulée', expired: 'Expirée', converted: 'Converti',
+};
+let currentProspectStatusFilter = '';
+let currentProspectDetail = null;
+
+async function loadProspects(statusFilter) {
+  currentProspectStatusFilter = statusFilter;
+  const tbody = document.getElementById('prospectsTableBody');
+  const emptyEl = document.getElementById('prospectsEmpty');
+  try {
+    const prospects = await api('/admin/prospects' + (statusFilter ? `?status=${statusFilter}` : ''));
+    tbody.innerHTML = '';
+    emptyEl.hidden = prospects.length > 0;
+    for (const p of prospects) {
+      const categoryLabel = p.category_id ? (findCategoryById(p.category_id)?.name || '—') : '—';
+      tbody.append(el('tr', { style: 'cursor:pointer', onclick: () => openProspectModal(p.id) }, [
+        el('td', {}, p.public_name),
+        el('td', {}, p.company_name || '—'),
+        el('td', {}, categoryLabel),
+        el('td', {}, p.confidence_score != null ? `${p.confidence_score}%` : '—'),
+        el('td', {}, el('span', { class: 'status-pill' }, PROSPECT_STATUS_LABELS[p.invitation_status] || p.invitation_status)),
+        el('td', {}, ''),
+      ]));
+    }
+  } catch (err) {
+    console.error('Erreur chargement prospects', err);
+  }
+}
+
+document.querySelectorAll('[data-prospect-status]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-prospect-status]').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadProspects(btn.dataset.prospectStatus);
+  });
+});
+
+function resetProspectForm() {
+  document.getElementById('prospectForm').reset();
+  document.getElementById('prospectId').value = '';
+  document.getElementById('prospectError').hidden = true;
+  document.getElementById('prospectQualificationResult').textContent = '';
+  document.getElementById('qualifyProspectBtn').hidden = true;
+  document.getElementById('prepareInvitationBtn').hidden = true;
+  currentProspectDetail = null;
+}
+
+document.getElementById('newProspectBtn').addEventListener('click', () => {
+  resetProspectForm();
+  document.getElementById('prospectModalTitle').textContent = 'Ajouter un prospect';
+  openModal('prospectModal');
+});
+document.getElementById('prospectModalClose').addEventListener('click', () => closeModal('prospectModal'));
+
+async function openProspectModal(id) {
+  resetProspectForm();
+  try {
+    const p = await api(`/admin/prospects/${id}`);
+    currentProspectDetail = p;
+    document.getElementById('prospectModalTitle').textContent = p.public_name;
+    document.getElementById('prospectId').value = p.id;
+    document.getElementById('prospectPublicName').value = p.public_name || '';
+    document.getElementById('prospectTitle').value = p.professional_title || '';
+    document.getElementById('prospectCompany').value = p.company_name || '';
+    document.getElementById('prospectCity').value = p.city || '';
+    document.getElementById('prospectCountry').value = p.country || '';
+    document.getElementById('prospectEmail').value = p.professional_email || '';
+    document.getElementById('prospectPhone').value = p.professional_phone || '';
+    document.getElementById('prospectWebsite').value = p.website || '';
+    document.getElementById('prospectSource').value = p.source || '';
+    if (p.confidence_score != null) {
+      document.getElementById('prospectQualificationResult').textContent = `Dernière qualification IA : ${p.confidence_score}% de confiance — ${p.ai_classification_explanation || ''}`;
+    }
+    document.getElementById('qualifyProspectBtn').hidden = false;
+    document.getElementById('prepareInvitationBtn').hidden = p.invitation_status !== 'discovered' && p.invitation_status !== 'invitation_prepared';
+    openModal('prospectModal');
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('prospectForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('prospectError');
+  errEl.hidden = true;
+  const id = document.getElementById('prospectId').value;
+  const payload = {
+    public_name: document.getElementById('prospectPublicName').value,
+    professional_title: document.getElementById('prospectTitle').value,
+    company_name: document.getElementById('prospectCompany').value,
+    city: document.getElementById('prospectCity').value,
+    country: document.getElementById('prospectCountry').value,
+    professional_email: document.getElementById('prospectEmail').value,
+    professional_phone: document.getElementById('prospectPhone').value,
+    website: document.getElementById('prospectWebsite').value,
+    source: document.getElementById('prospectSource').value,
+  };
+  try {
+    if (id) {
+      await api(`/admin/prospects/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      await api('/admin/prospects', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    closeModal('prospectModal');
+    loadProspects(currentProspectStatusFilter);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.hidden = false;
+  }
+});
+
+document.getElementById('qualifyProspectBtn').addEventListener('click', async () => {
+  const id = document.getElementById('prospectId').value;
+  if (!id) return alert('Enregistrez d\u2019abord le prospect avant de le qualifier.');
+  const resultEl = document.getElementById('prospectQualificationResult');
+  resultEl.textContent = 'Qualification en cours...';
+  try {
+    const result = await api(`/admin/prospects/${id}/qualify`, {
+      method: 'POST',
+      body: JSON.stringify({ notes: document.getElementById('prospectNotes').value }),
+    });
+    resultEl.textContent = `${result.category} > ${result.subcategory} — ${result.confidence}% de confiance. ${result.explanation}`;
+    if (!result.category_matched) resultEl.textContent += ' (catégorie non reconnue dans la taxonomie — à vérifier manuellement)';
+  } catch (err) {
+    if (err.message === 'AI_NOT_CONFIGURED') {
+      resultEl.textContent = 'Configurez d\u2019abord votre clé IA dans vos paramètres de compte.';
+    } else {
+      resultEl.textContent = err.message;
+    }
+  }
+});
+
+document.getElementById('prepareInvitationBtn').addEventListener('click', async () => {
+  const id = document.getElementById('prospectId').value;
+  if (!id) return;
+  if (!confirm('Préparer une invitation pour ce prospect ?')) return;
+  try {
+    await api(`/admin/prospects/${id}/invitation`, { method: 'POST' });
+    alert('Invitation préparée — retrouvez-la pour l\u2019envoyer depuis la fiche du prospect.');
+    closeModal('prospectModal');
+    loadProspects(currentProspectStatusFilter);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
 async function loadSuperAdminOrigins() {
   const summaryEl = document.getElementById('superAdminOriginsSummary');
   const countryTable = document.getElementById('superAdminOriginsCountryTable');
