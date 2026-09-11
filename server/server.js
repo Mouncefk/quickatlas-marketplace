@@ -4797,6 +4797,137 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       }
     }
 
+    // ==================================================================
+    // Réseau professionnel — invitations (sections 7, 8 et 9). Respecte
+    // scrupuleusement les règles anti-abus définies dans la
+    // spécification : pas d'auto-invitation, pas de doublon actif, pas
+    // de renvoi automatique après refus, limites de fréquence, et
+    // journalisation systématique.
+    // ==================================================================
+    if ((m = pathname.match(/^\/api\/admin\/prospects\/(\d+)\/invitation$/)) && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const prospect = db.prepare('SELECT * FROM professional_prospects WHERE id = ?').get(Number(m[1]));
+      if (!prospect) return sendJSON(res, 404, { error: 'Prospect introuvable.' });
+
+      // Jamais un professionnel invité vers lui-même.
+      if (prospect.professional_email && prospect.professional_email.toLowerCase() === admin.email.toLowerCase()) {
+        return sendJSON(res, 400, { error: 'Impossible de créer une invitation vers votre propre adresse.' });
+      }
+      if (!prospect.professional_email) {
+        return sendJSON(res, 400, { error: 'Ce prospect n\u2019a pas d\u2019adresse email renseignée.' });
+      }
+      // Jamais deux invitations actives simultanées pour le même
+      // prospect — et jamais de renvoi automatique après un refus : la
+      // seule façon d'en recréer une est un geste manuel et explicite
+      // ici, après que la précédente soit passée dans un état terminal.
+      const activeInvitation = db
+        .prepare(
+          `SELECT id FROM professional_invitations WHERE prospect_id = ? AND status IN ('discovered','invitation_prepared','invitation_sent')`
+        )
+        .get(prospect.id);
+      if (activeInvitation) return sendJSON(res, 409, { error: 'Une invitation est déjà active pour ce prospect.' });
+
+      const categoryName = prospect.category_id ? db.prepare('SELECT name FROM categories WHERE id = ?').get(prospect.category_id)?.name : null;
+      const activityName = prospect.activity_id ? db.prepare('SELECT name FROM professional_activities WHERE id = ?').get(prospect.activity_id)?.name : null;
+      const siteName = currentSiteName();
+      const messageBody = [
+        `Bonjour,`,
+        ``,
+        `${siteName} développe un réseau permettant de découvrir plus facilement des professionnels, services, entreprises et opportunités.`,
+        ``,
+        categoryName ? `Votre activité professionnelle semble correspondre à la catégorie :\n\n${categoryName}` : '',
+        activityName ? `\nActivité identifiée :\n\n${activityName}` : '',
+        ``,
+        `Nous vous invitons à découvrir ${siteName} et, si vous le souhaitez, à créer votre profil professionnel.`,
+        ``,
+        `Votre inscription est volontaire.`,
+      ].filter(Boolean).join('\n');
+
+      const result = db
+        .prepare(`INSERT INTO professional_invitations (prospect_id, sender_id, recipient_reference, status, message_body) VALUES (?, ?, ?, 'invitation_prepared', ?)`)
+        .run(prospect.id, admin.id, prospect.professional_email, messageBody);
+      db.prepare(`UPDATE professional_prospects SET invitation_status = 'invitation_prepared' WHERE id = ?`).run(prospect.id);
+      logAdminAction(masterDb, admin, 'invitation_prepared', 'professional_invitation', String(result.lastInsertRowid), { prospect_id: prospect.id });
+      return sendJSON(res, 201, db.prepare('SELECT * FROM professional_invitations WHERE id = ?').get(result.lastInsertRowid));
+    }
+
+    if ((m = pathname.match(/^\/api\/admin\/invitations\/(\d+)\/send$/)) && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const invitation = db.prepare('SELECT * FROM professional_invitations WHERE id = ?').get(Number(m[1]));
+      if (!invitation) return sendJSON(res, 404, { error: 'Invitation introuvable.' });
+      if (invitation.status !== 'invitation_prepared') {
+        return sendJSON(res, 400, { error: 'Seule une invitation préparée peut être envoyée.' });
+      }
+      // Limite de fréquence — un administrateur ne peut pas envoyer des
+      // invitations en masse de façon incontrôlée (règle explicite de
+      // la section 9). 20 par jour laisse une vraie marge pour un usage
+      // qualitatif, tout en empêchant un envoi de masse.
+      if (!checkRateLimit(`prospect-invitation-send:${admin.id}`, 20, 24 * 3600 * 1000)) {
+        return sendJSON(res, 429, { error: 'Limite quotidienne d\u2019envoi d\u2019invitations atteinte — réessayez demain.' });
+      }
+
+      const token = generateRawToken();
+      const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+      db.prepare(`UPDATE professional_invitations SET status = 'invitation_sent', invitation_token = ?, sent_at = datetime('now'), expires_at = ? WHERE id = ?`)
+        .run(token, expiresAt, invitation.id);
+      db.prepare(`UPDATE professional_prospects SET invitation_status = 'invitation_sent' WHERE id = ?`).run(invitation.prospect_id);
+
+      try {
+        await sendMail({
+          smtpConfig: getSiteMailConfig(),
+          to: invitation.recipient_reference,
+          purpose: 'professional_invitation',
+          subject: `Invitation à rejoindre ${currentSiteName()}`,
+          text: invitation.message_body,
+          link: `${SITE_URL}/invitation/${token}`,
+        });
+      } catch (err) {
+        console.error('[invitation professionnelle] échec de l\'envoi :', err.message);
+        return sendJSON(res, 502, { error: 'L\u2019invitation a été préparée mais l\u2019envoi de l\u2019email a échoué.' });
+      }
+      logAdminAction(masterDb, admin, 'invitation_sent', 'professional_invitation', String(invitation.id), { prospect_id: invitation.prospect_id });
+      return sendJSON(res, 200, db.prepare('SELECT * FROM professional_invitations WHERE id = ?').get(invitation.id));
+    }
+
+    if ((m = pathname.match(/^\/api\/admin\/invitations\/(\d+)\/cancel$/)) && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const invitation = db.prepare('SELECT * FROM professional_invitations WHERE id = ?').get(Number(m[1]));
+      if (!invitation) return sendJSON(res, 404, { error: 'Invitation introuvable.' });
+      if (!['invitation_prepared', 'invitation_sent'].includes(invitation.status)) {
+        return sendJSON(res, 400, { error: 'Cette invitation ne peut plus être annulée.' });
+      }
+      db.prepare(`UPDATE professional_invitations SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(invitation.id);
+      db.prepare(`UPDATE professional_prospects SET invitation_status = 'cancelled' WHERE id = ?`).run(invitation.prospect_id);
+      logAdminAction(masterDb, admin, 'invitation_cancelled', 'professional_invitation', String(invitation.id), { prospect_id: invitation.prospect_id });
+      return sendJSON(res, 200, { ok: true });
+    }
+
+    // Consultation publique d'une invitation (par jeton) — le
+    // professionnel destinataire n'a pas besoin de compte pour la voir.
+    if ((m = pathname.match(/^\/api\/invitations\/([A-Za-z0-9_-]+)$/)) && method === 'GET') {
+      const invitation = db.prepare('SELECT * FROM professional_invitations WHERE invitation_token = ?').get(m[1]);
+      if (!invitation) return sendJSON(res, 404, { error: 'Invitation introuvable ou expirée.' });
+      if (invitation.status === 'invitation_sent' && invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
+        db.prepare(`UPDATE professional_invitations SET status = 'expired' WHERE id = ?`).run(invitation.id);
+        db.prepare(`UPDATE professional_prospects SET invitation_status = 'expired' WHERE id = ?`).run(invitation.prospect_id);
+        return sendJSON(res, 410, { error: 'Cette invitation a expiré.' });
+      }
+      const prospect = db.prepare('SELECT public_name, company_name, professional_title FROM professional_prospects WHERE id = ?').get(invitation.prospect_id);
+      return sendJSON(res, 200, { status: invitation.status, message_body: invitation.message_body, prospect });
+    }
+
+    if ((m = pathname.match(/^\/api\/invitations\/([A-Za-z0-9_-]+)\/decline$/)) && method === 'POST') {
+      const invitation = db.prepare('SELECT * FROM professional_invitations WHERE invitation_token = ?').get(m[1]);
+      if (!invitation) return sendJSON(res, 404, { error: 'Invitation introuvable.' });
+      if (invitation.status !== 'invitation_sent') return sendJSON(res, 400, { error: 'Cette invitation ne peut plus être refusée.' });
+      db.prepare(`UPDATE professional_invitations SET status = 'declined', declined_at = datetime('now') WHERE id = ?`).run(invitation.id);
+      db.prepare(`UPDATE professional_prospects SET invitation_status = 'declined' WHERE id = ?`).run(invitation.prospect_id);
+      return sendJSON(res, 200, { ok: true });
+    }
+
     return sendJSON(res, 404, { error: 'Route API inconnue' });
   } catch (err) {
     console.error(err);
