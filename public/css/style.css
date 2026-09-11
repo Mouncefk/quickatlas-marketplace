@@ -796,7 +796,7 @@ textarea { resize: vertical; }
   font-size: 1.5rem; line-height: 1; cursor: pointer; padding: 6px;
 }
 .modal-close:hover { color: var(--parchment-100); }
-.auth-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--ink-line); }
+.auth-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--ink-line); }
 .auth-tab {
   background: none; border: none; color: rgba(241,233,216,0.55);
   padding: 8px 14px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
