@@ -1136,6 +1136,14 @@
           <button type="button" class="btn btn--ghost btn--small" id="qualifyProspectBtn" hidden>🤖 Qualifier par IA</button>
           <button type="button" class="btn btn--ghost btn--small" id="prepareInvitationBtn" hidden>✉️ Préparer une invitation</button>
         </div>
+        <div id="currentInvitationBlock" hidden class="current-invitation-block">
+          <p class="form-hint">Invitation en cours (<span id="currentInvitationStatus"></span>)</p>
+          <p class="current-invitation-message" id="currentInvitationMessage"></p>
+          <div class="modal-actions">
+            <button type="button" class="btn btn--primary btn--small" id="sendInvitationBtn" hidden>📤 Envoyer</button>
+            <button type="button" class="btn btn--danger btn--small" id="cancelInvitationBtn" hidden>Annuler l'invitation</button>
+          </div>
+        </div>
         <p class="form-error" id="prospectError" hidden></p>
         <button type="submit" class="btn btn--primary btn--block" id="prospectSubmitBtn">Enregistrer</button>
       </form>
