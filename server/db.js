@@ -936,6 +936,92 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
       }
     }
   }
+  // ------------------------------------------------------------------
+  // Réseau professionnel — taxonomie étendue (activité, spécialité, en
+  // plus des catégories/sous-catégories déjà existantes), prospects et
+  // invitations. Le prospect reste une entité à part entière, jamais
+  // confondue avec un vrai compte utilisateur tant qu'il n'a pas
+  // accepté explicitement de rejoindre la plateforme.
+  // ------------------------------------------------------------------
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS professional_activities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subcategory_id INTEGER NOT NULL REFERENCES subcategories(id) ON DELETE CASCADE,
+      slug TEXT NOT NULL,
+      name TEXT NOT NULL,
+      UNIQUE(subcategory_id, slug)
+    );
+    CREATE TABLE IF NOT EXISTS professional_specialties (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_id INTEGER NOT NULL REFERENCES professional_activities(id) ON DELETE CASCADE,
+      slug TEXT NOT NULL,
+      name TEXT NOT NULL,
+      UNIQUE(activity_id, slug)
+    );
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS professional_prospects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      public_name TEXT NOT NULL,
+      professional_title TEXT,
+      company_name TEXT,
+      category_id INTEGER REFERENCES categories(id),
+      subcategory_id INTEGER REFERENCES subcategories(id),
+      activity_id INTEGER REFERENCES professional_activities(id),
+      specialty_id INTEGER REFERENCES professional_specialties(id),
+      country TEXT,
+      region TEXT,
+      city TEXT,
+      professional_area TEXT,
+      website TEXT,
+      professional_email TEXT,
+      professional_phone TEXT,
+      source TEXT,
+      source_url TEXT,
+      -- Score de confiance du classement automatique par l'IA (0-100) —
+      -- jamais présenté comme une vérification humaine effective tant
+      -- que verified_at reste vide (voir section 5 de la spécification :
+      -- une détection automatique ne doit jamais passer pour vérifiée).
+      confidence_score INTEGER,
+      ai_classification_explanation TEXT,
+      verified_at TEXT,
+      discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_verified_at TEXT,
+      -- Dénormalisé depuis la dernière invitation liée, pour un filtrage
+      -- rapide sans jointure systématique — toujours resynchronisé au
+      -- même moment que le statut de l'invitation elle-même.
+      invitation_status TEXT NOT NULL DEFAULT 'discovered' CHECK (
+        invitation_status IN ('discovered','invitation_prepared','invitation_sent','accepted','declined','cancelled','expired','converted')
+      ),
+      converted_user_id INTEGER REFERENCES users(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_prospects_status ON professional_prospects(invitation_status);
+    CREATE INDEX IF NOT EXISTS idx_prospects_category ON professional_prospects(category_id);
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS professional_invitations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      prospect_id INTEGER NOT NULL REFERENCES professional_prospects(id) ON DELETE CASCADE,
+      sender_id INTEGER REFERENCES users(id),
+      recipient_reference TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'discovered' CHECK (
+        status IN ('discovered','invitation_prepared','invitation_sent','accepted','declined','cancelled','expired','converted')
+      ),
+      message_body TEXT,
+      invitation_token TEXT UNIQUE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      sent_at TEXT,
+      accepted_at TEXT,
+      declined_at TEXT,
+      cancelled_at TEXT,
+      expires_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_invitations_prospect ON professional_invitations(prospect_id);
+    CREATE INDEX IF NOT EXISTS idx_invitations_status ON professional_invitations(status);
+    CREATE INDEX IF NOT EXISTS idx_invitations_token ON professional_invitations(invitation_token);
+  `);
   return db;
 }
 
