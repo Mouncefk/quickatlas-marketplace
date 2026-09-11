@@ -137,6 +137,58 @@ function parseFraudResponse(raw) {
   return { assessment: parsed.assessment, recommendation: parsed.recommendation || '' };
 }
 
+function buildProspectQualificationPrompt({ publicName, companyName, professionalTitle, rawText, categoryTree }) {
+  return [
+    `Tu classes un professionnel repéré manuellement dans la taxonomie d'une place de marché,`,
+    `à partir des informations fournies ci-dessous — toutes déjà transmises par la personne qui`,
+    `te sollicite, tu n'as accès à aucune autre source.`,
+    ``,
+    `Nom : ${publicName}`,
+    `Entreprise : ${companyName || '(non précisé)'}`,
+    `Titre professionnel : ${professionalTitle || '(non précisé)'}`,
+    `Notes ou description libre : ${rawText || '(aucune)'}`,
+    ``,
+    `Taxonomie disponible (catégorie > sous-catégorie) :`,
+    categoryTree,
+    ``,
+    `Réponds UNIQUEMENT avec un objet JSON de la forme`,
+    `{"category": "...", "subcategory": "...", "activity": "...", "specialty": "...", "confidence": 0-100, "explanation": "..."},`,
+    `sans texte avant/après, sans markdown. "category" et "subcategory" doivent reprendre exactement`,
+    `un intitulé de la taxonomie fournie ci-dessus — jamais un intitulé inventé. "activity" et`,
+    `"specialty" peuvent être proposés librement si pertinents, sinon laissés vides ("").`,
+    `"confidence" reflète ta certitude sur ce classement précis, en tenant compte du peu`,
+    `d'information disponible. "explanation" : 1-2 phrases justifiant le choix.`,
+  ].join('\n');
+}
+
+function parseProspectQualificationResponse(raw) {
+  const cleaned = raw.trim().replace(/^```json\s*|^```\s*|```$/g, '');
+  const parsed = JSON.parse(cleaned);
+  if (!parsed.category || !parsed.subcategory) throw new Error('Réponse de qualification invalide.');
+  return {
+    category: parsed.category,
+    subcategory: parsed.subcategory,
+    activity: parsed.activity || '',
+    specialty: parsed.specialty || '',
+    confidence: Math.max(0, Math.min(100, Number(parsed.confidence) || 0)),
+    explanation: parsed.explanation || '',
+  };
+}
+
+/**
+ * Qualifie un prospect (déjà identifié manuellement) dans la taxonomie —
+ * avec la clé de la personne qui déclenche l'analyse. Le résultat reste
+ * une proposition à valider par un humain, jamais une vérification en
+ * soi (voir la règle de la section 5 de la spécification réseau
+ * professionnel : un classement automatique ne doit jamais être
+ * présenté comme vérifié).
+ */
+export async function qualifyProspect({ provider, apiKey, publicName, companyName, professionalTitle, rawText, categoryTree }) {
+  const prompt = buildProspectQualificationPrompt({ publicName, companyName, professionalTitle, rawText, categoryTree });
+  const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt);
+  return parseProspectQualificationResponse(raw);
+}
+
 /**
  * Analyse une annonce à la recherche de signaux de fraude, avec la clé de
  * la personne qui déclenche l'analyse (généralement un administrateur).
