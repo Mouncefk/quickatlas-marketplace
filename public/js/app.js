@@ -6918,6 +6918,66 @@ document.getElementById('cityRequestForm')?.addEventListener('submit', async (e)
     showToast(err.message);
   }
 });
+// ---------------------------------------------------------------------------
+// Réseau professionnel — page publique d'acceptation d'une invitation.
+// ---------------------------------------------------------------------------
+let currentInvitationToken = null;
+
+async function loadInvitation(token) {
+  currentInvitationToken = token;
+  const loadingEl = document.getElementById('invitationLoading');
+  const errorEl = document.getElementById('invitationError');
+  const contentEl = document.getElementById('invitationContent');
+  loadingEl.hidden = false;
+  errorEl.hidden = true;
+  contentEl.hidden = true;
+  try {
+    const invitation = await api(`/invitations/${token}`);
+    loadingEl.hidden = true;
+    contentEl.hidden = false;
+    document.getElementById('invitationProspectName').textContent = invitation.prospect.public_name;
+    document.getElementById('invitationProspectCompany').textContent = invitation.prospect.company_name || '';
+    document.getElementById('invitationMessageBody').textContent = invitation.message_body;
+
+    const alreadyDecided = invitation.status !== 'invitation_sent';
+    document.getElementById('invitationAcceptForm').hidden = alreadyDecided;
+    document.getElementById('declineInvitationBtn').hidden = alreadyDecided;
+    document.getElementById('invitationDeclinedNotice').hidden = invitation.status !== 'declined';
+  } catch (err) {
+    loadingEl.hidden = true;
+    errorEl.hidden = false;
+    document.getElementById('invitationErrorMessage').textContent = err.message;
+  }
+}
+
+document.getElementById('invitationAcceptForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('invitationFormError');
+  errEl.hidden = true;
+  try {
+    const data = await api(`/invitations/${currentInvitationToken}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ password: document.getElementById('invitationPassword').value }),
+    });
+    onAuthSuccess(data);
+    showToast('Bienvenue ! Votre profil professionnel a été créé — pensez à vérifier votre email.');
+    navigate('explore');
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.hidden = false;
+  }
+});
+
+document.getElementById('declineInvitationBtn').addEventListener('click', async () => {
+  if (!confirm('Décliner cette invitation ? Vous pourrez toujours nous contacter plus tard si vous changez d\u2019avis.')) return;
+  try {
+    await api(`/invitations/${currentInvitationToken}/decline`, { method: 'POST' });
+    loadInvitation(currentInvitationToken);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
 async function boot() {
   // Le formulaire de réservation vit maintenant en haut de la page
   // d'accueil (#reserveSection, dans view-explore, visible par défaut)
@@ -6925,6 +6985,11 @@ async function boot() {
   // lien direct ou un QR code voie tout de suite le bon contenu.
   if (window.location.pathname === '/reserve') {
     document.getElementById('reserveSection')?.scrollIntoView();
+  }
+  const invitationMatch = window.location.pathname.match(/^\/invitation\/([A-Za-z0-9_-]+)$/);
+  if (invitationMatch) {
+    navigate('invitation');
+    loadInvitation(invitationMatch[1]);
   }
   await applySiteBranding();
   initLanguagePicker();
