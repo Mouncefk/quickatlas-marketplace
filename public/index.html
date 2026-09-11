@@ -870,6 +870,7 @@
         <button class="auth-tab" data-admin-tab="appearance" data-i18n="admin.tab_appearance">Apparence</button>
         <button class="auth-tab" data-admin-tab="inbox" data-i18n="admin.tab_inbox">Boîte de réception</button>
         <button class="auth-tab" data-admin-tab="origins" data-i18n="admin.tab_origins">Origine des inscriptions</button>
+        <button class="auth-tab" data-admin-tab="prospects">Réseau professionnel</button>
       </div>
       <div id="adminDashboardPanel" class="admin-panel">
         <div class="dashboard-cards" id="dashboardCards"></div>
@@ -1069,8 +1070,78 @@
           </div>
         </div>
       </div>
+      <div id="adminProspectsPanel" class="admin-panel" hidden>
+        <button type="button" class="btn btn--primary btn--small" id="newProspectBtn" style="margin-bottom: 16px;">+ Ajouter un prospect</button>
+        <div class="prospect-tabs">
+          <button type="button" class="auth-tab active" data-prospect-status="">Tous</button>
+          <button type="button" class="auth-tab" data-prospect-status="discovered">Repérés</button>
+          <button type="button" class="auth-tab" data-prospect-status="invitation_sent">Invitation envoyée</button>
+          <button type="button" class="auth-tab" data-prospect-status="converted">Convertis</button>
+          <button type="button" class="auth-tab" data-prospect-status="declined">Refusés</button>
+        </div>
+        <table class="dashboard-table">
+          <thead><tr><th>Nom</th><th>Entreprise</th><th>Catégorie</th><th>Confiance IA</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="prospectsTableBody"></tbody>
+        </table>
+        <p class="empty-state" id="prospectsEmpty" hidden>Aucun prospect pour l'instant.</p>
+      </div>
     </div>
   </section>
+
+  <!-- ===== Modale Ajouter / consulter un prospect ===== -->
+  <div class="modal-overlay" id="prospectModal" hidden>
+    <div class="modal">
+      <button class="modal-close" id="prospectModalClose">✕</button>
+      <h2 id="prospectModalTitle">Ajouter un prospect</h2>
+      <form id="prospectForm" class="atlas-form">
+        <input type="hidden" id="prospectId" />
+        <label>Nom public *
+          <input type="text" id="prospectPublicName" required />
+        </label>
+        <div class="form-row">
+          <label>Titre professionnel
+            <input type="text" id="prospectTitle" />
+          </label>
+          <label>Entreprise
+            <input type="text" id="prospectCompany" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Ville
+            <input type="text" id="prospectCity" />
+          </label>
+          <label>Pays
+            <input type="text" id="prospectCountry" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Email professionnel
+            <input type="email" id="prospectEmail" />
+          </label>
+          <label>Téléphone professionnel
+            <input type="tel" id="prospectPhone" />
+          </label>
+        </div>
+        <label>Site web
+          <input type="url" id="prospectWebsite" />
+        </label>
+        <label>Source
+          <input type="text" id="prospectSource" placeholder="Ex. annuaire professionnel, recommandation..." />
+        </label>
+        <label>Notes libres (utilisées pour la qualification IA)
+          <textarea id="prospectNotes" rows="3"></textarea>
+        </label>
+        <p class="form-hint" id="prospectQualificationResult"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn--ghost btn--small" id="qualifyProspectBtn" hidden>🤖 Qualifier par IA</button>
+          <button type="button" class="btn btn--ghost btn--small" id="prepareInvitationBtn" hidden>✉️ Préparer une invitation</button>
+        </div>
+        <p class="form-error" id="prospectError" hidden></p>
+        <button type="submit" class="btn btn--primary btn--block" id="prospectSubmitBtn">Enregistrer</button>
+      </form>
+    </div>
+  </div>
+
   <!-- ===== Vue dédiée : Réseau de sites (Super Admin) ===== -->
   <!-- ===== Vue dédiée : Réseau de sites (Super Admin) ===== -->
   <section id="view-super-admin" class="view" hidden>
