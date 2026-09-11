@@ -2738,6 +2738,17 @@ textarea { resize: vertical; }
   cursor: pointer;
 }
 .fake-reservation-row:last-child { border-bottom: none; }
+/* ---------- Statut prospect (réseau professionnel) ---------- */
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  background: rgba(198,161,91,0.12);
+  color: var(--brass-300);
+  white-space: nowrap;
+}
 /* Piège à robots — masqué visuellement mais présent dans le DOM (pas
    display:none ni visibility:hidden, que certains robots détectent
    et évitent spécifiquement) ; positionné hors champ plutôt que
