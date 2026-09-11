@@ -2764,6 +2764,16 @@ textarea { resize: vertical; }
   max-height: 160px;
   overflow-y: auto;
 }
+.invitation-message-body {
+  white-space: pre-line;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: rgba(241,233,216,0.85);
+  padding: 18px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  margin: 16px 0 24px;
+}
 /* Piège à robots — masqué visuellement mais présent dans le DOM (pas
    display:none ni visibility:hidden, que certains robots détectent
    et évitent spécifiquement) ; positionné hors champ plutôt que
