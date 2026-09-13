@@ -1415,7 +1415,10 @@ document.getElementById('publishExtraCountriesDeselectAllBtn')?.addEventListener
  * villes + sélection de pays entiers supplémentaires) — appelée à
  * chaque changement de catégorie dans le formulaire de publication. */
 function updateTourismCrossBorderMode(categorySlug) {
-  currentPublishIsTourism = categorySlug === 'tourisme-voyages';
+  // Le nom de variable reste "IsTourism" par simplicité (pour limiter le
+  // risque d'un renommage incomplet), mais couvre bien les 4 catégories
+  // transfrontalières désormais autorisées, pas seulement le Tourisme.
+  currentPublishIsTourism = ['tourisme-voyages', 'opportunites-affaires', 'services', 'immobilier'].includes(categorySlug);
   const countriesRow = document.getElementById('publishExtraCountriesRow');
   if (countriesRow) countriesRow.hidden = !currentPublishIsTourism;
   selectedExtraCountryIds = new Set();
