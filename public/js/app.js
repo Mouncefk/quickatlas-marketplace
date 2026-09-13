@@ -1322,6 +1322,7 @@ async function loadFeatured() {
 let currentExtraCitiesData = [];
 let selectedExtraCityIds = new Set();
 let currentPublishIsTourism = false;
+let currentPublishAllowsCrossBorderCountries = false;
 function renderExtraCitiesList(items) {
   const list = document.getElementById('publishExtraCitiesList');
   if (!list) return;
@@ -1415,15 +1416,18 @@ document.getElementById('publishExtraCountriesDeselectAllBtn')?.addEventListener
  * villes + sélection de pays entiers supplémentaires) — appelée à
  * chaque changement de catégorie dans le formulaire de publication. */
 function updateTourismCrossBorderMode(categorySlug) {
-  // Le nom de variable reste "IsTourism" par simplicité (pour limiter le
-  // risque d'un renommage incomplet), mais couvre bien les 4 catégories
-  // transfrontalières désormais autorisées, pas seulement le Tourisme.
-  currentPublishIsTourism = ['tourisme-voyages', 'opportunites-affaires', 'services', 'immobilier'].includes(categorySlug);
+  // Deux notions distinctes, à ne pas confondre : le Tourisme change le
+  // MODE de recherche de villes (recherche mondiale plutôt que liste
+  // pré-chargée du pays) — les 3 autres catégories transfrontalières
+  // gardent la liste normale des villes du pays, seule la case à cocher
+  // "pays supplémentaires" leur est ouverte en plus.
+  currentPublishIsTourism = categorySlug === 'tourisme-voyages';
+  currentPublishAllowsCrossBorderCountries = ['tourisme-voyages', 'opportunites-affaires', 'services', 'immobilier'].includes(categorySlug);
   const countriesRow = document.getElementById('publishExtraCountriesRow');
-  if (countriesRow) countriesRow.hidden = !currentPublishIsTourism;
+  if (countriesRow) countriesRow.hidden = !currentPublishAllowsCrossBorderCountries;
   selectedExtraCountryIds = new Set();
   document.getElementById('publishExtraCountriesSearch') && (document.getElementById('publishExtraCountriesSearch').value = '');
-  if (currentPublishIsTourism) renderExtraCountriesList('');
+  if (currentPublishAllowsCrossBorderCountries) renderExtraCountriesList('');
   // Repart d'une liste de villes vierge à chaque bascule — évite de
   // laisser une sélection issue de l'autre mode (liste pré-chargée vs
   // recherche mondiale), qui n'aurait plus de sens une fois basculé.
@@ -3565,7 +3569,7 @@ document.getElementById('publishForm').addEventListener('submit', async (e) => {
     city_id: Number(fd.get('city_id')),
     visible_all_cities: fd.get('visible_all_cities') === 'on',
     extra_city_ids: document.getElementById('publishVisibleAllCities').checked ? [] : [...selectedExtraCityIds],
-    extra_country_ids: currentPublishIsTourism ? [...selectedExtraCountryIds] : [],
+    extra_country_ids: currentPublishAllowsCrossBorderCountries ? [...selectedExtraCountryIds] : [],
     price: fd.get('price') === '' ? null : Number(fd.get('price')),
     currency: (fd.get('currency') || 'EUR').toUpperCase(),
     description: fd.get('description'),
