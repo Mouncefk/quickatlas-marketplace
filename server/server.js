@@ -2070,19 +2070,22 @@ async function handleRequest(req, res) {
       // Villes supplémentaires choisies — restreintes au même pays que la
       // ville réelle du bien pour la plupart des catégories (pas de sens
       // à cross-lister une voiture au Maroc vers une ville française),
-      // sauf le Tourisme, transfrontalier par nature.
-      const isTourism = category.slug === 'tourisme-voyages';
+      // sauf les catégories par nature transfrontalières : Tourisme,
+      // Opportunités d'affaires, Services et Immobilier (un bien, un
+      // service ou une opportunité peut légitimement se décliner dans
+      // plusieurs pays, contrairement à un véhicule ou un meuble précis).
+      const allowsCrossBorder = ['tourisme-voyages', 'opportunites-affaires', 'services', 'immobilier'].includes(category.slug);
       if (Array.isArray(extra_city_ids) && extra_city_ids.length) {
         const insertExtraCity = db.prepare('INSERT OR IGNORE INTO listing_extra_cities (listing_id, city_id) VALUES (?, ?)');
         for (const extraCityId of extra_city_ids) {
-          const extraCity = isTourism
+          const extraCity = allowsCrossBorder
             ? db.prepare('SELECT id FROM cities WHERE id = ?').get(Number(extraCityId))
             : db.prepare('SELECT id FROM cities WHERE id = ? AND country_id = ?').get(Number(extraCityId), city.country_id);
           if (extraCity) insertExtraCity.run(id, extraCity.id);
         }
       }
       // Pays supplémentaires entiers — Tourisme uniquement.
-      if (isTourism && Array.isArray(body.extra_country_ids) && body.extra_country_ids.length) {
+      if (allowsCrossBorder && Array.isArray(body.extra_country_ids) && body.extra_country_ids.length) {
         const insertExtraCountry = db.prepare('INSERT OR IGNORE INTO listing_extra_countries (listing_id, country_id) VALUES (?, ?)');
         for (const extraCountryId of body.extra_country_ids) {
           const extraCountry = db.prepare('SELECT id FROM countries WHERE id = ?').get(Number(extraCountryId));
@@ -2332,7 +2335,7 @@ async function handleRequest(req, res) {
       let visibilityTouched = body.city_id !== undefined || body.visible_all_cities !== undefined;
       const finalCategoryId = body.category_id !== undefined ? body.category_id : listing.category_id;
       const finalCategory = db.prepare('SELECT slug FROM categories WHERE id = ?').get(finalCategoryId);
-      const isTourismUpdate = finalCategory?.slug === 'tourisme-voyages';
+      const allowsCrossBorderUpdate = ['tourisme-voyages', 'opportunites-affaires', 'services', 'immobilier'].includes(finalCategory?.slug);
       if (Array.isArray(body.extra_city_ids)) {
         const finalCityId = body.city_id !== undefined ? body.city_id : listing.city_id;
         const finalCity = db.prepare('SELECT country_id FROM cities WHERE id = ?').get(finalCityId);
@@ -2340,7 +2343,7 @@ async function handleRequest(req, res) {
         if (finalCity) {
           const insertExtraCity = db.prepare('INSERT OR IGNORE INTO listing_extra_cities (listing_id, city_id) VALUES (?, ?)');
           for (const extraCityId of body.extra_city_ids) {
-            const extraCity = isTourismUpdate
+            const extraCity = allowsCrossBorderUpdate
               ? db.prepare('SELECT id FROM cities WHERE id = ?').get(Number(extraCityId))
               : db.prepare('SELECT id FROM cities WHERE id = ? AND country_id = ?').get(Number(extraCityId), finalCity.country_id);
             if (extraCity) insertExtraCity.run(listingId, extraCity.id);
@@ -2348,9 +2351,10 @@ async function handleRequest(req, res) {
         }
         visibilityTouched = true;
       }
-      // Pays supplémentaires entiers — Tourisme uniquement, remplacés
-      // intégralement si transmis.
-      if (isTourismUpdate && Array.isArray(body.extra_country_ids)) {
+      // Pays supplémentaires entiers — catégories transfrontalières
+      // uniquement (voir la liste ci-dessus), remplacés intégralement si
+      // transmis.
+      if (allowsCrossBorderUpdate && Array.isArray(body.extra_country_ids)) {
         db.prepare('DELETE FROM listing_extra_countries WHERE listing_id = ?').run(listingId);
         const insertExtraCountry = db.prepare('INSERT OR IGNORE INTO listing_extra_countries (listing_id, country_id) VALUES (?, ?)');
         for (const extraCountryId of body.extra_country_ids) {
