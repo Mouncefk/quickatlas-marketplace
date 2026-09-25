@@ -4699,11 +4699,13 @@ document.querySelectorAll('[data-admin-tab]').forEach((btn) =>
     document.getElementById('adminInboxPanel').hidden = btn.dataset.adminTab !== 'inbox';
     document.getElementById('adminOriginsPanel').hidden = btn.dataset.adminTab !== 'origins';
     document.getElementById('adminProspectsPanel').hidden = btn.dataset.adminTab !== 'prospects';
+    document.getElementById('adminSocialPanel').hidden = btn.dataset.adminTab !== 'social';
     if (btn.dataset.adminTab === 'city-requests') loadCityRequests();
     if (btn.dataset.adminTab === 'appearance') { loadAdminLogoPreview(); loadAdminMapSetting(); loadSiteEmailSettings(); }
     if (btn.dataset.adminTab === 'inbox') loadAdminInbox();
     if (btn.dataset.adminTab === 'origins') loadAdminOrigins();
     if (btn.dataset.adminTab === 'prospects') loadProspects('');
+    if (btn.dataset.adminTab === 'social') { loadFacebookSettings(); loadSocialPostsLog(); }
   })
 );
 document.querySelectorAll('[data-super-admin-tab]').forEach((btn) =>
@@ -4953,6 +4955,86 @@ const PROSPECT_STATUS_LABELS = {
 };
 let currentProspectStatusFilter = '';
 let currentProspectDetail = null;
+
+// ---------------------------------------------------------------------------
+// Réglages Facebook et publication automatique.
+// ---------------------------------------------------------------------------
+async function loadFacebookSettings() {
+  try {
+    const settings = await api('/admin/settings/facebook');
+    document.getElementById('fbPageId').value = settings.fb_page_id || '';
+    document.getElementById('fbAutoPostEnabled').checked = settings.auto_post_enabled;
+    document.getElementById('fbPostFrequency').value = settings.post_frequency_days;
+    document.getElementById('fbTokenStatus').textContent = settings.has_token
+      ? 'Un jeton est déjà enregistré — laissez le champ vide pour le conserver.'
+      : 'Aucun jeton enregistré pour l\u2019instant.';
+  } catch (err) {
+    console.error('Erreur chargement réglages Facebook', err);
+  }
+}
+
+document.getElementById('facebookSettingsForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('fbSettingsError');
+  const successEl = document.getElementById('fbSettingsSuccess');
+  errEl.hidden = true;
+  successEl.hidden = true;
+  try {
+    await api('/admin/settings/facebook', {
+      method: 'PUT',
+      body: JSON.stringify({
+        fb_page_id: document.getElementById('fbPageId').value,
+        fb_page_access_token: document.getElementById('fbPageAccessToken').value,
+        auto_post_enabled: document.getElementById('fbAutoPostEnabled').checked,
+        post_frequency_days: document.getElementById('fbPostFrequency').value,
+      }),
+    });
+    document.getElementById('fbPageAccessToken').value = '';
+    successEl.hidden = false;
+    loadFacebookSettings();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.hidden = false;
+  }
+});
+
+document.getElementById('facebookTestPostForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('fbTestError');
+  errEl.hidden = true;
+  const message = document.getElementById('fbTestMessage').value.trim();
+  if (!message) return;
+  try {
+    await api('/admin/social/facebook/post-now', { method: 'POST', body: JSON.stringify({ message }) });
+    document.getElementById('fbTestMessage').value = '';
+    loadSocialPostsLog();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.hidden = false;
+  }
+});
+
+async function loadSocialPostsLog() {
+  const tbody = document.getElementById('socialPostsTableBody');
+  const emptyEl = document.getElementById('socialPostsEmpty');
+  try {
+    const posts = await api('/admin/social/posts');
+    tbody.innerHTML = '';
+    emptyEl.hidden = posts.length > 0;
+    for (const p of posts) {
+      const statusLabel = p.status === 'posted' ? '✅ Publié' : `❌ Échec — ${p.error_message || ''}`;
+      tbody.append(el('tr', {}, [
+        el('td', {}, new Date(p.created_at + 'Z').toLocaleString('fr-FR')),
+        el('td', {}, p.platform),
+        el('td', {}, p.content || '(vide)'),
+        el('td', {}, statusLabel),
+        el('td', {}, p.triggered_by === 'auto' ? 'Automatique' : 'Manuel'),
+      ]));
+    }
+  } catch (err) {
+    console.error('Erreur chargement journal publications', err);
+  }
+}
 
 async function loadProspects(statusFilter) {
   currentProspectStatusFilter = statusFilter;
