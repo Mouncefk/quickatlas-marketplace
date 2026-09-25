@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { db, DATA_DIR, masterDb, mainDb, getTenantDatabase, closeTenantDatabase, tenantContext, siteInfoContext, initializeDatabase, copyReferenceData } from './db.js';
 import { hashPassword, verifyPassword, signToken, verifyToken, generateRawToken, hashRawToken, passwordIssues, encryptApiKey, decryptApiKey } from './auth.js';
 import { sendMail } from './mailer.js';
-import { translateListing, draftListing, analyzeFraudRisk, translateText, qualifyProspect } from './ai.js';
+import { translateListing, draftListing, analyzeFraudRisk, translateText, qualifyProspect, generateSocialPostContent } from './ai.js';
 import { translateListingFree } from './free-translate.js';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
@@ -738,6 +738,82 @@ async function postToFacebook(pageId, pageAccessToken, message, link) {
   }
   return data.id; // format habituel : "{page-id}_{post-id}"
 }
+/** Orchestre une publication automatique complète pour un site donné :
+ * récupère de vraies annonces récentes (jamais de contenu inventé),
+ * génère le texte via l'IA de l'un des administrateurs du site, publie,
+ * et journalise le résultat (succès ou échec) dans social_posts. */
+async function runFacebookAutoPostForSite(siteDb, siteBrandName, siteUrl) {
+  const settingsRows = siteDb.prepare("SELECT key, value FROM site_settings WHERE key IN ('fb_page_id','fb_page_access_token_encrypted')").all();
+  const settings = Object.fromEntries(settingsRows.map((r) => [r.key, r.value]));
+  if (!settings.fb_page_id || !settings.fb_page_access_token_encrypted) return;
+
+  const adminWithAi = siteDb
+    .prepare("SELECT ai_provider, ai_api_key_encrypted FROM users WHERE role IN ('admin','super_admin') AND ai_api_key_encrypted IS NOT NULL LIMIT 1")
+    .get();
+  if (!adminWithAi) {
+    siteDb.prepare("INSERT INTO social_posts (platform, content, status, error_message, triggered_by) VALUES ('facebook', '', 'failed', ?, 'auto')")
+      .run('Aucun administrateur n\u2019a de clé IA configurée pour générer le contenu.');
+    return;
+  }
+
+  const recentListings = siteDb
+    .prepare(
+      `SELECT l.title, c.name AS category_name, ci.name AS city_name
+       FROM listings l
+       LEFT JOIN categories c ON c.id = l.category_id
+       LEFT JOIN cities ci ON ci.id = l.city_id
+       WHERE l.status = 'active'
+       ORDER BY l.created_at DESC LIMIT 5`
+    )
+    .all();
+  const highlights = recentListings.length > 0
+    ? recentListings.map((l) => `- "${l.title}"${l.category_name ? ` (${l.category_name})` : ''}${l.city_name ? ` à ${l.city_name}` : ''}`).join('\n')
+    : 'Aucune annonce récente spécifique disponible — reste général sur la présentation de la plateforme, sans inventer de détail.';
+
+  try {
+    const apiKey = decryptApiKey(adminWithAi.ai_api_key_encrypted);
+    const message = await generateSocialPostContent({ provider: adminWithAi.ai_provider, apiKey, siteName: siteBrandName, siteUrl, highlights });
+    const pageToken = decryptApiKey(settings.fb_page_access_token_encrypted);
+    const externalId = await postToFacebook(settings.fb_page_id, pageToken, message, siteUrl);
+    siteDb.prepare("INSERT INTO social_posts (platform, content, link, status, external_post_id, triggered_by) VALUES ('facebook', ?, ?, 'posted', ?, 'auto')")
+      .run(message, siteUrl, externalId);
+  } catch (err) {
+    siteDb.prepare("INSERT INTO social_posts (platform, content, status, error_message, triggered_by) VALUES ('facebook', '', 'failed', ?, 'auto')")
+      .run(err.message);
+  }
+}
+/** Parcourt tous les sites du réseau et déclenche une publication
+ * automatique pour ceux qui l'ont activée et dont l'échéance (fréquence
+ * choisie par l'administrateur) est atteinte — même principe de parcours
+ * que computeGlobalOriginsStats, une base de site à la fois. */
+async function checkAndRunScheduledSocialPosts() {
+  const sites = masterDb.prepare('SELECT * FROM sites').all();
+  for (const site of sites) {
+    let siteDb;
+    try {
+      siteDb = getTenantDatabase(site.db_filename);
+    } catch {
+      continue;
+    }
+    const settingsRows = siteDb.prepare("SELECT key, value FROM site_settings WHERE key IN ('fb_auto_post_enabled','fb_post_frequency_days')").all();
+    const settings = Object.fromEntries(settingsRows.map((r) => [r.key, r.value]));
+    if (settings.fb_auto_post_enabled !== '1') continue;
+
+    const frequencyDays = Number(settings.fb_post_frequency_days) || 3;
+    const lastPost = siteDb.prepare("SELECT created_at FROM social_posts WHERE platform = 'facebook' AND status = 'posted' ORDER BY created_at DESC LIMIT 1").get();
+    const dueForNextPost = !lastPost || (Date.now() - new Date(lastPost.created_at + 'Z').getTime()) >= frequencyDays * 24 * 3600 * 1000;
+    if (!dueForNextPost) continue;
+
+    const siteUrl = site.custom_domain ? `https://${site.custom_domain}` : `https://${site.subdomain}.quickatlas.net`;
+    await runFacebookAutoPostForSite(siteDb, site.brand_name || 'QuickAtlas', siteUrl);
+  }
+}
+// Vérifie toutes les heures s'il y a une publication programmée à
+// déclencher — largement suffisant pour une fréquence exprimée en
+// jours, pas besoin d'une précision à la minute pour ce cas d'usage.
+setInterval(() => {
+  checkAndRunScheduledSocialPosts().catch((err) => console.error('[publication auto réseaux sociaux] erreur :', err.message));
+}, 3600 * 1000).unref();
 /** Enregistre une vue géolocalisée pour une annonce, en tâche de fond
  * (n'attend jamais cette fonction — ne doit jamais ralentir l'affichage
  * de la fiche annonce pour le visiteur). */
