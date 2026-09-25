@@ -183,6 +183,43 @@ function parseProspectQualificationResponse(raw) {
  * professionnel : un classement automatique ne doit jamais être
  * présenté comme vérifié).
  */
+function buildSocialPostPrompt({ siteName, siteUrl, highlights }) {
+  return [
+    `Tu rédiges un post Facebook pour la page officielle de ${siteName}, une marketplace`,
+    `d'annonces en ligne. Le ton doit être engageant, chaleureux, jamais robotique — comme`,
+    `rédigé par une vraie personne qui aime ce qu'elle fait, pas une IA qui liste des faits.`,
+    ``,
+    `Voici des éléments réels et récents de la plateforme à évoquer, au choix (pas`,
+    `besoin de tous les utiliser — choisis ce qui fait le post le plus vivant) :`,
+    highlights,
+    ``,
+    `Contraintes :`,
+    `- 2 à 4 phrases maximum, adapté à un post Facebook (pas un roman)`,
+    `- Toujours en français`,
+    `- Jamais de fausse information ou de chiffre inventé — reste uniquement sur ce qui`,
+    `  est fourni ci-dessus`,
+    `- Termine par un appel à l'action naturel vers ${siteUrl}`,
+    `- N'utilise PAS de guillemets autour du texte, pas de markdown, pas de hashtags`,
+    `  excessifs (2-3 maximum si pertinent)`,
+    ``,
+    `Réponds UNIQUEMENT avec le texte du post, rien d'autre avant ou après.`,
+  ].join('\n');
+}
+
+/**
+ * Génère un post pour les réseaux sociaux à partir de données réelles et
+ * récentes de la plateforme (jamais inventées) — utilisé pour la
+ * publication automatique périodique, avec la clé de l'administrateur
+ * qui a configuré la fonctionnalité.
+ */
+export async function generateSocialPostContent({ provider, apiKey, siteName, siteUrl, highlights }) {
+  const prompt = buildSocialPostPrompt({ siteName, siteUrl, highlights });
+  const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt);
+  const cleaned = raw.trim().replace(/^["']|["']$/g, '');
+  if (!cleaned) throw new Error('Contenu généré vide.');
+  return cleaned;
+}
+
 export async function qualifyProspect({ provider, apiKey, publicName, companyName, professionalTitle, rawText, categoryTree }) {
   const prompt = buildProspectQualificationPrompt({ publicName, companyName, professionalTitle, rawText, categoryTree });
   const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt);
