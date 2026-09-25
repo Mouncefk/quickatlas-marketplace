@@ -4327,6 +4327,51 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       db.prepare("DELETE FROM site_settings WHERE key IN ('smtp_host','smtp_port','smtp_user','smtp_pass_encrypted','mail_from')").run();
       return sendJSON(res, 200, { ok: true });
     }
+    // ------------------------------------------------------------------
+    // Réglages Facebook — identifiants de la Page (jeton chiffré, même
+    // modèle que le mot de passe SMTP) et paramètres de publication
+    // automatique périodique.
+    // ------------------------------------------------------------------
+    if (pathname === '/api/admin/settings/facebook' && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const rows = db
+        .prepare("SELECT key, value FROM site_settings WHERE key IN ('fb_page_id','fb_page_access_token_encrypted','fb_auto_post_enabled','fb_post_frequency_days')")
+        .all();
+      const settings = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+      return sendJSON(res, 200, {
+        fb_page_id: settings.fb_page_id || '',
+        has_token: !!settings.fb_page_access_token_encrypted,
+        auto_post_enabled: settings.fb_auto_post_enabled === '1',
+        post_frequency_days: Number(settings.fb_post_frequency_days) || 3,
+      });
+    }
+    if (pathname === '/api/admin/settings/facebook' && method === 'PUT') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const pageId = (body.fb_page_id || '').trim();
+      const pageToken = (body.fb_page_access_token || '').trim();
+      const autoPostEnabled = !!body.auto_post_enabled;
+      const frequencyDays = Math.max(1, Number(body.post_frequency_days) || 3);
+      if (!pageId) return sendJSON(res, 400, { error: 'L\u2019identifiant de la Page Facebook est requis.' });
+      const upsert = (key, value) => {
+        db.prepare("INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, String(value));
+      };
+      upsert('fb_page_id', pageId);
+      upsert('fb_auto_post_enabled', autoPostEnabled ? '1' : '0');
+      upsert('fb_post_frequency_days', frequencyDays);
+      // Le jeton n'est mis à jour QUE si un nouveau a été saisi — laisser
+      // le champ vide permet de modifier la fréquence sans le ressaisir.
+      if (pageToken) upsert('fb_page_access_token_encrypted', encryptApiKey(pageToken));
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (pathname === '/api/admin/settings/facebook' && method === 'DELETE') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      db.prepare("DELETE FROM site_settings WHERE key IN ('fb_page_id','fb_page_access_token_encrypted','fb_auto_post_enabled','fb_post_frequency_days')").run();
+      return sendJSON(res, 200, { ok: true });
+    }
     // Activation/désactivation de la carte du monde sur l'accueil — utile
     // pour masquer temporairement le concept lors d'une présentation, sans
     // toucher au reste de la page (titre, recherche restent visibles).
