@@ -717,6 +717,27 @@ async function geolocateIp(ip) {
     return null;
   }
 }
+/** Publie un message sur une Page Facebook via l'API Graph de Meta —
+ * fetch natif, aucune dépendance externe (SDK officiel non installé,
+ * cohérent avec le reste du projet). Retourne l'identifiant du post
+ * créé, ou lève une exception avec le message d'erreur renvoyé par
+ * Meta (jeton expiré, permissions manquantes, etc.), à charge de
+ * l'appelant de la consigner dans social_posts.
+ */
+async function postToFacebook(pageId, pageAccessToken, message, link) {
+  const params = new URLSearchParams({ message, access_token: pageAccessToken });
+  if (link) params.set('link', link);
+  const response = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(pageId)}/feed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params,
+  });
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error.message || 'Erreur inconnue renvoyée par l\u2019API Facebook.');
+  }
+  return data.id; // format habituel : "{page-id}_{post-id}"
+}
 /** Enregistre une vue géolocalisée pour une annonce, en tâche de fond
  * (n'attend jamais cette fonction — ne doit jamais ralentir l'affichage
  * de la fiche annonce pour le visiteur). */
@@ -4371,6 +4392,41 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       if (!admin) return;
       db.prepare("DELETE FROM site_settings WHERE key IN ('fb_page_id','fb_page_access_token_encrypted','fb_auto_post_enabled','fb_post_frequency_days')").run();
       return sendJSON(res, 200, { ok: true });
+    }
+    // Publication manuelle immédiate — sert aussi de bouton de test
+    // depuis le panneau admin, pour vérifier la configuration avant de
+    // compter sur la publication automatique périodique.
+    if (pathname === '/api/admin/social/facebook/post-now' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const message = (body.message || '').trim();
+      if (!message) return sendJSON(res, 400, { error: 'Le contenu du message est requis.' });
+
+      const settingsRows = db.prepare("SELECT key, value FROM site_settings WHERE key IN ('fb_page_id','fb_page_access_token_encrypted')").all();
+      const settings = Object.fromEntries(settingsRows.map((r) => [r.key, r.value]));
+      if (!settings.fb_page_id || !settings.fb_page_access_token_encrypted) {
+        return sendJSON(res, 400, { error: 'Configurez d\u2019abord la Page et le jeton Facebook dans les réglages.' });
+      }
+
+      try {
+        const pageToken = decryptApiKey(settings.fb_page_access_token_encrypted);
+        const externalId = await postToFacebook(settings.fb_page_id, pageToken, message, body.link || null);
+        db.prepare("INSERT INTO social_posts (platform, content, link, status, external_post_id, triggered_by) VALUES ('facebook', ?, ?, 'posted', ?, 'manual')")
+          .run(message, body.link || null, externalId);
+        return sendJSON(res, 200, { ok: true, external_post_id: externalId });
+      } catch (err) {
+        db.prepare("INSERT INTO social_posts (platform, content, link, status, error_message, triggered_by) VALUES ('facebook', ?, ?, 'failed', ?, 'manual')")
+          .run(message, body.link || null, err.message);
+        return sendJSON(res, 502, { error: err.message });
+      }
+    }
+    // Journal des publications — pour affichage dans le panneau admin.
+    if (pathname === '/api/admin/social/posts' && method === 'GET') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const rows = db.prepare('SELECT * FROM social_posts ORDER BY created_at DESC LIMIT 50').all();
+      return sendJSON(res, 200, rows);
     }
     // Activation/désactivation de la carte du monde sur l'accueil — utile
     // pour masquer temporairement le concept lors d'une présentation, sans
