@@ -1022,6 +1022,28 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
     CREATE INDEX IF NOT EXISTS idx_invitations_status ON professional_invitations(status);
     CREATE INDEX IF NOT EXISTS idx_invitations_token ON professional_invitations(invitation_token);
   `);
+
+  // ------------------------------------------------------------------
+  // Publication automatique sur les réseaux sociaux — journal des
+  // publications effectuées (manuelles ou automatiques), pour garder un
+  // historique consultable et éviter toute publication en double. Les
+  // identifiants de connexion eux-mêmes (page Facebook, jeton d'accès)
+  // vivent dans site_settings, chiffrés, sur le même modèle que le SMTP.
+  // ------------------------------------------------------------------
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      platform TEXT NOT NULL CHECK (platform IN ('facebook', 'tiktok', 'linkedin', 'youtube')),
+      content TEXT NOT NULL,
+      link TEXT,
+      status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'failed')),
+      error_message TEXT,
+      external_post_id TEXT,
+      triggered_by TEXT NOT NULL DEFAULT 'auto' CHECK (triggered_by IN ('auto', 'manual')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_social_posts_platform ON social_posts(platform, created_at);
+  `);
   return db;
 }
 
