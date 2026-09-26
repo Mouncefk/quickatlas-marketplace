@@ -1036,6 +1036,8 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
       platform TEXT NOT NULL CHECK (platform IN ('facebook', 'tiktok', 'linkedin', 'youtube')),
       content TEXT NOT NULL,
       link TEXT,
+      media_url TEXT,
+      media_type TEXT CHECK (media_type IN ('photo', 'video')),
       status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'failed')),
       error_message TEXT,
       external_post_id TEXT,
@@ -1044,6 +1046,17 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_listing_views_listing ON listing_views(l
     );
     CREATE INDEX IF NOT EXISTS idx_social_posts_platform ON social_posts(platform, created_at);
   `);
+  // Migration : ajout des colonnes média (photo/vidéo) à social_posts pour
+  // les bases déjà créées avant cette fonctionnalité.
+  {
+    const socialPostsColumns = db.prepare("PRAGMA table_info(social_posts)").all();
+    const mediaColumns = [['media_url', 'TEXT'], ['media_type', 'TEXT']];
+    for (const [name, type] of mediaColumns) {
+      if (!socialPostsColumns.some((c) => c.name === name)) {
+        db.exec(`ALTER TABLE social_posts ADD COLUMN ${name} ${type}`);
+      }
+    }
+  }
   return db;
 }
 
