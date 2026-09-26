@@ -365,6 +365,9 @@ const MIME = {
   '.jpg': 'image/jpeg',
   '.gif': 'image/gif',
   '.pdf': 'application/pdf',
+  '.mp4': 'video/mp4',
+  '.mov': 'video/quicktime',
+  '.webm': 'video/webm',
 };
 function serveStatic(req, res, pathname) {
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
@@ -737,6 +740,41 @@ async function postToFacebook(pageId, pageAccessToken, message, link) {
     throw new Error(data.error.message || 'Erreur inconnue renvoyée par l\u2019API Facebook.');
   }
   return data.id; // format habituel : "{page-id}_{post-id}"
+}
+/** Publie une photo sur une Page Facebook — l'image doit déjà être
+ * hébergée à une URL publiquement accessible (Meta la télécharge
+ * lui-même depuis cette URL, aucun envoi binaire direct nécessaire). */
+async function postPhotoToFacebook(pageId, pageAccessToken, caption, photoUrl) {
+  const params = new URLSearchParams({ url: photoUrl, access_token: pageAccessToken });
+  if (caption) params.set('caption', caption);
+  const response = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(pageId)}/photos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params,
+  });
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error.message || 'Erreur inconnue renvoyée par l\u2019API Facebook.');
+  }
+  return data.post_id || data.id;
+}
+/** Publie une vidéo sur une Page Facebook — même principe que pour une
+ * photo, à partir d'une URL publiquement accessible (file_url). Le
+ * traitement de la vidéo côté Meta peut prendre quelques minutes après
+ * cet appel avant qu'elle soit pleinement visible sur la Page. */
+async function postVideoToFacebook(pageId, pageAccessToken, description, videoUrl) {
+  const params = new URLSearchParams({ file_url: videoUrl, access_token: pageAccessToken });
+  if (description) params.set('description', description);
+  const response = await fetch(`https://graph-video.facebook.com/v21.0/${encodeURIComponent(pageId)}/videos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params,
+  });
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error.message || 'Erreur inconnue renvoyée par l\u2019API Facebook.');
+  }
+  return data.id;
 }
 /** Orchestre une publication automatique complète pour un site donné :
  * récupère de vraies annonces récentes (jamais de contenu inventé),
@@ -1262,6 +1300,20 @@ async function handleRequest(req, res) {
       const filePath = path.join(DATA_DIR, 'uploads', filename);
       return fs.readFile(filePath, (err, data) => {
         if (err) { res.writeHead(404); return res.end('Image introuvable'); }
+        const ext = path.extname(filePath);
+        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' });
+        res.end(data);
+      });
+    }
+    // Photos et vidéos téléversées pour les publications sur les réseaux
+    // sociaux — même principe que /uploads/, accès public non authentifié
+    // (nécessaire de toute façon pour que Meta puisse aller chercher le
+    // fichier depuis ses propres serveurs au moment de la publication).
+    if (pathname.startsWith('/social-media/')) {
+      const filename = path.basename(pathname);
+      const filePath = path.join(DATA_DIR, 'social-media', filename);
+      return fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(404); return res.end('Fichier introuvable'); }
         const ext = path.extname(filePath);
         res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' });
         res.end(data);
@@ -4117,6 +4169,46 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       fs.writeFileSync(path.join(cvDir, storedFilename), buffer);
       return sendJSON(res, 201, { url: `/attachments/${storedFilename}`, filename: originalName });
     }
+    // Téléversement d'un média (photo ou vidéo) pour une publication sur
+    // les réseaux sociaux — réservé aux administrateurs. La vidéo n'est
+    // pas compressée (contrairement aux photos d'annonces), juste
+    // enregistrée telle quelle ; limite de taille plus généreuse pour
+    // cette raison.
+    if (pathname === '/api/admin/uploads/social-media' && method === 'POST') {
+      const admin = requireAdmin(req, res);
+      if (!admin) return;
+      const { data, mime } = await readBody(req);
+      const allowedImages = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+      const allowedVideos = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm' };
+      const isImage = !!allowedImages[mime];
+      const isVideo = !!allowedVideos[mime];
+      if (!data || (!isImage && !isVideo)) {
+        return sendJSON(res, 400, { error: 'Format non pris en charge (images : JPEG/PNG/WEBP/GIF — vidéos : MP4/MOV/WEBM).' });
+      }
+      const buffer = Buffer.from(data, 'base64');
+      const maxSize = isVideo ? 80_000_000 : 5_000_000;
+      if (buffer.length > maxSize) {
+        return sendJSON(res, 400, { error: isVideo ? 'Vidéo trop volumineuse (80 Mo maximum).' : 'Image trop volumineuse (5 Mo maximum).' });
+      }
+      const mediaDir = path.join(DATA_DIR, 'social-media');
+      if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
+
+      if (isImage) {
+        try {
+          const compressed = await sharp(buffer).rotate().resize({ width: 1600, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
+          const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.webp`;
+          fs.writeFileSync(path.join(mediaDir, filename), compressed);
+          return sendJSON(res, 201, { url: `/social-media/${filename}`, media_type: 'photo' });
+        } catch (err) {
+          const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${allowedImages[mime]}`;
+          fs.writeFileSync(path.join(mediaDir, filename), buffer);
+          return sendJSON(res, 201, { url: `/social-media/${filename}`, media_type: 'photo' });
+        }
+      }
+      const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${allowedVideos[mime]}`;
+      fs.writeFileSync(path.join(mediaDir, filename), buffer);
+      return sendJSON(res, 201, { url: `/social-media/${filename}`, media_type: 'video' });
+    }
     if (pathname === '/api/geo-guess' && method === 'GET') {
       const tz = url.searchParams.get('tz');
       const locale = url.searchParams.get('locale');
@@ -4478,6 +4570,8 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       const body = await readBody(req);
       const message = (body.message || '').trim();
       if (!message) return sendJSON(res, 400, { error: 'Le contenu du message est requis.' });
+      const mediaUrl = body.media_url || null;
+      const mediaType = body.media_type || null; // 'photo' | 'video' | null
 
       const settingsRows = db.prepare("SELECT key, value FROM site_settings WHERE key IN ('fb_page_id','fb_page_access_token_encrypted')").all();
       const settings = Object.fromEntries(settingsRows.map((r) => [r.key, r.value]));
@@ -4485,15 +4579,27 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
         return sendJSON(res, 400, { error: 'Configurez d\u2019abord la Page et le jeton Facebook dans les réglages.' });
       }
 
+      // media_url stocké par le téléversement est un chemin relatif
+      // (/social-media/...) — Meta doit pouvoir le récupérer lui-même
+      // depuis une URL publique complète.
+      const absoluteMediaUrl = mediaUrl ? (mediaUrl.startsWith('http') ? mediaUrl : `${SITE_URL}${mediaUrl}`) : null;
+
       try {
         const pageToken = decryptApiKey(settings.fb_page_access_token_encrypted);
-        const externalId = await postToFacebook(settings.fb_page_id, pageToken, message, body.link || null);
-        db.prepare("INSERT INTO social_posts (platform, content, link, status, external_post_id, triggered_by) VALUES ('facebook', ?, ?, 'posted', ?, 'manual')")
-          .run(message, body.link || null, externalId);
+        let externalId;
+        if (mediaType === 'photo' && absoluteMediaUrl) {
+          externalId = await postPhotoToFacebook(settings.fb_page_id, pageToken, message, absoluteMediaUrl);
+        } else if (mediaType === 'video' && absoluteMediaUrl) {
+          externalId = await postVideoToFacebook(settings.fb_page_id, pageToken, message, absoluteMediaUrl);
+        } else {
+          externalId = await postToFacebook(settings.fb_page_id, pageToken, message, body.link || null);
+        }
+        db.prepare("INSERT INTO social_posts (platform, content, link, media_url, media_type, status, external_post_id, triggered_by) VALUES ('facebook', ?, ?, ?, ?, 'posted', ?, 'manual')")
+          .run(message, body.link || null, mediaUrl, mediaType, externalId);
         return sendJSON(res, 200, { ok: true, external_post_id: externalId });
       } catch (err) {
-        db.prepare("INSERT INTO social_posts (platform, content, link, status, error_message, triggered_by) VALUES ('facebook', ?, ?, 'failed', ?, 'manual')")
-          .run(message, body.link || null, err.message);
+        db.prepare("INSERT INTO social_posts (platform, content, link, media_url, media_type, status, error_message, triggered_by) VALUES ('facebook', ?, ?, ?, ?, 'failed', ?, 'manual')")
+          .run(message, body.link || null, mediaUrl, mediaType, err.message);
         return sendJSON(res, 502, { error: err.message });
       }
     }
