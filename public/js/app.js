@@ -5005,13 +5005,42 @@ document.getElementById('facebookTestPostForm').addEventListener('submit', async
   const message = document.getElementById('fbTestMessage').value.trim();
   if (!message) return;
   try {
-    await api('/admin/social/facebook/post-now', { method: 'POST', body: JSON.stringify({ message }) });
+    let mediaUrl = null;
+    let mediaType = null;
+    const file = document.getElementById('fbTestMedia').files[0];
+    if (file) {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const uploadRes = await api('/admin/uploads/social-media', { method: 'POST', body: JSON.stringify({ data: base64, mime: file.type }) });
+      mediaUrl = uploadRes.url;
+      mediaType = uploadRes.media_type;
+    }
+    await api('/admin/social/facebook/post-now', { method: 'POST', body: JSON.stringify({ message, media_url: mediaUrl, media_type: mediaType }) });
     document.getElementById('fbTestMessage').value = '';
+    document.getElementById('fbTestMedia').value = '';
+    document.getElementById('fbTestMediaPreview').textContent = '';
     loadSocialPostsLog();
   } catch (err) {
     errEl.textContent = err.message;
     errEl.hidden = false;
   }
+});
+document.getElementById('fbTestMedia').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const previewEl = document.getElementById('fbTestMediaPreview');
+  if (!file) { previewEl.textContent = ''; return; }
+  const isVideo = file.type.startsWith('video/');
+  const maxSize = isVideo ? 80_000_000 : 5_000_000;
+  if (file.size > maxSize) {
+    previewEl.textContent = `Fichier trop volumineux (maximum ${isVideo ? '80 Mo' : '5 Mo'}).`;
+    e.target.value = '';
+    return;
+  }
+  previewEl.textContent = `${isVideo ? '🎬' : '🖼️'} ${file.name} sera joint à la publication.`;
 });
 
 async function loadSocialPostsLog() {
