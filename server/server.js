@@ -796,7 +796,7 @@ async function runFacebookAutoPostForSite(siteDb, siteBrandName, siteUrl) {
 
   const recentListings = siteDb
     .prepare(
-      `SELECT l.title, c.name AS category_name, ci.name AS city_name
+      `SELECT l.title, l.images_json, c.name AS category_name, ci.name AS city_name
        FROM listings l
        LEFT JOIN categories c ON c.id = l.category_id
        LEFT JOIN cities ci ON ci.id = l.city_id
@@ -808,16 +808,32 @@ async function runFacebookAutoPostForSite(siteDb, siteBrandName, siteUrl) {
     ? recentListings.map((l) => `- "${l.title}"${l.category_name ? ` (${l.category_name})` : ''}${l.city_name ? ` à ${l.city_name}` : ''}`).join('\n')
     : 'Aucune annonce récente spécifique disponible — reste général sur la présentation de la plateforme, sans inventer de détail.';
 
+  // Illustre la publication avec la première photo de l'annonce la plus
+  // récente qui en a au moins une — jamais une image générique ou
+  // inventée, uniquement du contenu réel de la plateforme.
+  let photoUrl = null;
+  for (const listing of recentListings) {
+    try {
+      const images = JSON.parse(listing.images_json || '[]');
+      if (images.length > 0) {
+        photoUrl = images[0].startsWith('http') ? images[0] : `${siteUrl}${images[0]}`;
+        break;
+      }
+    } catch { /* images_json invalide pour cette annonce — on passe à la suivante */ }
+  }
+
   try {
     const apiKey = decryptApiKey(adminWithAi.ai_api_key_encrypted);
     const message = await generateSocialPostContent({ provider: adminWithAi.ai_provider, apiKey, siteName: siteBrandName, siteUrl, highlights });
     const pageToken = decryptApiKey(settings.fb_page_access_token_encrypted);
-    const externalId = await postToFacebook(settings.fb_page_id, pageToken, message, siteUrl);
-    siteDb.prepare("INSERT INTO social_posts (platform, content, link, status, external_post_id, triggered_by) VALUES ('facebook', ?, ?, 'posted', ?, 'auto')")
-      .run(message, siteUrl, externalId);
+    const externalId = photoUrl
+      ? await postPhotoToFacebook(settings.fb_page_id, pageToken, message, photoUrl)
+      : await postToFacebook(settings.fb_page_id, pageToken, message, siteUrl);
+    siteDb.prepare("INSERT INTO social_posts (platform, content, link, media_url, media_type, status, external_post_id, triggered_by) VALUES ('facebook', ?, ?, ?, ?, 'posted', ?, 'auto')")
+      .run(message, siteUrl, photoUrl, photoUrl ? 'photo' : null, externalId);
   } catch (err) {
-    siteDb.prepare("INSERT INTO social_posts (platform, content, status, error_message, triggered_by) VALUES ('facebook', '', 'failed', ?, 'auto')")
-      .run(err.message);
+    siteDb.prepare("INSERT INTO social_posts (platform, content, media_url, media_type, status, error_message, triggered_by) VALUES ('facebook', '', ?, ?, 'failed', ?, 'auto')")
+      .run(photoUrl, photoUrl ? 'photo' : null, err.message);
   }
 }
 /** Parcourt tous les sites du réseau et déclenche une publication
