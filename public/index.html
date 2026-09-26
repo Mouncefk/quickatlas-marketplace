@@ -1117,6 +1117,10 @@
           <label>Message
             <textarea id="fbTestMessage" rows="3" placeholder="Contenu du post à publier immédiatement..."></textarea>
           </label>
+          <label>Photo ou vidéo (optionnel)
+            <input type="file" id="fbTestMedia" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" />
+          </label>
+          <p class="form-hint" id="fbTestMediaPreview"></p>
           <p class="form-error" id="fbTestError" hidden></p>
           <button type="submit" class="btn btn--primary btn--small">Publier maintenant</button>
         </form>
