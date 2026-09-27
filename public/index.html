@@ -17,54 +17,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css" />
-<style>
-/* ===== Vitrine professionnelle (site principal) ===== */
-.pro-landing { background: #0E1B2E; color: #F1E9D8; padding: 56px 20px 40px; }
-.pro-landing > div { max-width: 1080px; margin: 0 auto; }
-.pl-hero { text-align: center; padding-bottom: 24px; }
-.pl-eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; letter-spacing: 0.12em; color: #C6A15B; margin: 0 0 14px; }
-.pl-title { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: clamp(1.9rem, 4.5vw, 3.1rem); line-height: 1.15; margin: 0 auto 18px; max-width: 820px; color: #F1E9D8; }
-.pl-sub { font-size: clamp(1rem, 2vw, 1.15rem); line-height: 1.6; max-width: 700px; margin: 0 auto 26px; color: rgba(241,233,216,0.85); }
-.pl-ctas { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-.pl-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 48px; padding: 10px 24px; text-align: center; border-radius: 999px; font: 600 1rem/1.25 'Inter', system-ui, sans-serif; cursor: pointer; text-decoration: none; border: 2px solid #C6A15B; transition: transform .15s ease, background .15s ease; }
-.pl-btn:hover { transform: translateY(-1px); }
-.pl-btn:focus-visible { outline: 3px solid #F1E9D8; outline-offset: 3px; }
-.pl-btn--gold { background: #C6A15B; color: #0E1B2E; }
-.pl-btn--gold:hover { background: #DDC48C; }
-.pl-btn--ghost { background: transparent; color: #F1E9D8; }
-.pl-note { font-size: 0.85rem; color: rgba(241,233,216,0.65); margin: 14px 0 0; }
-.pl-section { padding: 40px 0 8px; }
-.pl-h2 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: clamp(1.4rem, 3vw, 2rem); text-align: center; margin: 0 0 26px; color: #F1E9D8; }
-.pl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 16px; }
-.pl-grid--2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-.pl-card { background: rgba(241,233,216,0.05); border: 1px solid rgba(198,161,91,0.35); border-radius: 14px; padding: 22px; }
-.pl-card h3 { font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; margin: 10px 0 8px; color: #DDC48C; }
-.pl-card p { margin: 0; line-height: 1.55; color: rgba(241,233,216,0.85); font-size: 0.95rem; }
-.pl-card--sector { border-color: #C6A15B; }
-.pl-icon { font-size: 1.7rem; }
-.pl-steps { list-style: none; padding: 0; margin: 0 auto 26px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-.pl-steps li { display: flex; gap: 14px; align-items: flex-start; }
-.pl-steps p { margin: 4px 0 0; line-height: 1.5; color: rgba(241,233,216,0.85); }
-.pl-step-num { flex: 0 0 36px; height: 36px; border-radius: 50%; background: #C6A15B; color: #0E1B2E; font: 700 1rem 'IBM Plex Mono', monospace; display: flex; align-items: center; justify-content: center; }
-.pl-explore-intro { text-align: center; padding-top: 44px; border-top: 1px solid rgba(198,161,91,0.25); margin-top: 36px !important; }
-.pl-explore-intro .pl-h2 { margin-bottom: 8px; }
-.pl-explore-intro p { margin: 0; color: rgba(241,233,216,0.75); }
-[dir="rtl"] .pl-steps li { flex-direction: row; }
-/* Badge de rôle à côté du nom de l'utilisateur connecté */
-.role-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font: 600 0.78rem/1.2 'Inter', system-ui, sans-serif; white-space: nowrap; cursor: default; }
-.role-badge--super { background: #C6A15B; color: #0E1B2E; }
-.role-badge--admin { border: 1px solid #C6A15B; color: #DDC48C; }
-/* Menu d'en-tête sur ordinateur : passe à la ligne quand les liens ne
-   tiennent pas sur une seule ligne (compte super administrateur, écrans
-   moyens), au lieu de couper les derniers liens hors de l'écran. Le menu
-   mobile (burger) n'est pas concerné. */
-@media (min-width: 1024px) {
-  .main-nav { flex-wrap: wrap; row-gap: 6px; column-gap: 2px; overflow: visible; max-width: 100%; }
-  /* Liens légèrement resserrés pour que le menu complet (compte super
-     administrateur compris) tienne sur une seule ligne. */
-  .main-nav .nav-link { padding-left: 7px; padding-right: 7px; margin-left: 0; margin-right: 0; }
-}
-</style>
 <link rel="manifest" href="/manifest.json" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/icon-192.png" />
