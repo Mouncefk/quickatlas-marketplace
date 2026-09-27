@@ -75,6 +75,7 @@
       <button class="nav-link" id="randomExploreBtn" data-i18n="nav.random_explore" data-i18n-title="nav.random_explore_title">🎲</button>
       <button class="nav-link" data-nav="all-listings" data-i18n="nav.all_listings">Toutes les annonces</button>
       <button class="nav-link" data-nav="publish" data-i18n="nav.publish">Publier une annonce</button>
+      <button class="nav-link" data-nav="pros" data-main-site-only hidden data-i18n="landing.nav_link">💼 Professionnels</button>
       <button class="nav-link" data-nav="mine" data-i18n="nav.mine">Mes annonces</button>
       <button class="nav-link" data-nav="messages" id="messagesNavLink" hidden><span data-i18n="nav.messages">Messages</span><span class="nav-badge" id="messagesBadge" hidden>0</span></button>
       <button class="nav-link" data-nav="favorites" data-i18n="nav.favorites" id="favoritesNavLink" hidden>Favoris</button>
@@ -103,55 +104,6 @@
 <main id="app">
   <!-- ===== EXPLORE ===== -->
   <section id="view-explore" class="view">
-  <!-- ===== Vitrine professionnelle — site principal uniquement ===== -->
-  <section id="proLanding" class="pro-landing" hidden>
-    <div class="pl-hero">
-      <p class="pl-eyebrow" data-i18n="landing.eyebrow">POUR LES PROFESSIONNELS DE L'IMMOBILIER ET DE L'AUTOMOBILE</p>
-      <h1 class="pl-title" data-i18n="landing.title">Votre propre marketplace, à votre nom, avec les outils pour vendre plus vite</h1>
-      <p class="pl-sub" data-i18n="landing.sub">Un site d'annonces à votre marque, le suivi de vos prospects et des outils pour diffuser vos annonces partout : Google, LinkedIn, TikTok, Facebook, WhatsApp.</p>
-      <div class="pl-ctas">
-        <button type="button" class="pl-btn pl-btn--gold" data-nav="reserve" data-i18n="landing.cta_reserve">Réserver mon espace gratuitement</button>
-        <a class="pl-btn pl-btn--ghost" href="/QuickAtlas_Dossier_Presentation_FR.pdf" target="_blank" rel="noopener" data-i18n="landing.cta_brochure">📄 Dossier de présentation</a>
-      </div>
-      <p class="pl-note" data-i18n="landing.cta_note">Sans engagement et sans paiement avant le lancement officiel.</p>
-    </div>
-
-    <div class="pl-section">
-      <h2 class="pl-h2" data-i18n="landing.features_title">Tout ce qu'il vous faut, au même endroit</h2>
-      <div class="pl-grid">
-        <article class="pl-card"><span class="pl-icon">🏷️</span><h3 data-i18n="landing.f1_title">Votre site à votre marque</h3><p data-i18n="landing.f1_text">Une adresse du type votreagence.quickatlas.net ou votre propre nom de domaine, votre logo, vos annonces, et rien d'autre.</p></article>
-        <article class="pl-card"><span class="pl-icon">📇</span><h3 data-i18n="landing.f2_title">Le suivi de vos prospects</h3><p data-i18n="landing.f2_text">Chaque demande devient une fiche avec statut, notes et rappel. Prévenez en un clic les clients intéressés par une nouvelle annonce.</p></article>
-        <article class="pl-card"><span class="pl-icon">📣</span><h3 data-i18n="landing.f3_title">Vos annonces diffusées partout</h3><p data-i18n="landing.f3_text">Des aperçus soignés sur Google et les réseaux, des visuels prêts à publier et des textes adaptés à LinkedIn, TikTok et Facebook.</p></article>
-        <article class="pl-card"><span class="pl-icon">📊</span><h3 data-i18n="landing.f4_title">Des statistiques utiles</h3><p data-i18n="landing.f4_text">Vues, contacts, visites venues de vos partages : vous savez ce qui fonctionne.</p></article>
-        <article class="pl-card"><span class="pl-icon">🌍</span><h3 data-i18n="landing.f5_title">Des clients du monde entier</h3><p data-i18n="landing.f5_text">Vos annonces sont traduites automatiquement et placées sur une carte du monde, pour toucher aussi les acheteurs étrangers.</p></article>
-      </div>
-    </div>
-
-    <div class="pl-section">
-      <h2 class="pl-h2" data-i18n="landing.sectors_title">Pensé pour votre métier</h2>
-      <div class="pl-grid pl-grid--2">
-        <article class="pl-card pl-card--sector"><span class="pl-icon">🏠</span><h3 data-i18n="landing.s_immo_title">Immobilier</h3><p data-i18n="landing.s_immo_text">Vente et location, surface, pièces, chambres, meublé : des fiches complètes, et le suivi des acquéreurs et locataires intéressés.</p></article>
-        <article class="pl-card pl-card--sector"><span class="pl-icon">🚗</span><h3 data-i18n="landing.s_auto_title">Véhicules</h3><p data-i18n="landing.s_auto_text">Marque, modèle, année, kilométrage, carburant, boîte : des annonces précises, et le suivi de chaque acheteur potentiel.</p></article>
-      </div>
-    </div>
-
-    <div class="pl-section">
-      <h2 class="pl-h2" data-i18n="landing.steps_title">Comment ça marche</h2>
-      <ol class="pl-steps">
-        <li><span class="pl-step-num">1</span><p data-i18n="landing.step1">Vous réservez gratuitement le nom de votre espace.</p></li>
-        <li><span class="pl-step-num">2</span><p data-i18n="landing.step2">Nous vous recontactons personnellement pour le configurer avec vous.</p></li>
-        <li><span class="pl-step-num">3</span><p data-i18n="landing.step3">Votre marketplace est en ligne : vous publiez, vous diffusez, vous suivez vos contacts.</p></li>
-      </ol>
-      <div class="pl-ctas pl-ctas--center">
-        <button type="button" class="pl-btn pl-btn--gold" data-nav="reserve" data-i18n="landing.cta_reserve">Réserver mon espace gratuitement</button>
-      </div>
-    </div>
-
-    <div class="pl-explore-intro">
-      <h2 class="pl-h2" data-i18n="landing.explore_title">Découvrez les annonces du réseau</h2>
-      <p data-i18n="landing.explore_sub">Voici ce que verront vos clients : une carte du monde et des annonces classées par pays et par catégorie.</p>
-    </div>
-  </section>
     <div class="hero-and-map" id="heroAndMap">
     <div class="hero hero--minimal">
       <p class="eyebrow" id="coordEyebrow">48.8566° N · 2.3522° E</p>
@@ -311,9 +263,64 @@
     </div>
   </section>
   <!-- ===== PUBLISH ===== -->
+  <!-- ===== Page « Professionnels » — site principal uniquement, accessible
+       par lien (en-tête, pied de page, /pros) ; la carte reste l'accueil. ===== -->
+  <section id="view-pros" class="view" hidden>
+  <section id="proLanding" class="pro-landing">
+    <div class="pl-hero">
+      <p class="pl-eyebrow" data-i18n="landing.eyebrow">POUR LES PROFESSIONNELS DE L'IMMOBILIER ET DE L'AUTOMOBILE</p>
+      <h1 class="pl-title" data-i18n="landing.title">Votre propre marketplace, à votre nom, avec les outils pour vendre plus vite</h1>
+      <p class="pl-sub" data-i18n="landing.sub">Un site d'annonces à votre marque, le suivi de vos prospects et des outils pour diffuser vos annonces partout : Google, LinkedIn, TikTok, Facebook, WhatsApp.</p>
+      <div class="pl-ctas">
+        <button type="button" class="pl-btn pl-btn--gold" data-nav="reserve" data-i18n="landing.cta_reserve">Réserver mon espace gratuitement</button>
+        <a class="pl-btn pl-btn--ghost" href="/QuickAtlas_Dossier_Presentation_FR.pdf" target="_blank" rel="noopener" data-i18n="landing.cta_brochure">📄 Dossier de présentation</a>
+      </div>
+      <p class="pl-note" data-i18n="landing.cta_note">Sans engagement et sans paiement avant le lancement officiel.</p>
+    </div>
+
+    <div class="pl-section">
+      <h2 class="pl-h2" data-i18n="landing.features_title">Tout ce qu'il vous faut, au même endroit</h2>
+      <div class="pl-grid">
+        <article class="pl-card"><span class="pl-icon">🏷️</span><h3 data-i18n="landing.f1_title">Votre site à votre marque</h3><p data-i18n="landing.f1_text">Une adresse du type votreagence.quickatlas.net ou votre propre nom de domaine, votre logo, vos annonces, et rien d'autre.</p></article>
+        <article class="pl-card"><span class="pl-icon">📇</span><h3 data-i18n="landing.f2_title">Le suivi de vos prospects</h3><p data-i18n="landing.f2_text">Chaque demande devient une fiche avec statut, notes et rappel. Prévenez en un clic les clients intéressés par une nouvelle annonce.</p></article>
+        <article class="pl-card"><span class="pl-icon">📣</span><h3 data-i18n="landing.f3_title">Vos annonces diffusées partout</h3><p data-i18n="landing.f3_text">Des aperçus soignés sur Google et les réseaux, des visuels prêts à publier et des textes adaptés à LinkedIn, TikTok et Facebook.</p></article>
+        <article class="pl-card"><span class="pl-icon">📊</span><h3 data-i18n="landing.f4_title">Des statistiques utiles</h3><p data-i18n="landing.f4_text">Vues, contacts, visites venues de vos partages : vous savez ce qui fonctionne.</p></article>
+        <article class="pl-card"><span class="pl-icon">🌍</span><h3 data-i18n="landing.f5_title">Des clients du monde entier</h3><p data-i18n="landing.f5_text">Vos annonces sont traduites automatiquement et placées sur une carte du monde, pour toucher aussi les acheteurs étrangers.</p></article>
+      </div>
+    </div>
+
+    <div class="pl-section">
+      <h2 class="pl-h2" data-i18n="landing.sectors_title">Pensé pour votre métier</h2>
+      <div class="pl-grid pl-grid--2">
+        <article class="pl-card pl-card--sector"><span class="pl-icon">🏠</span><h3 data-i18n="landing.s_immo_title">Immobilier</h3><p data-i18n="landing.s_immo_text">Vente et location, surface, pièces, chambres, meublé : des fiches complètes, et le suivi des acquéreurs et locataires intéressés.</p></article>
+        <article class="pl-card pl-card--sector"><span class="pl-icon">🚗</span><h3 data-i18n="landing.s_auto_title">Véhicules</h3><p data-i18n="landing.s_auto_text">Marque, modèle, année, kilométrage, carburant, boîte : des annonces précises, et le suivi de chaque acheteur potentiel.</p></article>
+      </div>
+    </div>
+
+    <div class="pl-section">
+      <h2 class="pl-h2" data-i18n="landing.steps_title">Comment ça marche</h2>
+      <ol class="pl-steps">
+        <li><span class="pl-step-num">1</span><p data-i18n="landing.step1">Vous réservez gratuitement le nom de votre espace.</p></li>
+        <li><span class="pl-step-num">2</span><p data-i18n="landing.step2">Nous vous recontactons personnellement pour le configurer avec vous.</p></li>
+        <li><span class="pl-step-num">3</span><p data-i18n="landing.step3">Votre marketplace est en ligne : vous publiez, vous diffusez, vous suivez vos contacts.</p></li>
+      </ol>
+      <div class="pl-ctas pl-ctas--center">
+        <button type="button" class="pl-btn pl-btn--gold" data-nav="reserve" data-i18n="landing.cta_reserve">Réserver mon espace gratuitement</button>
+      </div>
+    </div>
+
+    <div class="pl-explore-intro">
+      <h2 class="pl-h2" data-i18n="landing.explore_title">Découvrez les annonces du réseau</h2>
+      <p data-i18n="landing.explore_sub">Voici ce que verront vos clients : une carte du monde et des annonces classées par pays et par catégorie.</p>
+      <div class="pl-ctas pl-ctas--center" style="margin-top:18px;">
+        <button type="button" class="pl-btn pl-btn--ghost" data-nav="explore" data-i18n="landing.see_map">🗺️ Voir la carte des annonces</button>
+      </div>
+    </div>
+  </section>
+  </section>
   <!-- ===== Réservation de sous-domaine — site principal uniquement ===== -->
   <section id="view-reserve" class="view" hidden>
-    <div class="breadcrumb"><button type="button" data-nav="explore" data-i18n="landing.back_home">← Retour à l'accueil</button></div>
+    <div class="breadcrumb"><button type="button" data-nav="pros" data-i18n="landing.back_pros">← Retour à la présentation</button></div>
     <section id="reserveSection" class="form-page">
     <p class="eyebrow" data-i18n="reserve.eyebrow">AVANT LE LANCEMENT OFFICIEL</p>
     <h1 data-i18n="reserve.title">Réservez votre marketplace, gratuitement</h1>
@@ -1925,6 +1932,7 @@
       <h4 data-i18n="footer.col_help">Aide</h4>
       <button class="footer-link" id="footerAlertsHowToBtn" data-i18n="footer.alerts_how_to">Comment fonctionnent les alertes</button>
       <button class="footer-link" data-nav="terms" data-i18n="footer.trust_safety">Sécurité et confiance</button>
+      <button class="footer-link" data-nav="pros" data-main-site-only hidden data-i18n="landing.footer_link">💼 Vous êtes professionnel ?</button>
       <button class="footer-link" data-nav="reserve" data-main-site-only hidden data-i18n="reserve.footer_link">🏷️ Réservez votre marketplace</button>
       <a class="footer-link" href="mailto:contact@quickatlas.net" data-i18n="footer.contact">Nous contacter</a>
     </div>
