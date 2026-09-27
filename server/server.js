@@ -466,6 +466,18 @@ const MIME = {
   '.mov': 'video/quicktime',
   '.webm': 'video/webm',
 };
+/** Les en-têtes de sécurité posés sur toutes les réponses (CSP avec
+ * object-src 'none' et frame-ancestors 'none', X-Frame-Options: DENY)
+ * empêchent la visionneuse PDF intégrée du navigateur de s'afficher : le
+ * PDF s'ouvre alors sur une page vide ou bloquée. Ils sont conçus pour
+ * les pages HTML ; on les retire pour les seuls documents PDF, qui
+ * s'ouvrent ainsi normalement dans un nouvel onglet. */
+function allowInlinePdf(res, filePath) {
+  if (path.extname(filePath).toLowerCase() !== '.pdf') return;
+  res.removeHeader('Content-Security-Policy');
+  res.removeHeader('X-Frame-Options');
+  res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath).replace(/"/g, '')}"`);
+}
 function serveStatic(req, res, pathname) {
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
   if (!filePath.startsWith(PUBLIC_DIR)) {
@@ -474,6 +486,16 @@ function serveStatic(req, res, pathname) {
   }
   fs.readFile(filePath, (err, data) => {
     if (err) {
+      // Un fichier précis introuvable (PDF, image, script…) renvoie une
+      // vraie erreur 404, au lieu de la page d'accueil : sinon un lien
+      // cassé ouvre silencieusement le site dans un nouvel onglet. Les
+      // adresses de pages sans extension (/pros, /reserve, /annonce/…)
+      // continuent d'afficher l'application.
+      const ext = path.extname(pathname).toLowerCase();
+      if (ext && ext !== '.html') {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        return res.end('Fichier introuvable.');
+      }
       fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (err2, indexData) => {
         if (err2) {
           res.writeHead(404);
@@ -485,6 +507,7 @@ function serveStatic(req, res, pathname) {
       return;
     }
     const ext = path.extname(filePath);
+    allowInlinePdf(res, filePath);
     res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
     res.end(data);
   });
@@ -1414,6 +1437,7 @@ async function handleRequest(req, res) {
       return fs.readFile(filePath, (err, data) => {
         if (err) { res.writeHead(404); return res.end('Image introuvable'); }
         const ext = path.extname(filePath);
+        allowInlinePdf(res, filePath);
         res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' });
         res.end(data);
       });
@@ -1428,6 +1452,7 @@ async function handleRequest(req, res) {
       return fs.readFile(filePath, (err, data) => {
         if (err) { res.writeHead(404); return res.end('Fichier introuvable'); }
         const ext = path.extname(filePath);
+        allowInlinePdf(res, filePath);
         res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' });
         res.end(data);
       });
@@ -1442,6 +1467,7 @@ async function handleRequest(req, res) {
       return fs.readFile(filePath, (err, data) => {
         if (err) { res.writeHead(404); return res.end('Fichier introuvable'); }
         const ext = path.extname(filePath);
+        allowInlinePdf(res, filePath);
         res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable' });
         res.end(data);
       });
