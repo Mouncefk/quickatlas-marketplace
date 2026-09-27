@@ -50,6 +50,10 @@
 .pl-explore-intro .pl-h2 { margin-bottom: 8px; }
 .pl-explore-intro p { margin: 0; color: rgba(241,233,216,0.75); }
 [dir="rtl"] .pl-steps li { flex-direction: row; }
+/* Badge de rôle à côté du nom de l'utilisateur connecté */
+.role-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font: 600 0.78rem/1.2 'Inter', system-ui, sans-serif; white-space: nowrap; cursor: default; }
+.role-badge--super { background: #C6A15B; color: #0E1B2E; }
+.role-badge--admin { border: 1px solid #C6A15B; color: #DDC48C; }
 /* Menu d'en-tête sur ordinateur : passe à la ligne quand les liens ne
    tiennent pas sur une seule ligne (compte super administrateur, écrans
    moyens), au lieu de couper les derniers liens hors de l'écran. Le menu
