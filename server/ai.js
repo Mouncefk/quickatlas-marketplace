@@ -7,7 +7,7 @@
 // clé stockée, appelle le fournisseur, et ne renvoie que le texte traduit.
 
 const LANG_NAMES = {
-  fr: 'français', en: 'anglais', ar: 'arabe', es: 'espagnol', pt: 'portugais', it: 'italien',
+  fr: 'français', en: 'anglais', ar: 'arabe', es: 'espagnol', pt: 'portugais', it: 'italien', de: 'allemand',
 };
 
 function buildPrompt(title, description, targetLangCode) {
@@ -48,7 +48,10 @@ async function callAnthropicRaw(apiKey, prompt) {
   return (data.content || []).map((b) => b.text || '').join('');
 }
 
-async function callOpenAIRaw(apiKey, prompt) {
+// `json` : impose le mode JSON d'OpenAI. À désactiver pour tout prompt qui
+// attend du texte brut (post, traduction libre) — OpenAI refuse le mode
+// JSON quand le prompt ne mentionne pas explicitement le mot « JSON ».
+async function callOpenAIRaw(apiKey, prompt, { json = true } = {}) {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -58,7 +61,7 @@ async function callOpenAIRaw(apiKey, prompt) {
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
+      ...(json ? { response_format: { type: 'json_object' } } : {}),
     }),
   });
   const data = await res.json();
@@ -214,7 +217,7 @@ function buildSocialPostPrompt({ siteName, siteUrl, highlights }) {
  */
 export async function generateSocialPostContent({ provider, apiKey, siteName, siteUrl, highlights }) {
   const prompt = buildSocialPostPrompt({ siteName, siteUrl, highlights });
-  const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt);
+  const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt, { json: false });
   const cleaned = raw.trim().replace(/^["']|["']$/g, '');
   if (!cleaned) throw new Error('Contenu généré vide.');
   return cleaned;
@@ -255,6 +258,90 @@ function buildTextTranslationPrompt(text, targetLangCode) {
  */
 export async function translateText({ provider, apiKey, text, targetLangCode }) {
   const prompt = buildTextTranslationPrompt(text, targetLangCode);
-  const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt);
+  const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt, { json: false });
   return raw.trim().replace(/^["']|["']$/g, '');
+}
+
+// ---------------------------------------------------------------------------
+// Posts pour LinkedIn / TikTok / Facebook — texte à relire et publier par la
+// personne elle-même (jamais de publication automatique sur un profil).
+// Deux sources possibles : une annonce précise (bouton de partage sur
+// l'annonce) ou un sujet libre de l'administrateur (onglet Réseaux sociaux).
+// ---------------------------------------------------------------------------
+
+const NETWORK_RULES = {
+  linkedin: [
+    `Réseau : LinkedIn. Ton professionnel, clair et chaleureux, sans jargon marketing creux.`,
+    `Format : une première ligne d'accroche forte (elle s'affiche seule avant « voir plus »),`,
+    `puis 3 à 6 lignes courtes aérées, avec au maximum 2 ou 3 emojis sobres.`,
+    `Termine par un appel à l'action naturel. Le lien est déjà attaché au post sous forme`,
+    `de carte : n'écris AUCUNE URL dans le texte.`,
+    `Ajoute 3 à 5 hashtags pertinents sur la dernière ligne.`,
+    `Longueur : 400 à 900 caractères.`,
+  ],
+  tiktok: [
+    `Réseau : TikTok. Il s'agit de la LÉGENDE d'une vidéo ou d'un carrousel photo.`,
+    `Ton direct, vivant, proche de l'oral. La première ligne est un hook qui donne envie`,
+    `de regarder. 2 à 4 emojis bien placés.`,
+    `Les liens ne sont pas cliquables sur TikTok : n'écris aucune URL, invite plutôt à`,
+    `chercher le nom du site ou à passer par le lien en bio.`,
+    `Termine par 4 à 6 hashtags pertinents, dont au moins un lié à la ville ou au pays`,
+    `quand ils sont connus.`,
+    `Longueur : 150 à 400 caractères.`,
+  ],
+  facebook: [
+    `Réseau : Facebook. Ton engageant et chaleureux, comme rédigé par une vraie personne.`,
+    `2 à 4 phrases, 2 ou 3 hashtags au maximum si pertinents.`,
+    `Termine par un appel à l'action naturel.`,
+  ],
+};
+
+function buildNetworkPostPrompt({ network, lang, siteName, siteUrl, listingFacts, subject, highlights }) {
+  const rules = NETWORK_RULES[network] || NETWORK_RULES.facebook;
+  const langName = LANG_NAMES[lang] || 'français';
+  const source = listingFacts
+    ? [
+        `Tu rédiges un post pour faire connaître l'annonce suivante, publiée sur ${siteName}`,
+        `(place de marché d'annonces en ligne). Le post est publié par l'auteur de l'annonce`,
+        `lui-même, sur son propre compte.`,
+        ``,
+        `Informations RÉELLES de l'annonce (les seules que tu peux utiliser) :`,
+        listingFacts,
+      ]
+    : [
+        `Tu rédiges un post pour le compte officiel de ${siteName} (${siteUrl}), une place de`,
+        `marché d'annonces en ligne (immobilier, véhicules, emploi, objets...).`,
+        ``,
+        `Sujet choisi par l'administrateur (c'est le cœur du post) :`,
+        subject,
+        ``,
+        `Éléments réels et récents de la plateforme, à citer seulement s'ils servent le sujet :`,
+        highlights,
+      ];
+  return [
+    ...source,
+    ``,
+    ...rules,
+    ``,
+    `Règles absolues :`,
+    `- Rédige en ${langName}.`,
+    `- N'invente AUCUN fait, chiffre, prix, caractéristique ou témoignage absent des`,
+    `  informations fournies.`,
+    `- Pas de markdown, pas de guillemets autour du texte.`,
+    ``,
+    `Réponds UNIQUEMENT avec le texte du post, rien avant ni après.`,
+  ].join('\n');
+}
+
+/**
+ * Rédige un post adapté à un réseau (linkedin | tiktok | facebook), soit à
+ * partir d'une annonce (listingFacts), soit à partir d'un sujet libre
+ * (subject + highlights). Retourne du texte brut, prêt à être relu.
+ */
+export async function generateNetworkPost({ provider, apiKey, network, lang, siteName, siteUrl, listingFacts, subject, highlights }) {
+  const prompt = buildNetworkPostPrompt({ network, lang, siteName, siteUrl, listingFacts, subject, highlights });
+  const raw = provider === 'anthropic' ? await callAnthropicRaw(apiKey, prompt) : await callOpenAIRaw(apiKey, prompt, { json: false });
+  const cleaned = raw.trim().replace(/^["'«]\s*|\s*["'»]$/g, '');
+  if (!cleaned) throw new Error('Contenu généré vide.');
+  return cleaned;
 }
