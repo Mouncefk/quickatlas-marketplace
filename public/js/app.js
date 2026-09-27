@@ -788,7 +788,17 @@ function navigate(view) {
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-document.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.nav)));
+document.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
+  navigate(b.dataset.nav);
+  // Un clic sur « Explorer » (menu, logo, liens de retour) ramène toujours
+  // à la carte du monde dépliée, même si elle avait été repliée après le
+  // choix d'un pays ou une recherche. Les redirections internes vers
+  // l'accueil (ex. connexion requise) ne sont pas concernées.
+  if (b.dataset.nav === 'explore') {
+    showSearchMode(false);
+    reopenMap();
+  }
+}));
 document.getElementById('burgerBtn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
 document.querySelectorAll('[data-close]').forEach((b) =>
   b.addEventListener('click', () => (document.getElementById(b.dataset.close).hidden = true))
