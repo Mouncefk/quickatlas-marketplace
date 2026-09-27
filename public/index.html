@@ -1125,6 +1125,44 @@
           <button type="submit" class="btn btn--primary btn--small">Publier maintenant</button>
         </form>
 
+        <h3>Préparer un post (LinkedIn, TikTok, Facebook)</h3>
+        <p class="form-hint">Pour parler d'autre chose que d'une annonce : une nouveauté du site, une fonctionnalité, un conseil aux vendeurs, un appel aux professionnels… L'IA rédige un texte adapté au réseau, que vous relisez avant de publier.</p>
+        <form id="socialComposeForm" class="atlas-form">
+          <div class="form-row">
+            <label>Réseau
+              <select id="socialComposeNetwork">
+                <option value="linkedin">LinkedIn</option>
+                <option value="tiktok">TikTok</option>
+                <option value="facebook">Facebook</option>
+              </select>
+            </label>
+            <label>Langue du post
+              <select id="socialComposeLang">
+                <option value="fr">Français</option>
+                <option value="en">English</option>
+                <option value="ar">العربية</option>
+                <option value="es">Español</option>
+                <option value="pt">Português</option>
+                <option value="it">Italiano</option>
+                <option value="de">Deutsch</option>
+              </select>
+            </label>
+          </div>
+          <label>Sujet du post
+            <textarea id="socialComposeSubject" rows="3" maxlength="1000" placeholder="Ex. Les professionnels peuvent maintenant partager leurs annonces sur LinkedIn en un clic"></textarea>
+          </label>
+          <label id="socialComposeVisualRow" hidden>Texte du visuel TikTok (optionnel — sinon le sujet est repris)
+            <input type="text" id="socialComposeVisualTitle" maxlength="120" />
+          </label>
+          <p class="form-error" id="socialComposeError" hidden></p>
+          <button type="submit" class="btn btn--primary btn--small">Générer le texte</button>
+        </form>
+        <div id="socialComposeResult" hidden>
+          <textarea id="socialComposeText" rows="10" style="width:100%;box-sizing:border-box;font:inherit;padding:10px;margin:8px 0;"></textarea>
+          <div id="socialComposeActions" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          <p class="form-hint" id="socialComposeHint" style="margin-top:8px;"></p>
+        </div>
+
         <h3>Journal des publications</h3>
         <table class="dashboard-table">
           <thead><tr><th>Date</th><th>Plateforme</th><th>Contenu</th><th>Statut</th><th>Déclenché par</th></tr></thead>
