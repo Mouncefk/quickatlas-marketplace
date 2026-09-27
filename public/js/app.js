@@ -732,7 +732,7 @@ function navigate(view) {
   // La réservation de sous-domaine est une page à part, réservée au site
   // principal : sur le site d'un professionnel, ses clients ne doivent
   // jamais tomber sur une offre commerciale de QuickAtlas.
-  if (view === 'reserve' && !window.isMainSite) view = 'explore';
+  if ((view === 'reserve' || view === 'pros') && !window.isMainSite) view = 'explore';
   document.getElementById('authModal').hidden = true;
   document.getElementById('listingModal').hidden = true;
   document.getElementById('countryModal').hidden = true;
@@ -741,7 +741,7 @@ function navigate(view) {
   document.getElementById('randomExploreModal').hidden = true;
   document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
   document.getElementById(`view-${view}`).hidden = false;
-  if (view === 'reserve') window.scrollTo({ top: 0 });
+  if (view === 'reserve' || view === 'pros') window.scrollTo({ top: 0 });
   document.querySelectorAll('.nav-link').forEach((b) => b.classList.toggle('active', b.dataset.nav === view));
   document.body.classList.remove('nav-open');
   if (view === 'publish') {
@@ -6741,9 +6741,7 @@ async function applySiteBranding() {
     const res = await api('/site-info');
     window.currentSiteName = res.brand_name || 'QuickAtlas';
     window.isMainSite = res.is_main !== false;
-    // Vitrine professionnelle et liens de réservation : site principal seulement.
-    const proLanding = document.getElementById('proLanding');
-    if (proLanding) proLanding.hidden = !window.isMainSite;
+    // Page « Professionnels » et réservation : liens visibles sur le site principal seulement.
     document.querySelectorAll('[data-main-site-only]').forEach((node) => { node.hidden = !window.isMainSite; });
     const defaultMark = document.getElementById('brandMarkDefault');
     const customMark = document.getElementById('brandMarkCustom');
@@ -7452,7 +7450,9 @@ async function boot() {
   await applySiteBranding();
   // Lien direct ou QR code vers /reserve : ouvre la page de réservation
   // (site principal uniquement — ailleurs, navigate() renvoie à l'accueil).
+  // Même principe pour la page de présentation aux professionnels (/pros).
   if (window.location.pathname === '/reserve') navigate('reserve');
+  if (window.location.pathname === '/pros') navigate('pros');
   initLanguagePicker();
   trackSiteVisit();
   renderAuthZone();
