@@ -4829,6 +4829,9 @@ if (pathname === '/api/super-admin/plans' && method === 'GET') {
       return sendJSON(res, 200, {
         brand_name: (currentSite && currentSite.brand_name) || 'QuickAtlas',
         logo_url: logoRow ? logoRow.value : null,
+        // Site principal (quickatlas.net) : seul à afficher la vitrine
+        // professionnelle et la réservation de sous-domaine.
+        is_main: !currentSite || currentSite.slug === 'main',
       });
     }
     if (pathname === '/api/settings/map-enabled' && method === 'GET') {
