@@ -17,6 +17,40 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css" />
+<style>
+/* ===== Vitrine professionnelle (site principal) ===== */
+.pro-landing { background: #0E1B2E; color: #F1E9D8; padding: 56px 20px 40px; }
+.pro-landing > div { max-width: 1080px; margin: 0 auto; }
+.pl-hero { text-align: center; padding-bottom: 24px; }
+.pl-eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; letter-spacing: 0.12em; color: #C6A15B; margin: 0 0 14px; }
+.pl-title { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: clamp(1.9rem, 4.5vw, 3.1rem); line-height: 1.15; margin: 0 auto 18px; max-width: 820px; color: #F1E9D8; }
+.pl-sub { font-size: clamp(1rem, 2vw, 1.15rem); line-height: 1.6; max-width: 700px; margin: 0 auto 26px; color: rgba(241,233,216,0.85); }
+.pl-ctas { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.pl-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 48px; padding: 10px 24px; text-align: center; border-radius: 999px; font: 600 1rem/1.25 'Inter', system-ui, sans-serif; cursor: pointer; text-decoration: none; border: 2px solid #C6A15B; transition: transform .15s ease, background .15s ease; }
+.pl-btn:hover { transform: translateY(-1px); }
+.pl-btn:focus-visible { outline: 3px solid #F1E9D8; outline-offset: 3px; }
+.pl-btn--gold { background: #C6A15B; color: #0E1B2E; }
+.pl-btn--gold:hover { background: #DDC48C; }
+.pl-btn--ghost { background: transparent; color: #F1E9D8; }
+.pl-note { font-size: 0.85rem; color: rgba(241,233,216,0.65); margin: 14px 0 0; }
+.pl-section { padding: 40px 0 8px; }
+.pl-h2 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: clamp(1.4rem, 3vw, 2rem); text-align: center; margin: 0 0 26px; color: #F1E9D8; }
+.pl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 16px; }
+.pl-grid--2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.pl-card { background: rgba(241,233,216,0.05); border: 1px solid rgba(198,161,91,0.35); border-radius: 14px; padding: 22px; }
+.pl-card h3 { font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; margin: 10px 0 8px; color: #DDC48C; }
+.pl-card p { margin: 0; line-height: 1.55; color: rgba(241,233,216,0.85); font-size: 0.95rem; }
+.pl-card--sector { border-color: #C6A15B; }
+.pl-icon { font-size: 1.7rem; }
+.pl-steps { list-style: none; padding: 0; margin: 0 auto 26px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.pl-steps li { display: flex; gap: 14px; align-items: flex-start; }
+.pl-steps p { margin: 4px 0 0; line-height: 1.5; color: rgba(241,233,216,0.85); }
+.pl-step-num { flex: 0 0 36px; height: 36px; border-radius: 50%; background: #C6A15B; color: #0E1B2E; font: 700 1rem 'IBM Plex Mono', monospace; display: flex; align-items: center; justify-content: center; }
+.pl-explore-intro { text-align: center; padding-top: 44px; border-top: 1px solid rgba(198,161,91,0.25); margin-top: 36px !important; }
+.pl-explore-intro .pl-h2 { margin-bottom: 8px; }
+.pl-explore-intro p { margin: 0; color: rgba(241,233,216,0.75); }
+[dir="rtl"] .pl-steps li { flex-direction: row; }
+</style>
 <link rel="manifest" href="/manifest.json" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -69,60 +103,54 @@
 <main id="app">
   <!-- ===== EXPLORE ===== -->
   <section id="view-explore" class="view">
-  <!-- ===== Réservation de sous-domaine — remontée en haut de page pour ==
-       une meilleure visibilité, à la place de l'ancien bloc "Le Parcours" ==
-       (toujours accessible via /reserve, qui fait défiler jusqu'ici). ===== -->
-  <section id="reserveSection" class="form-page">
-    <p class="eyebrow" data-i18n="reserve.eyebrow">AVANT LE LANCEMENT OFFICIEL</p>
-    <h1 data-i18n="reserve.title">Réservez votre marketplace, gratuitement</h1>
-    <p data-i18n="reserve.intro">Vous êtes professionnel de l'immobilier, de l'automobile ou d'un autre secteur ? Réservez dès maintenant le nom de votre future marketplace — sans engagement, sans paiement. Nous vous recontacterons personnellement à l'approche du lancement.</p>
-    <a href="/QuickAtlas_Dossier_Presentation_FR.pdf" target="_blank" rel="noopener" class="btn btn--ghost reserve-brochure-btn" data-i18n="reserve.brochure_btn">📄 Consulter le dossier de présentation complet</a>
-    <form id="reserveForm" class="atlas-form">
-      <!-- Piège à robots — champ invisible pour un vrai visiteur (masqué
-           par CSS ci-dessous), que les robots remplissent souvent sans
-           distinction avec le reste du formulaire. -->
-      <div class="reserve-honeypot" aria-hidden="true">
-        <label>Site web
-          <input type="text" name="website_url" tabindex="-1" autocomplete="off" />
-        </label>
+  <!-- ===== Vitrine professionnelle — site principal uniquement ===== -->
+  <section id="proLanding" class="pro-landing" hidden>
+    <div class="pl-hero">
+      <p class="pl-eyebrow" data-i18n="landing.eyebrow">POUR LES PROFESSIONNELS DE L'IMMOBILIER ET DE L'AUTOMOBILE</p>
+      <h1 class="pl-title" data-i18n="landing.title">Votre propre marketplace, à votre nom, avec les outils pour vendre plus vite</h1>
+      <p class="pl-sub" data-i18n="landing.sub">Un site d'annonces à votre marque, le suivi de vos prospects et des outils pour diffuser vos annonces partout : Google, LinkedIn, TikTok, Facebook, WhatsApp.</p>
+      <div class="pl-ctas">
+        <button type="button" class="pl-btn pl-btn--gold" data-nav="reserve" data-i18n="landing.cta_reserve">Réserver mon espace gratuitement</button>
+        <a class="pl-btn pl-btn--ghost" href="/QuickAtlas_Dossier_Presentation_FR.pdf" target="_blank" rel="noopener" data-i18n="landing.cta_brochure">📄 Dossier de présentation</a>
       </div>
-      <div class="form-row">
-        <label><span data-i18n="reserve.field_subdomain">Nom de sous-domaine souhaité</span>
-          <div class="reserve-subdomain-row">
-            <input type="text" name="subdomain" id="reserveSubdomain" required pattern="[a-z0-9-]{3,40}" data-i18n-placeholder="reserve.subdomain_placeholder" placeholder="immo-atlas, auto-prime, voyage-sud..." />
-            <span class="reserve-subdomain-suffix">.quickatlas.net</span>
-          </div>
-          <span id="reserveSubdomainStatus" class="form-hint"></span>
-        </label>
+      <p class="pl-note" data-i18n="landing.cta_note">Sans engagement et sans paiement avant le lancement officiel.</p>
+    </div>
+
+    <div class="pl-section">
+      <h2 class="pl-h2" data-i18n="landing.features_title">Tout ce qu'il vous faut, au même endroit</h2>
+      <div class="pl-grid">
+        <article class="pl-card"><span class="pl-icon">🏷️</span><h3 data-i18n="landing.f1_title">Votre site à votre marque</h3><p data-i18n="landing.f1_text">Une adresse du type votreagence.quickatlas.net ou votre propre nom de domaine, votre logo, vos annonces, et rien d'autre.</p></article>
+        <article class="pl-card"><span class="pl-icon">📇</span><h3 data-i18n="landing.f2_title">Le suivi de vos prospects</h3><p data-i18n="landing.f2_text">Chaque demande devient une fiche avec statut, notes et rappel. Prévenez en un clic les clients intéressés par une nouvelle annonce.</p></article>
+        <article class="pl-card"><span class="pl-icon">📣</span><h3 data-i18n="landing.f3_title">Vos annonces diffusées partout</h3><p data-i18n="landing.f3_text">Des aperçus soignés sur Google et les réseaux, des visuels prêts à publier et des textes adaptés à LinkedIn, TikTok et Facebook.</p></article>
+        <article class="pl-card"><span class="pl-icon">📊</span><h3 data-i18n="landing.f4_title">Des statistiques utiles</h3><p data-i18n="landing.f4_text">Vues, contacts, visites venues de vos partages : vous savez ce qui fonctionne.</p></article>
+        <article class="pl-card"><span class="pl-icon">🌍</span><h3 data-i18n="landing.f5_title">Des clients du monde entier</h3><p data-i18n="landing.f5_text">Vos annonces sont traduites automatiquement et placées sur une carte du monde, pour toucher aussi les acheteurs étrangers.</p></article>
       </div>
-      <div class="form-row">
-        <label><span data-i18n="reserve.field_business_name">Nom de votre entreprise</span>
-          <input type="text" name="business_name" required />
-        </label>
+    </div>
+
+    <div class="pl-section">
+      <h2 class="pl-h2" data-i18n="landing.sectors_title">Pensé pour votre métier</h2>
+      <div class="pl-grid pl-grid--2">
+        <article class="pl-card pl-card--sector"><span class="pl-icon">🏠</span><h3 data-i18n="landing.s_immo_title">Immobilier</h3><p data-i18n="landing.s_immo_text">Vente et location, surface, pièces, chambres, meublé : des fiches complètes, et le suivi des acquéreurs et locataires intéressés.</p></article>
+        <article class="pl-card pl-card--sector"><span class="pl-icon">🚗</span><h3 data-i18n="landing.s_auto_title">Véhicules</h3><p data-i18n="landing.s_auto_text">Marque, modèle, année, kilométrage, carburant, boîte : des annonces précises, et le suivi de chaque acheteur potentiel.</p></article>
       </div>
-      <div class="form-row">
-        <label><span data-i18n="reserve.field_sector">Secteur d'activité (optionnel)</span>
-          <select name="sector">
-            <option value="" data-i18n="reserve.sector_none">— Non précisé —</option>
-            <option value="immobilier" data-i18n="category.immobilier">Immobilier</option>
-            <option value="vehicules" data-i18n="category.vehicules">Véhicules</option>
-            <option value="tourisme-voyages" data-i18n="category.tourisme-voyages">Tourisme &amp; Voyages</option>
-            <option value="autre" data-i18n="reserve.sector_other">Autre</option>
-          </select>
-        </label>
+    </div>
+
+    <div class="pl-section">
+      <h2 class="pl-h2" data-i18n="landing.steps_title">Comment ça marche</h2>
+      <ol class="pl-steps">
+        <li><span class="pl-step-num">1</span><p data-i18n="landing.step1">Vous réservez gratuitement le nom de votre espace.</p></li>
+        <li><span class="pl-step-num">2</span><p data-i18n="landing.step2">Nous vous recontactons personnellement pour le configurer avec vous.</p></li>
+        <li><span class="pl-step-num">3</span><p data-i18n="landing.step3">Votre marketplace est en ligne : vous publiez, vous diffusez, vous suivez vos contacts.</p></li>
+      </ol>
+      <div class="pl-ctas pl-ctas--center">
+        <button type="button" class="pl-btn pl-btn--gold" data-nav="reserve" data-i18n="landing.cta_reserve">Réserver mon espace gratuitement</button>
       </div>
-      <div class="form-row form-row--split">
-        <label><span data-i18n="reserve.field_email">Email de contact</span>
-          <input type="email" name="contact_email" required />
-        </label>
-        <label><span data-i18n="reserve.field_phone">Téléphone (optionnel)</span>
-          <input type="tel" name="contact_phone" />
-        </label>
-      </div>
-      <p class="form-error" id="reserveError" hidden></p>
-      <p class="form-success" id="reserveSuccess" hidden></p>
-      <button type="submit" class="btn btn--primary" id="reserveSubmitBtn" data-i18n="reserve.submit">Réserver gratuitement</button>
-    </form>
+    </div>
+
+    <div class="pl-explore-intro">
+      <h2 class="pl-h2" data-i18n="landing.explore_title">Découvrez les annonces du réseau</h2>
+      <p data-i18n="landing.explore_sub">Voici ce que verront vos clients : une carte du monde et des annonces classées par pays et par catégorie.</p>
+    </div>
   </section>
     <div class="hero-and-map" id="heroAndMap">
     <div class="hero hero--minimal">
@@ -283,6 +311,62 @@
     </div>
   </section>
   <!-- ===== PUBLISH ===== -->
+  <!-- ===== Réservation de sous-domaine — site principal uniquement ===== -->
+  <section id="view-reserve" class="view" hidden>
+    <div class="breadcrumb"><button type="button" data-nav="explore" data-i18n="landing.back_home">← Retour à l'accueil</button></div>
+    <section id="reserveSection" class="form-page">
+    <p class="eyebrow" data-i18n="reserve.eyebrow">AVANT LE LANCEMENT OFFICIEL</p>
+    <h1 data-i18n="reserve.title">Réservez votre marketplace, gratuitement</h1>
+    <p data-i18n="reserve.intro">Vous êtes professionnel de l'immobilier, de l'automobile ou d'un autre secteur ? Réservez dès maintenant le nom de votre future marketplace — sans engagement, sans paiement. Nous vous recontacterons personnellement à l'approche du lancement.</p>
+    <a href="/QuickAtlas_Dossier_Presentation_FR.pdf" target="_blank" rel="noopener" class="btn btn--ghost reserve-brochure-btn" data-i18n="reserve.brochure_btn">📄 Consulter le dossier de présentation complet</a>
+    <form id="reserveForm" class="atlas-form">
+      <!-- Piège à robots — champ invisible pour un vrai visiteur (masqué
+           par CSS ci-dessous), que les robots remplissent souvent sans
+           distinction avec le reste du formulaire. -->
+      <div class="reserve-honeypot" aria-hidden="true">
+        <label>Site web
+          <input type="text" name="website_url" tabindex="-1" autocomplete="off" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="reserve.field_subdomain">Nom de sous-domaine souhaité</span>
+          <div class="reserve-subdomain-row">
+            <input type="text" name="subdomain" id="reserveSubdomain" required pattern="[a-z0-9-]{3,40}" data-i18n-placeholder="reserve.subdomain_placeholder" placeholder="immo-atlas, auto-prime, voyage-sud..." />
+            <span class="reserve-subdomain-suffix">.quickatlas.net</span>
+          </div>
+          <span id="reserveSubdomainStatus" class="form-hint"></span>
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="reserve.field_business_name">Nom de votre entreprise</span>
+          <input type="text" name="business_name" required />
+        </label>
+      </div>
+      <div class="form-row">
+        <label><span data-i18n="reserve.field_sector">Secteur d'activité (optionnel)</span>
+          <select name="sector">
+            <option value="" data-i18n="reserve.sector_none">— Non précisé —</option>
+            <option value="immobilier" data-i18n="category.immobilier">Immobilier</option>
+            <option value="vehicules" data-i18n="category.vehicules">Véhicules</option>
+            <option value="tourisme-voyages" data-i18n="category.tourisme-voyages">Tourisme &amp; Voyages</option>
+            <option value="autre" data-i18n="reserve.sector_other">Autre</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-row form-row--split">
+        <label><span data-i18n="reserve.field_email">Email de contact</span>
+          <input type="email" name="contact_email" required />
+        </label>
+        <label><span data-i18n="reserve.field_phone">Téléphone (optionnel)</span>
+          <input type="tel" name="contact_phone" />
+        </label>
+      </div>
+      <p class="form-error" id="reserveError" hidden></p>
+      <p class="form-success" id="reserveSuccess" hidden></p>
+      <button type="submit" class="btn btn--primary" id="reserveSubmitBtn" data-i18n="reserve.submit">Réserver gratuitement</button>
+    </form>
+  </section>
+  </section>
   <section id="view-publish" class="view" hidden>
     <div class="form-page form-page--wide">
       <p class="eyebrow" data-i18n="publish.eyebrow">NOUVELLE ANNONCE</p>
@@ -1841,7 +1925,7 @@
       <h4 data-i18n="footer.col_help">Aide</h4>
       <button class="footer-link" id="footerAlertsHowToBtn" data-i18n="footer.alerts_how_to">Comment fonctionnent les alertes</button>
       <button class="footer-link" data-nav="terms" data-i18n="footer.trust_safety">Sécurité et confiance</button>
-      <button class="footer-link" data-nav="reserve" data-i18n="reserve.footer_link">🏷️ Réservez votre marketplace</button>
+      <button class="footer-link" data-nav="reserve" data-main-site-only hidden data-i18n="reserve.footer_link">🏷️ Réservez votre marketplace</button>
       <a class="footer-link" href="mailto:contact@quickatlas.net" data-i18n="footer.contact">Nous contacter</a>
     </div>
     <div class="footer-col">
