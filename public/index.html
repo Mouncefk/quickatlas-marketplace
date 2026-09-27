@@ -59,7 +59,10 @@
    moyens), au lieu de couper les derniers liens hors de l'écran. Le menu
    mobile (burger) n'est pas concerné. */
 @media (min-width: 1024px) {
-  .main-nav { flex-wrap: wrap; row-gap: 6px; overflow: visible; max-width: 100%; }
+  .main-nav { flex-wrap: wrap; row-gap: 6px; column-gap: 2px; overflow: visible; max-width: 100%; }
+  /* Liens légèrement resserrés pour que le menu complet (compte super
+     administrateur compris) tienne sur une seule ligne. */
+  .main-nav .nav-link { padding-left: 7px; padding-right: 7px; margin-left: 0; margin-right: 0; }
 }
 </style>
 <link rel="manifest" href="/manifest.json" />
