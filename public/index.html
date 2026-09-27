@@ -1087,88 +1087,92 @@
         <p class="empty-state" id="prospectsEmpty" hidden>Aucun prospect pour l'instant.</p>
       </div>
       <div id="adminSocialPanel" class="admin-panel" hidden>
-        <h3 style="margin-top: 0;">Réglages Facebook</h3>
-        <form id="facebookSettingsForm" class="atlas-form">
-          <div class="form-row">
-            <label>Identifiant de la Page Facebook
-              <input type="text" id="fbPageId" placeholder="Ex. 123456789012345" />
-            </label>
-            <label>Jeton d'accès de la Page
-              <input type="password" id="fbPageAccessToken" placeholder="Laisser vide pour ne pas modifier" />
-            </label>
+        <details class="help-item" id="socialPublishBlock" open>
+          <summary>📣 Publier sur les réseaux sociaux — Facebook · LinkedIn · TikTok</summary>
+          <div class="auth-tabs" id="socialNetworkTabs" style="margin:12px 0;">
+            <button type="button" class="auth-tab active" data-social-network="facebook">👍 Facebook</button>
+            <button type="button" class="auth-tab" data-social-network="linkedin">💼 LinkedIn</button>
+            <button type="button" class="auth-tab" data-social-network="tiktok">🎵 TikTok</button>
           </div>
-          <p class="form-hint" id="fbTokenStatus"></p>
-          <div class="form-row">
-            <label class="terms-checkbox">
-              <input type="checkbox" id="fbAutoPostEnabled" />
-              Publication automatique activée
+
+          <!-- Réglages propres à Facebook (seul réseau connecté par API) -->
+          <details class="help-item" id="socialFacebookSettings" data-network-only="facebook">
+            <summary>⚙️ Réglages Facebook : page, jeton, publication automatique</summary>
+            <form id="facebookSettingsForm" class="atlas-form">
+              <div class="form-row">
+                <label>Identifiant de la Page Facebook
+                  <input type="text" id="fbPageId" placeholder="Ex. 123456789012345" />
+                </label>
+                <label>Jeton d'accès de la Page
+                  <input type="password" id="fbPageAccessToken" placeholder="Laisser vide pour ne pas modifier" />
+                </label>
+              </div>
+              <p class="form-hint" id="fbTokenStatus"></p>
+              <div class="form-row">
+                <label class="terms-checkbox">
+                  <input type="checkbox" id="fbAutoPostEnabled" />
+                  Publication automatique activée
+                </label>
+                <label>Fréquence (en jours)
+                  <input type="number" id="fbPostFrequency" min="1" value="3" />
+                </label>
+              </div>
+              <p class="form-error" id="fbSettingsError" hidden></p>
+              <p class="form-success" id="fbSettingsSuccess" hidden>Réglages enregistrés.</p>
+              <button type="submit" class="btn btn--primary">Enregistrer les réglages</button>
+            </form>
+          </details>
+
+          <!-- Rédaction assistée par l'IA (optionnelle) -->
+          <details class="help-item" id="socialAiBlock">
+            <summary>✨ Rédiger avec l'IA à partir d'un sujet (optionnel)</summary>
+            <p class="form-hint">Une nouveauté du site, une fonctionnalité, un conseil aux vendeurs, un appel aux professionnels… L'IA rédige un texte adapté au réseau choisi, que vous relisez ensuite. Nécessite une clé IA Anthropic ou OpenAI (bouton « IA » en haut de page).</p>
+            <form id="socialComposeForm" class="atlas-form">
+              <label>Sujet du post
+                <textarea id="socialComposeSubject" rows="3" maxlength="1000" placeholder="Ex. Les professionnels peuvent maintenant partager leurs annonces sur LinkedIn en un clic"></textarea>
+              </label>
+              <label>Langue du post
+                <select id="socialComposeLang">
+                  <option value="fr">Français</option>
+                  <option value="en">English</option>
+                  <option value="ar">العربية</option>
+                  <option value="es">Español</option>
+                  <option value="pt">Português</option>
+                  <option value="it">Italiano</option>
+                  <option value="de">Deutsch</option>
+                </select>
+              </label>
+              <p class="form-error" id="socialComposeError" hidden></p>
+              <button type="submit" class="btn btn--primary btn--small">Générer le texte</button>
+            </form>
+          </details>
+
+          <!-- Composition commune aux trois réseaux -->
+          <div id="socialComposeResult" class="atlas-form" style="margin-top:12px;">
+            <label>Texte du post
+              <textarea id="socialComposeText" rows="8" style="width:100%;box-sizing:border-box;font:inherit;padding:10px;margin:8px 0;" placeholder="Écrivez votre texte, ou générez-le avec l'IA ci-dessus."></textarea>
             </label>
-            <label>Fréquence (en jours)
-              <input type="number" id="fbPostFrequency" min="1" value="3" />
+            <label>Photo ou vidéo à joindre (optionnel)
+              <input type="file" id="socialComposeMedia" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" />
             </label>
+            <p class="form-hint" id="socialComposeMediaPreview"></p>
+            <label id="socialComposeVisualRow" data-network-only="tiktok" hidden>Texte du visuel vertical (optionnel — sinon la première ligne du post)
+              <input type="text" id="socialComposeVisualTitle" maxlength="120" />
+            </label>
+            <p class="form-error" id="socialPublishError" hidden></p>
+            <div id="socialComposeActions" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
+            <p class="form-hint" id="socialComposeHint" style="margin-top:8px;"></p>
           </div>
-          <p class="form-error" id="fbSettingsError" hidden></p>
-          <p class="form-success" id="fbSettingsSuccess" hidden>Réglages enregistrés.</p>
-          <button type="submit" class="btn btn--primary">Enregistrer les réglages</button>
-        </form>
+        </details>
 
-        <h3>Publier maintenant (test)</h3>
-        <form id="facebookTestPostForm" class="atlas-form">
-          <label>Message
-            <textarea id="fbTestMessage" rows="3" placeholder="Contenu du post à publier immédiatement..."></textarea>
-          </label>
-          <label>Photo ou vidéo (optionnel)
-            <input type="file" id="fbTestMedia" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" />
-          </label>
-          <p class="form-hint" id="fbTestMediaPreview"></p>
-          <p class="form-error" id="fbTestError" hidden></p>
-          <button type="submit" class="btn btn--primary btn--small">Publier maintenant</button>
-        </form>
-
-        <h3>Préparer un post (LinkedIn, TikTok, Facebook)</h3>
-        <p class="form-hint">Pour parler d'autre chose que d'une annonce : une nouveauté du site, une fonctionnalité, un conseil aux vendeurs, un appel aux professionnels… L'IA rédige un texte adapté au réseau, que vous relisez avant de publier.</p>
-        <form id="socialComposeForm" class="atlas-form">
-          <div class="form-row">
-            <label>Réseau
-              <select id="socialComposeNetwork">
-                <option value="linkedin">LinkedIn</option>
-                <option value="tiktok">TikTok</option>
-                <option value="facebook">Facebook</option>
-              </select>
-            </label>
-            <label>Langue du post
-              <select id="socialComposeLang">
-                <option value="fr">Français</option>
-                <option value="en">English</option>
-                <option value="ar">العربية</option>
-                <option value="es">Español</option>
-                <option value="pt">Português</option>
-                <option value="it">Italiano</option>
-                <option value="de">Deutsch</option>
-              </select>
-            </label>
-          </div>
-          <label>Sujet du post
-            <textarea id="socialComposeSubject" rows="3" maxlength="1000" placeholder="Ex. Les professionnels peuvent maintenant partager leurs annonces sur LinkedIn en un clic"></textarea>
-          </label>
-          <label id="socialComposeVisualRow" hidden>Texte du visuel TikTok (optionnel — sinon le sujet est repris)
-            <input type="text" id="socialComposeVisualTitle" maxlength="120" />
-          </label>
-          <p class="form-error" id="socialComposeError" hidden></p>
-          <button type="submit" class="btn btn--primary btn--small">Générer le texte</button>
-        </form>
-        <div id="socialComposeResult" hidden>
-          <textarea id="socialComposeText" rows="10" style="width:100%;box-sizing:border-box;font:inherit;padding:10px;margin:8px 0;"></textarea>
-          <div id="socialComposeActions" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-          <p class="form-hint" id="socialComposeHint" style="margin-top:8px;"></p>
-        </div>
-
-        <h3>Journal des publications</h3>
-        <table class="dashboard-table">
-          <thead><tr><th>Date</th><th>Plateforme</th><th>Contenu</th><th>Statut</th><th>Déclenché par</th></tr></thead>
-          <tbody id="socialPostsTableBody"></tbody>
-        </table>
-        <p class="empty-state" id="socialPostsEmpty" hidden>Aucune publication pour l'instant.</p>
+        <details class="help-item" id="socialLogBlock">
+          <summary>📜 Journal des publications Facebook</summary>
+          <table class="dashboard-table">
+            <thead><tr><th>Date</th><th>Plateforme</th><th>Contenu</th><th>Statut</th><th>Déclenché par</th></tr></thead>
+            <tbody id="socialPostsTableBody"></tbody>
+          </table>
+          <p class="empty-state" id="socialPostsEmpty" hidden>Aucune publication pour l'instant.</p>
+        </details>
       </div>
     </div>
   </section>
