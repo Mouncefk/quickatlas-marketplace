@@ -2597,6 +2597,296 @@ function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
   }
   ctx.fillText(line, x, curY);
 }
+// ---------- Partage LinkedIn / TikTok ----------
+// Principe : la personne relit et publie elle-même. LinkedIn reçoit le
+// lien de l'annonce (la carte d'aperçu vient des balises Open Graph
+// rendues par le serveur) ; TikTok reçoit un visuel vertical et une
+// légende, puisqu'il n'accepte ni lien cliquable ni partage d'URL.
+function listingShareUrl(l) {
+  return `${window.location.origin}/annonce/${l.id}-${slugify(l.title)}?src=share`;
+}
+function toHashtag(text) {
+  const tag = String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{N}]/gu, '');
+  return tag ? `#${tag}` : '';
+}
+function socialTemplateText(l, network) {
+  return i18n.t(`social.template_${network}`, {
+    title: l.title,
+    city: l.city_name || '',
+    country: listingCountryLabel(l),
+    price: priceLabel(l),
+    hashtag: toHashtag(l.city_name),
+  });
+}
+/** Copie synchrone (dans le clic même) : indispensable avant d'ouvrir un
+ * nouvel onglet, sinon le navigateur perd le focus et refuse la copie. */
+function copyTextareaNow(textarea) {
+  let ok = false;
+  try {
+    textarea.focus();
+    textarea.select();
+    ok = document.execCommand('copy');
+  } catch { /* méthode indisponible, repli ci-dessous */ }
+  if (!ok && navigator.clipboard) navigator.clipboard.writeText(textarea.value).catch(() => {});
+  return true;
+}
+function downloadBlob(blob, filename) {
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+}
+function canvasLines(ctx, text, maxWidth, maxLines) {
+  const words = String(text || '').split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+      if (lines.length === maxLines) break;
+    } else {
+      line = test;
+    }
+  }
+  if (lines.length < maxLines && line) lines.push(line);
+  if (lines.length === maxLines && words.join(' ').length > lines.join(' ').length) {
+    lines[maxLines - 1] = lines[maxLines - 1].replace(/\s*\S*$/, '') + '…';
+  }
+  return lines;
+}
+/** Visuel vertical 1080×1920 (format TikTok / stories), même identité
+ * visuelle que la carte postale : photo en haut, titre, lieu, prix, marque. */
+async function drawVerticalCard({ imageUrl, title, subtitle, highlight, brand }) {
+  const W = 1080;
+  const H = 1920;
+  const PHOTO_H = 1150;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0E1B2E';
+  ctx.fillRect(0, 0, W, H);
+  let textTop = 260;
+  if (imageUrl) {
+    try {
+      const img = await loadImageSafe(imageUrl);
+      const scale = Math.max(W / img.width, PHOTO_H / img.height);
+      const sw = W / scale;
+      const sh = PHOTO_H / scale;
+      ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, W, PHOTO_H);
+      const fade = ctx.createLinearGradient(0, PHOTO_H - 260, 0, PHOTO_H);
+      fade.addColorStop(0, 'rgba(14,27,46,0)');
+      fade.addColorStop(1, 'rgba(14,27,46,1)');
+      ctx.fillStyle = fade;
+      ctx.fillRect(0, PHOTO_H - 260, W, 260);
+      textTop = PHOTO_H + 70;
+    } catch { /* photo indisponible : visuel texte seul */ }
+  }
+  if (textTop === 260) {
+    ctx.fillStyle = '#C6A15B';
+    ctx.beginPath();
+    const cx = W / 2, cy = 150, r = 70;
+    ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r * 0.2, cy - r * 0.2); ctx.lineTo(cx + r, cy);
+    ctx.lineTo(cx + r * 0.2, cy + r * 0.2); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r * 0.2, cy + r * 0.2);
+    ctx.lineTo(cx - r, cy); ctx.lineTo(cx - r * 0.2, cy - r * 0.2); ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = '#C6A15B';
+  ctx.lineWidth = 8;
+  ctx.strokeRect(24, 24, W - 48, H - 48);
+  let y = textTop;
+  ctx.fillStyle = '#F1E9D8';
+  ctx.font = 'bold 68px Georgia, serif';
+  for (const line of canvasLines(ctx, title, W - 180, textTop === 260 ? 7 : 3)) {
+    ctx.fillText(line, 90, y);
+    y += 82;
+  }
+  if (subtitle) {
+    y += 20;
+    ctx.font = '42px Georgia, serif';
+    ctx.fillStyle = '#DDC48C';
+    for (const line of canvasLines(ctx, subtitle, W - 180, 3)) {
+      ctx.fillText(line, 90, y);
+      y += 56;
+    }
+  }
+  if (highlight) {
+    y += 30;
+    ctx.font = 'bold 60px monospace';
+    ctx.fillStyle = '#F1E9D8';
+    ctx.fillText(highlight, 90, y);
+  }
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 40px Georgia, serif';
+  ctx.fillStyle = '#C6A15B';
+  ctx.fillText(String(brand || '').toUpperCase().slice(0, 30), W / 2, H - 150);
+  ctx.font = '34px monospace';
+  ctx.fillStyle = 'rgba(241,233,216,0.75)';
+  ctx.fillText(window.location.host, W / 2, H - 95);
+  ctx.textAlign = 'left';
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
+}
+function drawListingVerticalCard(l) {
+  return drawVerticalCard({
+    imageUrl: l.images && l.images[0],
+    title: l.title,
+    subtitle: `${flagEmoji(l.country_iso2 || '')} ${l.city_name || ''}, ${listingCountryLabel(l)}`.trim(),
+    highlight: priceLabel(l).split('  ·  ')[0],
+    brand: l.owner_is_professional && l.owner_company_name ? l.owner_company_name : window.currentSiteName,
+  });
+}
+let socialComposerRequestId = 0;
+async function openSocialComposer(l, network) {
+  const box = document.getElementById('socialComposerBox');
+  if (!box) return;
+  const requestId = ++socialComposerRequestId;
+  const isOwner = !!state.user && (state.user.id === l.user_id || state.user.role === 'admin' || state.user.role === 'super_admin');
+  const textarea = el('textarea', { rows: network === 'tiktok' ? '6' : '10', style: 'width:100%;box-sizing:border-box;font:inherit;padding:10px;margin:8px 0;' });
+  textarea.value = socialTemplateText(l, network);
+  const status = el('p', { class: 'form-hint' }, isOwner ? i18n.t('social.generating') : '');
+  const actions = el('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;' });
+  let hint;
+  if (network === 'linkedin') {
+    actions.append(el('button', {
+      type: 'button',
+      class: 'btn btn--primary btn--small',
+      onclick: () => {
+        copyTextareaNow(textarea);
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(listingShareUrl(l))}`, '_blank', 'noopener');
+        showToast(i18n.t('social.text_copied_paste'));
+      },
+    }, `💼 ${i18n.t('social.copy_open_linkedin')}`));
+    hint = i18n.t('social.linkedin_hint');
+  } else {
+    // Visuel préparé dès l'ouverture : le partage natif doit partir
+    // directement du clic, sans attente, sinon le navigateur le bloque.
+    let visualBlob = null;
+    const visualReady = drawListingVerticalCard(l).then((b) => { visualBlob = b; return b; }).catch(() => null);
+    const filename = `${slugify(l.title) || 'annonce'}-tiktok.png`;
+    actions.append(
+      el('button', { type: 'button', class: 'btn btn--primary btn--small', onclick: async () => {
+        const blob = visualBlob || await visualReady;
+        if (blob) downloadBlob(blob, filename);
+      } }, `⬇️ ${i18n.t('social.download_visual')}`),
+      el('button', { type: 'button', class: 'btn btn--small', onclick: () => {
+        copyTextareaNow(textarea);
+        showToast(i18n.t('social.caption_copied'));
+      } }, `📋 ${i18n.t('social.copy_caption')}`)
+    );
+    if (navigator.canShare) {
+      actions.append(el('button', { type: 'button', class: 'btn btn--small', onclick: () => {
+        if (!visualBlob) return showToast(i18n.t('social.generating'));
+        copyTextareaNow(textarea);
+        const file = new File([visualBlob], filename, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], text: textarea.value }).catch(() => { /* partage annulé */ });
+        } else {
+          downloadBlob(visualBlob, filename);
+        }
+      } }, `📲 ${i18n.t('social.share_to_app')}`));
+    }
+    hint = i18n.t('social.tiktok_hint');
+  }
+  box.replaceChildren(el('div', { style: 'border:1px solid rgba(198,161,91,0.5);border-radius:10px;padding:14px;margin-top:10px;' }, [
+    el('div', { style: 'display:flex;justify-content:space-between;align-items:center;' }, [
+      el('strong', {}, i18n.t(`social.composer_title_${network}`)),
+      el('button', { type: 'button', class: 'share-prompt-dismiss', 'aria-label': i18n.t('social.close'), onclick: () => box.replaceChildren() }, '×'),
+    ]),
+    textarea,
+    status,
+    actions,
+    el('p', { class: 'form-hint', style: 'margin-top:8px;' }, hint),
+  ]));
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (!isOwner) return;
+  try {
+    const result = await api(`/listings/${l.id}/social-post`, { method: 'POST', body: JSON.stringify({ network, lang: i18n.effectiveLang() }) });
+    if (requestId !== socialComposerRequestId) return;
+    if (result.text) {
+      textarea.value = result.text;
+      status.textContent = i18n.t('social.generated_hint');
+    } else {
+      status.textContent = '';
+    }
+  } catch (err) {
+    if (requestId === socialComposerRequestId) status.textContent = err.message;
+  }
+}
+// ---------- Admin : préparer un post hors annonce ----------
+document.getElementById('socialComposeForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('socialComposeError');
+  const resultBox = document.getElementById('socialComposeResult');
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  errEl.hidden = true;
+  const network = document.getElementById('socialComposeNetwork').value;
+  const subject = document.getElementById('socialComposeSubject').value.trim();
+  const lang = document.getElementById('socialComposeLang').value;
+  if (!subject) return;
+  submitBtn.disabled = true;
+  const originalLabel = submitBtn.textContent;
+  submitBtn.textContent = 'Rédaction en cours…';
+  try {
+    const { text } = await api('/admin/social/compose', { method: 'POST', body: JSON.stringify({ network, subject, lang }) });
+    document.getElementById('socialComposeText').value = text;
+    renderAdminComposeActions(network);
+    resultBox.hidden = false;
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.hidden = false;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalLabel;
+  }
+});
+function renderAdminComposeActions(network) {
+  const textarea = document.getElementById('socialComposeText');
+  const actions = document.getElementById('socialComposeActions');
+  const hint = document.getElementById('socialComposeHint');
+  actions.replaceChildren();
+  const siteLink = `${window.location.origin}/?src=share`;
+  if (network === 'linkedin') {
+    actions.append(el('button', { type: 'button', class: 'btn btn--primary btn--small', onclick: () => {
+      copyTextareaNow(textarea);
+      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(siteLink)}`, '_blank', 'noopener');
+      showToast('Texte copié — collez-le dans votre post LinkedIn.');
+    } }, '💼 Copier et ouvrir LinkedIn'));
+    hint.textContent = 'LinkedIn joint automatiquement la carte de votre site sous le texte. Pour publier au nom de la page, choisissez-la comme auteur dans LinkedIn si vous en avez une.';
+  } else if (network === 'tiktok') {
+    let visualBlob = null;
+    const visualTitle = () => document.getElementById('socialComposeVisualTitle').value.trim() || document.getElementById('socialComposeSubject').value.trim();
+    actions.append(
+      el('button', { type: 'button', class: 'btn btn--primary btn--small', onclick: async () => {
+        visualBlob = await drawVerticalCard({ title: visualTitle(), brand: window.currentSiteName });
+        downloadBlob(visualBlob, 'quickatlas-tiktok.png');
+      } }, '⬇️ Télécharger le visuel vertical'),
+      el('button', { type: 'button', class: 'btn btn--small', onclick: () => {
+        copyTextareaNow(textarea);
+        showToast('Légende copiée.');
+      } }, '📋 Copier la légende'),
+      el('a', { class: 'btn btn--small', href: 'https://www.tiktok.com/upload', target: '_blank', rel: 'noopener' }, '🎵 Ouvrir TikTok')
+    );
+    hint.textContent = 'Sur TikTok, publiez le visuel (ou une vidéo) avec cette légende. Les liens ne sont pas cliquables : mettez l\u2019adresse du site dans la bio du compte.';
+  } else {
+    actions.append(el('button', { type: 'button', class: 'btn btn--primary btn--small', onclick: () => {
+      const fbMessage = document.getElementById('fbTestMessage');
+      fbMessage.value = textarea.value;
+      fbMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      fbMessage.focus();
+    } }, '👍 Envoyer vers le compositeur Facebook'));
+    hint.textContent = 'Le texte est placé dans « Publier maintenant » ci-dessus : ajoutez éventuellement une photo, puis publiez sur votre page.';
+  }
+  actions.append(el('button', { type: 'button', class: 'btn btn--small', onclick: () => {
+    copyTextareaNow(textarea);
+    showToast('Texte copié.');
+  } }, '📋 Copier'));
+}
+document.getElementById('socialComposeNetwork')?.addEventListener('change', (e) => {
+  document.getElementById('socialComposeVisualRow').hidden = e.target.value !== 'tiktok';
+  if (!document.getElementById('socialComposeResult').hidden) renderAdminComposeActions(e.target.value);
+});
 // ---------- Passeport QuickAtlas ----------
 async function loadPassport() {
   const box = document.getElementById('passportBook');
@@ -3144,6 +3434,9 @@ async function openListingDetail(id) {
       favBtn,
       el('button', { class: 'share-postcard-btn', onclick: () => shareListingAsPostcard(l) }, `📮 ${i18n.t('share.postcard_button')}`),
       el('button', { class: 'share-postcard-btn', onclick: () => copyTrackedShareLink(`${window.location.origin}/annonce/${l.id}-${slugify(l.title)}?src=share`) }, `🔗 ${i18n.t('share.copy_link_button')}`),
+      el('button', { class: 'share-postcard-btn', onclick: () => openSocialComposer(l, 'linkedin') }, `💼 ${i18n.t('social.share_linkedin')}`),
+      el('button', { class: 'share-postcard-btn', onclick: () => openSocialComposer(l, 'tiktok') }, `🎵 ${i18n.t('social.share_tiktok')}`),
+      el('div', { id: 'socialComposerBox', style: 'flex-basis:100%;width:100%;' }),
       (state.user && state.user.id !== l.user_id && l.owner_phone)
         ? el('a', {
             class: 'whatsapp-btn',
