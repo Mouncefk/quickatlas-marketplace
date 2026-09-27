@@ -3497,7 +3497,7 @@ textarea { resize: vertical; }
 .pl-section { padding: 40px 0 8px; }
 .pl-h2 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: clamp(1.4rem, 3vw, 2rem); text-align: center; margin: 0 0 26px; color: #F1E9D8; }
 .pl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 16px; }
-.pl-grid--2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.pl-grid--2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .pl-card { background: rgba(241,233,216,0.05); border: 1px solid rgba(198,161,91,0.35); border-radius: 14px; padding: 22px; }
 .pl-card h3 { font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; margin: 10px 0 8px; color: #DDC48C; }
 .pl-card p { margin: 0; line-height: 1.55; color: rgba(241,233,216,0.85); font-size: 0.95rem; }
