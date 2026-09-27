@@ -267,12 +267,13 @@ function el(tag, attrs = {}, children = []) {
 // ---------- Auth zone ----------
 /** Petit badge à côté du nom pour signaler un compte administrateur ou
  * super administrateur (rien pour un compte ordinaire). */
-function roleBadge(role) {
+function roleBadge(role, name) {
+  const who = name ? `${name} — ` : '';
   if (role === 'super_admin') {
-    return el('span', { class: 'role-badge role-badge--super', title: i18n.t('role.super_admin_title') }, `🌐 ${i18n.t('role.super_admin')}`);
+    return el('span', { class: 'role-badge role-badge--super', title: who + i18n.t('role.super_admin_title') }, `🌐 ${i18n.t('role.super_admin')}`);
   }
   if (role === 'admin') {
-    return el('span', { class: 'role-badge role-badge--admin', title: i18n.t('role.admin_title') }, `🛡️ ${i18n.t('role.admin')}`);
+    return el('span', { class: 'role-badge role-badge--admin', title: who + i18n.t('role.admin_title') }, `🛡️ ${i18n.t('role.admin')}`);
   }
   return null;
 }
@@ -290,10 +291,11 @@ function renderAuthZone() {
   if (state.user) {
     refreshUnreadCount();
     zone.append(
-      el('span', { class: 'user-chip' }, [document.createTextNode(i18n.t('auth.hello') + ' '), el('strong', {}, state.user.name)]),
-      roleBadge(state.user.role),
+      // « Bonjour, <nom> » retiré pour libérer de la place dans l'en-tête ;
+      // le nom reste lisible au survol du badge de rôle et du bouton de déconnexion.
+      roleBadge(state.user.role, state.user.name),
       el('button', { class: 'btn btn--ghost btn--small', onclick: openAiSettingsModal }, i18n.t('ai.settings_button')),
-      el('button', { class: 'btn btn--ghost btn--small', onclick: logout }, i18n.t('auth.logout'))
+      el('button', { class: 'btn btn--ghost btn--small', onclick: logout, title: state.user.name }, i18n.t('auth.logout'))
     );
   } else {
     zone.append(el('button', { class: 'btn btn--primary btn--small', onclick: () => openAuthModal('login') }, i18n.t('auth.login')));
