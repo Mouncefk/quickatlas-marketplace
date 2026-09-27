@@ -729,16 +729,10 @@ async function loadAllListings() {
   }
 }
 function navigate(view) {
-  // Le formulaire de réservation n'est plus une vue séparée — il vit
-  // désormais en haut de la page d'accueil (voir #reserveSection), pour
-  // une meilleure visibilité. On bascule donc vers l'accueil, puis on
-  // défile jusqu'à lui, plutôt que d'essayer d'afficher une vue qui
-  // n'existe plus.
-  if (view === 'reserve') {
-    navigate('explore');
-    document.getElementById('reserveSection')?.scrollIntoView({ behavior: 'smooth' });
-    return;
-  }
+  // La réservation de sous-domaine est une page à part, réservée au site
+  // principal : sur le site d'un professionnel, ses clients ne doivent
+  // jamais tomber sur une offre commerciale de QuickAtlas.
+  if (view === 'reserve' && !window.isMainSite) view = 'explore';
   document.getElementById('authModal').hidden = true;
   document.getElementById('listingModal').hidden = true;
   document.getElementById('countryModal').hidden = true;
@@ -747,6 +741,7 @@ function navigate(view) {
   document.getElementById('randomExploreModal').hidden = true;
   document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
   document.getElementById(`view-${view}`).hidden = false;
+  if (view === 'reserve') window.scrollTo({ top: 0 });
   document.querySelectorAll('.nav-link').forEach((b) => b.classList.toggle('active', b.dataset.nav === view));
   document.body.classList.remove('nav-open');
   if (view === 'publish') {
@@ -6745,6 +6740,11 @@ async function applySiteBranding() {
   try {
     const res = await api('/site-info');
     window.currentSiteName = res.brand_name || 'QuickAtlas';
+    window.isMainSite = res.is_main !== false;
+    // Vitrine professionnelle et liens de réservation : site principal seulement.
+    const proLanding = document.getElementById('proLanding');
+    if (proLanding) proLanding.hidden = !window.isMainSite;
+    document.querySelectorAll('[data-main-site-only]').forEach((node) => { node.hidden = !window.isMainSite; });
     const defaultMark = document.getElementById('brandMarkDefault');
     const customMark = document.getElementById('brandMarkCustom');
     if (res.logo_url) {
@@ -7444,19 +7444,15 @@ document.getElementById('declineInvitationBtn').addEventListener('click', async 
 });
 
 async function boot() {
-  // Le formulaire de réservation vit maintenant en haut de la page
-  // d'accueil (#reserveSection, dans view-explore, visible par défaut)
-  // — on défile directement dessus pour qu'un visiteur arrivant via un
-  // lien direct ou un QR code voie tout de suite le bon contenu.
-  if (window.location.pathname === '/reserve') {
-    document.getElementById('reserveSection')?.scrollIntoView();
-  }
   const invitationMatch = window.location.pathname.match(/^\/invitation\/([A-Za-z0-9_-]+)$/);
   if (invitationMatch) {
     navigate('invitation');
     loadInvitation(invitationMatch[1]);
   }
   await applySiteBranding();
+  // Lien direct ou QR code vers /reserve : ouvre la page de réservation
+  // (site principal uniquement — ailleurs, navigate() renvoie à l'accueil).
+  if (window.location.pathname === '/reserve') navigate('reserve');
   initLanguagePicker();
   trackSiteVisit();
   renderAuthZone();
