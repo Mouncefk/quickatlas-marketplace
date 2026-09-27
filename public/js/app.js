@@ -2815,13 +2815,13 @@ async function openSocialComposer(l, network) {
   }
 }
 // ---------- Admin : préparer un post hors annonce ----------
+let adminSocialNetwork = 'facebook';
 document.getElementById('socialComposeForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const errEl = document.getElementById('socialComposeError');
-  const resultBox = document.getElementById('socialComposeResult');
   const submitBtn = e.target.querySelector('button[type="submit"]');
   errEl.hidden = true;
-  const network = document.getElementById('socialComposeNetwork').value;
+  const network = adminSocialNetwork;
   const subject = document.getElementById('socialComposeSubject').value.trim();
   const lang = document.getElementById('socialComposeLang').value;
   if (!subject) return;
@@ -2832,7 +2832,6 @@ document.getElementById('socialComposeForm')?.addEventListener('submit', async (
     const { text } = await api('/admin/social/compose', { method: 'POST', body: JSON.stringify({ network, subject, lang }) });
     document.getElementById('socialComposeText').value = text;
     renderAdminComposeActions(network);
-    resultBox.hidden = false;
   } catch (err) {
     errEl.textContent = err.message;
     errEl.hidden = false;
@@ -2845,48 +2844,148 @@ function renderAdminComposeActions(network) {
   const textarea = document.getElementById('socialComposeText');
   const actions = document.getElementById('socialComposeActions');
   const hint = document.getElementById('socialComposeHint');
+  if (!textarea || !actions) return;
+  const mediaFile = () => document.getElementById('socialComposeMedia').files[0] || null;
+  const needText = () => {
+    if (textarea.value.trim()) return true;
+    showToast('Écrivez ou générez d\u2019abord le texte du post.');
+    textarea.focus();
+    return false;
+  };
+  // Partage natif (surtout sur téléphone) : envoie le texte ET le fichier
+  // à l'application choisie (LinkedIn, TikTok, Instagram, WhatsApp…).
+  const nativeShareButton = (getFile) => (navigator.canShare
+    ? el('button', { type: 'button', class: 'btn btn--small', onclick: () => {
+        if (!needText()) return;
+        const file = getFile();
+        copyTextareaNow(textarea);
+        const data = file && navigator.canShare({ files: [file] }) ? { files: [file], text: textarea.value } : { text: textarea.value };
+        navigator.share(data).catch(() => { /* partage annulé */ });
+      } }, '📲 Partager via l\u2019application')
+    : null);
   actions.replaceChildren();
   const siteLink = `${window.location.origin}/?src=share`;
   if (network === 'linkedin') {
-    actions.append(el('button', { type: 'button', class: 'btn btn--primary btn--small', onclick: () => {
-      copyTextareaNow(textarea);
-      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(siteLink)}`, '_blank', 'noopener');
-      showToast('Texte copié — collez-le dans votre post LinkedIn.');
-    } }, '💼 Copier et ouvrir LinkedIn'));
-    hint.textContent = 'LinkedIn joint automatiquement la carte de votre site sous le texte. Pour publier au nom de la page, choisissez-la comme auteur dans LinkedIn si vous en avez une.';
+    actions.append(
+      el('button', { type: 'button', class: 'btn btn--primary btn--small', onclick: () => {
+        if (!needText()) return;
+        copyTextareaNow(textarea);
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(siteLink)}`, '_blank', 'noopener');
+        showToast('Texte copié — collez-le dans votre post LinkedIn.');
+      } }, '💼 Copier et ouvrir LinkedIn (avec la carte du site)'),
+      el('button', { type: 'button', class: 'btn btn--small', onclick: () => {
+        if (!needText()) return;
+        copyTextareaNow(textarea);
+        window.open('https://www.linkedin.com/feed/?shareActive=true', '_blank', 'noopener');
+        showToast('Texte copié — collez-le, puis ajoutez votre photo ou vidéo dans LinkedIn.');
+      } }, '🖼️ Copier et ouvrir LinkedIn (pour joindre une photo)')
+    );
+    const share = nativeShareButton(mediaFile);
+    if (share) actions.append(share);
+    hint.textContent = 'Deux options : avec la carte du site (lien cliquable, image de l\u2019aperçu), ou avec votre propre photo ou vidéo, que vous ajoutez dans la fenêtre de publication LinkedIn. LinkedIn ne permet pas d\u2019avoir les deux dans un même post. Sur téléphone, « Partager via l\u2019application » envoie le texte et le fichier sélectionné.';
   } else if (network === 'tiktok') {
-    let visualBlob = null;
-    const visualTitle = () => document.getElementById('socialComposeVisualTitle').value.trim() || document.getElementById('socialComposeSubject').value.trim();
+    let generatedVisual = null;
+    const visualTitle = () => document.getElementById('socialComposeVisualTitle').value.trim()
+      || document.getElementById('socialComposeSubject').value.trim()
+      || textarea.value.trim().split('\n')[0];
+    const ensureVisual = async () => {
+      generatedVisual = await drawVerticalCard({ title: visualTitle(), brand: window.currentSiteName });
+      return generatedVisual;
+    };
     actions.append(
       el('button', { type: 'button', class: 'btn btn--primary btn--small', onclick: async () => {
-        visualBlob = await drawVerticalCard({ title: visualTitle(), brand: window.currentSiteName });
-        downloadBlob(visualBlob, 'quickatlas-tiktok.png');
-      } }, '⬇️ Télécharger le visuel vertical'),
+        if (!visualTitle()) return needText();
+        downloadBlob(await ensureVisual(), 'quickatlas-tiktok.png');
+      } }, '⬇️ Créer le visuel vertical'),
       el('button', { type: 'button', class: 'btn btn--small', onclick: () => {
+        if (!needText()) return;
         copyTextareaNow(textarea);
         showToast('Légende copiée.');
       } }, '📋 Copier la légende'),
       el('a', { class: 'btn btn--small', href: 'https://www.tiktok.com/upload', target: '_blank', rel: 'noopener' }, '🎵 Ouvrir TikTok')
     );
-    hint.textContent = 'Sur TikTok, publiez le visuel (ou une vidéo) avec cette légende. Les liens ne sont pas cliquables : mettez l\u2019adresse du site dans la bio du compte.';
+    const share = nativeShareButton(() => mediaFile() || (generatedVisual ? new File([generatedVisual], 'quickatlas-tiktok.png', { type: 'image/png' }) : null));
+    if (share) actions.append(share);
+    hint.textContent = 'TikTok exige une photo ou une vidéo : utilisez votre propre fichier ci-dessus, ou créez le visuel vertical. Sur ordinateur, téléversez le fichier dans TikTok et collez la légende. Les liens n\u2019y sont pas cliquables : mettez l\u2019adresse du site dans la bio du compte.';
   } else {
-    actions.append(el('button', { type: 'button', class: 'btn btn--primary btn--small', onclick: () => {
-      const fbMessage = document.getElementById('fbTestMessage');
-      fbMessage.value = textarea.value;
-      fbMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      fbMessage.focus();
-    } }, '👍 Envoyer vers le compositeur Facebook'));
-    hint.textContent = 'Le texte est placé dans « Publier maintenant » ci-dessus : ajoutez éventuellement une photo, puis publiez sur votre page.';
+    actions.append(el('button', { type: 'button', class: 'btn btn--primary btn--small', onclick: (e) => {
+      if (!needText()) return;
+      publishComposerToFacebook(e.currentTarget);
+    } }, '👍 Publier maintenant sur la page Facebook'));
+    hint.textContent = 'Publication directe sur votre page Facebook, avec la photo ou la vidéo jointe si vous en avez choisi une. Pensez à renseigner les réglages Facebook ci-dessus.';
   }
   actions.append(el('button', { type: 'button', class: 'btn btn--small', onclick: () => {
+    if (!needText()) return;
     copyTextareaNow(textarea);
     showToast('Texte copié.');
-  } }, '📋 Copier'));
+  } }, '📋 Copier le texte'));
 }
-document.getElementById('socialComposeNetwork')?.addEventListener('change', (e) => {
-  document.getElementById('socialComposeVisualRow').hidden = e.target.value !== 'tiktok';
-  if (!document.getElementById('socialComposeResult').hidden) renderAdminComposeActions(e.target.value);
+function selectAdminSocialNetwork(network) {
+  adminSocialNetwork = network;
+  document.querySelectorAll('#socialNetworkTabs [data-social-network]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.socialNetwork === network);
+  });
+  document.querySelectorAll('#adminSocialPanel [data-network-only]').forEach((node) => {
+    node.hidden = node.dataset.networkOnly !== network;
+  });
+  renderAdminComposeActions(network);
+}
+document.querySelectorAll('#socialNetworkTabs [data-social-network]').forEach((btn) => {
+  btn.addEventListener('click', () => selectAdminSocialNetwork(btn.dataset.socialNetwork));
 });
+document.getElementById('socialComposeMedia')?.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const previewEl = document.getElementById('socialComposeMediaPreview');
+  if (!file) { previewEl.textContent = ''; return; }
+  const isVideo = file.type.startsWith('video/');
+  const maxSize = isVideo ? 80_000_000 : 5_000_000;
+  if (file.size > maxSize) {
+    previewEl.textContent = `Fichier trop volumineux (maximum ${isVideo ? '80 Mo' : '5 Mo'}).`;
+    e.target.value = '';
+    return;
+  }
+  previewEl.textContent = `${isVideo ? '🎬' : '🖼️'} ${file.name} sera joint à la publication.`;
+});
+/** Publication directe sur la page Facebook (API), à partir du compositeur
+ * commun : téléverse d'abord le fichier éventuel, puis publie. */
+async function publishComposerToFacebook(button) {
+  const errEl = document.getElementById('socialPublishError');
+  const textarea = document.getElementById('socialComposeText');
+  const mediaInput = document.getElementById('socialComposeMedia');
+  errEl.hidden = true;
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Publication en cours…';
+  try {
+    let mediaUrl = null;
+    let mediaType = null;
+    const file = mediaInput.files[0];
+    if (file) {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const uploadRes = await api('/admin/uploads/social-media', { method: 'POST', body: JSON.stringify({ data: base64, mime: file.type }) });
+      mediaUrl = uploadRes.url;
+      mediaType = uploadRes.media_type;
+    }
+    await api('/admin/social/facebook/post-now', { method: 'POST', body: JSON.stringify({ message: textarea.value.trim(), media_url: mediaUrl, media_type: mediaType }) });
+    textarea.value = '';
+    mediaInput.value = '';
+    document.getElementById('socialComposeMediaPreview').textContent = '';
+    showToast('Publié sur la page Facebook.');
+    loadSocialPostsLog();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = originalLabel;
+  }
+}
+if (document.getElementById('socialNetworkTabs')) selectAdminSocialNetwork('facebook');
 // ---------- Passeport QuickAtlas ----------
 async function loadPassport() {
   const box = document.getElementById('passportBook');
@@ -5289,51 +5388,6 @@ document.getElementById('facebookSettingsForm').addEventListener('submit', async
     errEl.textContent = err.message;
     errEl.hidden = false;
   }
-});
-
-document.getElementById('facebookTestPostForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const errEl = document.getElementById('fbTestError');
-  errEl.hidden = true;
-  const message = document.getElementById('fbTestMessage').value.trim();
-  if (!message) return;
-  try {
-    let mediaUrl = null;
-    let mediaType = null;
-    const file = document.getElementById('fbTestMedia').files[0];
-    if (file) {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const uploadRes = await api('/admin/uploads/social-media', { method: 'POST', body: JSON.stringify({ data: base64, mime: file.type }) });
-      mediaUrl = uploadRes.url;
-      mediaType = uploadRes.media_type;
-    }
-    await api('/admin/social/facebook/post-now', { method: 'POST', body: JSON.stringify({ message, media_url: mediaUrl, media_type: mediaType }) });
-    document.getElementById('fbTestMessage').value = '';
-    document.getElementById('fbTestMedia').value = '';
-    document.getElementById('fbTestMediaPreview').textContent = '';
-    loadSocialPostsLog();
-  } catch (err) {
-    errEl.textContent = err.message;
-    errEl.hidden = false;
-  }
-});
-document.getElementById('fbTestMedia').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  const previewEl = document.getElementById('fbTestMediaPreview');
-  if (!file) { previewEl.textContent = ''; return; }
-  const isVideo = file.type.startsWith('video/');
-  const maxSize = isVideo ? 80_000_000 : 5_000_000;
-  if (file.size > maxSize) {
-    previewEl.textContent = `Fichier trop volumineux (maximum ${isVideo ? '80 Mo' : '5 Mo'}).`;
-    e.target.value = '';
-    return;
-  }
-  previewEl.textContent = `${isVideo ? '🎬' : '🖼️'} ${file.name} sera joint à la publication.`;
 });
 
 async function loadSocialPostsLog() {
