@@ -50,6 +50,13 @@
 .pl-explore-intro .pl-h2 { margin-bottom: 8px; }
 .pl-explore-intro p { margin: 0; color: rgba(241,233,216,0.75); }
 [dir="rtl"] .pl-steps li { flex-direction: row; }
+/* Menu d'en-tête sur ordinateur : passe à la ligne quand les liens ne
+   tiennent pas sur une seule ligne (compte super administrateur, écrans
+   moyens), au lieu de couper les derniers liens hors de l'écran. Le menu
+   mobile (burger) n'est pas concerné. */
+@media (min-width: 1024px) {
+  .main-nav { flex-wrap: wrap; row-gap: 6px; overflow: visible; max-width: 100%; }
+}
 </style>
 <link rel="manifest" href="/manifest.json" />
 <link rel="icon" href="/icons/icon-192.png" />
