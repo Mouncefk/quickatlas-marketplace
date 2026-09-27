@@ -1391,6 +1391,170 @@ function resolveSiteForRequest(req) {
   return { site: mainSite, activeDb: mainDb };
 }
 
+// ---------- Tâches de fond et statistiques du réseau ----------
+// Ces fonctions se trouvaient auparavant à l'intérieur du gestionnaire de
+// requêtes : elles n'y étaient visibles que pendant une requête, et les
+// tâches planifiées (lancées au démarrage puis périodiquement) échouaient
+// avec « n'est pas définie ». Placées ici, au niveau du module, elles
+// sont accessibles partout.
+/** Calcule les compteurs (utilisateurs, annonces) d'un site précis —
+ * factorisé pour être utilisé à la fois par la route de statistiques
+ * globales et par l'enregistrement quotidien de l'historique (voir
+ * recordDailySiteStats). Retourne null si la base du site est
+ * inaccessible, plutôt que de faire échouer tout l'appelant. */
+function computeSiteStats(site) {
+  let siteDb;
+  try {
+    siteDb = getTenantDatabase(site.db_filename);
+  } catch {
+    return null;
+  }
+  return {
+    userCount: siteDb.prepare('SELECT COUNT(*) AS c FROM users').get().c,
+    listingCount: siteDb.prepare('SELECT COUNT(*) AS c FROM listings').get().c,
+    activeListingCount: siteDb.prepare("SELECT COUNT(*) AS c FROM listings WHERE status = 'active'").get().c,
+  };
+}
+/** Fusionne les statistiques d'origine des inscriptions (pays, source
+ * UTM, site référent) sur l'ensemble des sites du réseau — parcourt
+ * chaque base de site une par une (même principe que computeSiteStats),
+ * puisqu'aucune requête unique ne peut interroger plusieurs bases
+ * SQLite séparées à la fois. Un site dont la base ne s'ouvre pas
+ * (fichier manquant, site supprimé entre-temps) est silencieusement
+ * ignoré plutôt que de faire échouer la vue globale entière. */
+function computeGlobalOriginsStats() {
+  const sites = masterDb.prepare('SELECT * FROM sites').all();
+  const countryCounts = {};
+  const utmCounts = {};
+  const referrerCounts = {};
+  let totalUsers = 0;
+  let totalWithOrigin = 0;
+
+  for (const site of sites) {
+    let siteDb;
+    try {
+      siteDb = getTenantDatabase(site.db_filename);
+    } catch {
+      continue;
+    }
+    totalUsers += siteDb.prepare('SELECT COUNT(*) AS c FROM users').get().c;
+    totalWithOrigin += siteDb
+      .prepare('SELECT COUNT(*) AS c FROM users WHERE signup_country IS NOT NULL OR signup_utm_source IS NOT NULL OR signup_referrer IS NOT NULL')
+      .get().c;
+
+    const countryRows = siteDb
+      .prepare("SELECT signup_country AS country, COUNT(*) AS count FROM users WHERE signup_country IS NOT NULL GROUP BY signup_country")
+      .all();
+    for (const { country, count } of countryRows) countryCounts[country] = (countryCounts[country] || 0) + count;
+
+    const utmRows = siteDb
+      .prepare(
+        `SELECT signup_utm_source AS source, signup_utm_medium AS medium, signup_utm_campaign AS campaign, COUNT(*) AS count
+         FROM users WHERE signup_utm_source IS NOT NULL GROUP BY signup_utm_source, signup_utm_medium, signup_utm_campaign`
+      )
+      .all();
+    for (const row of utmRows) {
+      const key = [row.source, row.medium, row.campaign].join('\u0001');
+      if (!utmCounts[key]) utmCounts[key] = { source: row.source, medium: row.medium, campaign: row.campaign, count: 0 };
+      utmCounts[key].count += row.count;
+    }
+
+    const referrerRows = siteDb.prepare('SELECT signup_referrer FROM users WHERE signup_referrer IS NOT NULL').all();
+    for (const { signup_referrer } of referrerRows) {
+      let host;
+      try { host = new URL(signup_referrer).hostname; } catch { host = signup_referrer; }
+      referrerCounts[host] = (referrerCounts[host] || 0) + 1;
+    }
+  }
+
+  const byCountry = Object.entries(countryCounts).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count).slice(0, 15);
+  const byUtmSource = Object.values(utmCounts).sort((a, b) => b.count - a.count).slice(0, 15);
+  const byReferrer = Object.entries(referrerCounts).map(([referrer, count]) => ({ referrer, count })).sort((a, b) => b.count - a.count).slice(0, 15);
+
+  return { by_country: byCountry, by_utm_source: byUtmSource, by_referrer: byReferrer, total_users: totalUsers, total_with_origin: totalWithOrigin, sites_scanned: sites.length };
+}
+/** Enregistre, une fois par jour, un instantané des compteurs de chaque
+ * site actif — la table daily_site_stats accumule ainsi un historique
+ * dans le temps, que le panneau Super Admin n'exploite pas encore
+ * aujourd'hui (seul l'instantané du jour même est actuellement affiché),
+ * mais qui existera déjà le jour où un tableau de bord avec graphiques
+ * d'évolution sera construit. La contrainte UNIQUE(site_id, date) rend
+ * l'opération idempotente : un redémarrage du serveur plusieurs fois
+ * dans la même journée met à jour la ligne du jour plutôt que d'en créer
+ * une nouvelle. */
+function recordDailySiteStats() {
+  const today = new Date().toISOString().slice(0, 10);
+  const sites = masterDb.prepare('SELECT * FROM sites').all();
+  for (const site of sites) {
+    const stats = computeSiteStats(site);
+    if (!stats) continue;
+    masterDb
+      .prepare(
+        `INSERT INTO daily_site_stats (site_id, date, user_count, listing_count, active_listing_count)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(site_id, date) DO UPDATE SET
+           user_count = excluded.user_count,
+           listing_count = excluded.listing_count,
+           active_listing_count = excluded.active_listing_count,
+           recorded_at = datetime('now')`
+      )
+      .run(site.id, today, stats.userCount, stats.listingCount, stats.activeListingCount);
+  }
+  console.log(`[daily-stats] instantané enregistré pour ${sites.length} site(s), date ${today}.`);
+}
+/** Fait automatiquement basculer un site de "essai" à "en retard" une
+ * fois sa période de grâce écoulée — jamais au-delà : contrairement à
+ * la suspension effective (champ status), qui reste une décision
+ * volontaire du Super Admin (voir requireSuperAdmin/route PUT status),
+ * cette tâche ne fait QUE mettre à jour l'étiquette informative
+ * billing_status. Elle ne bloque jamais l'accès au site elle-même —
+ * exactement le principe retenu lors de la conception du suivi de
+ * facturation : un statut "en retard" est une information, pas une
+ * sanction automatique. */
+function checkGracePeriodExpirations() {
+  const expiredTrials = masterDb
+    .prepare("SELECT id, slug FROM sites WHERE billing_status = 'trial' AND grace_period_ends_at IS NOT NULL AND grace_period_ends_at < datetime('now')")
+    .all();
+  for (const site of expiredTrials) {
+    masterDb.prepare("UPDATE sites SET billing_status = 'overdue' WHERE id = ?").run(site.id);
+    logAdminAction(masterDb, { id: null, email: 'tâche automatique' }, 'site_billing_updated', 'site', site.slug, { billing_status: 'overdue', reason: 'grace_period_expired' });
+  }
+  if (expiredTrials.length > 0) {
+    console.log(`[grace-period] ${expiredTrials.length} site(s) passé(s) de "essai" à "en retard" (période de grâce écoulée).`);
+  }
+}
+/** Supprime automatiquement les sites de démonstration (auto-provisionnés
+ * depuis une réservation pré-lancement) une fois leur échéance dépassée
+ * — même mécanisme exact que la suppression manuelle d'un site depuis le
+ * Super Admin (fermeture de la connexion, suppression du fichier et de
+ * ses annexes WAL, retrait du registre). Un Super Admin peut repousser
+ * cette échéance au cas par cas (voir route extend-demo) pour un dossier
+ * en discussion active, sans quoi ce nettoyage s'applique sans exception. */
+function checkDemoExpirations() {
+  const expiredDemos = masterDb
+    .prepare("SELECT id, slug, db_filename, brand_name FROM sites WHERE demo_expires_at IS NOT NULL AND demo_expires_at < datetime('now')")
+    .all();
+  for (const site of expiredDemos) {
+    closeTenantDatabase(site.db_filename);
+    try {
+      fs.unlinkSync(path.join(DATA_DIR, site.db_filename));
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.error('[demo-expiration] échec de la suppression du fichier de base :', err.message);
+    }
+    for (const suffix of ['-wal', '-shm']) {
+      try {
+        fs.unlinkSync(path.join(DATA_DIR, site.db_filename + suffix));
+      } catch {
+        // Absence normale la plupart du temps — rien à signaler.
+      }
+    }
+    masterDb.prepare('DELETE FROM sites WHERE id = ?').run(site.id);
+    logAdminAction(masterDb, { id: null, email: 'tâche automatique' }, 'site_deleted', 'site', site.slug, { brand_name: site.brand_name, reason: 'demo_expired' });
+  }
+  if (expiredDemos.length > 0) {
+    console.log(`[demo-expiration] ${expiredDemos.length} site(s) de démonstration supprimé(s) (échéance dépassée).`);
+  }
+}
 const server = http.createServer(async (req, res) => {
   const { site, activeDb } = resolveSiteForRequest(req);
   if (site && site.status === 'suspended') {
@@ -3100,164 +3264,6 @@ async function handleRequest(req, res) {
     // annonces — un aller-retour disque par site, acceptable pour un
     // réseau de taille raisonnable (dizaines de sites) ; à revoir avec
     // une mise en cache si le réseau grandissait considérablement.
-    /** Calcule les compteurs (utilisateurs, annonces) d'un site précis —
- * factorisé pour être utilisé à la fois par la route de statistiques
- * globales et par l'enregistrement quotidien de l'historique (voir
- * recordDailySiteStats). Retourne null si la base du site est
- * inaccessible, plutôt que de faire échouer tout l'appelant. */
-function computeSiteStats(site) {
-  let siteDb;
-  try {
-    siteDb = getTenantDatabase(site.db_filename);
-  } catch {
-    return null;
-  }
-  return {
-    userCount: siteDb.prepare('SELECT COUNT(*) AS c FROM users').get().c,
-    listingCount: siteDb.prepare('SELECT COUNT(*) AS c FROM listings').get().c,
-    activeListingCount: siteDb.prepare("SELECT COUNT(*) AS c FROM listings WHERE status = 'active'").get().c,
-  };
-}
-/** Fusionne les statistiques d'origine des inscriptions (pays, source
- * UTM, site référent) sur l'ensemble des sites du réseau — parcourt
- * chaque base de site une par une (même principe que computeSiteStats),
- * puisqu'aucune requête unique ne peut interroger plusieurs bases
- * SQLite séparées à la fois. Un site dont la base ne s'ouvre pas
- * (fichier manquant, site supprimé entre-temps) est silencieusement
- * ignoré plutôt que de faire échouer la vue globale entière. */
-function computeGlobalOriginsStats() {
-  const sites = masterDb.prepare('SELECT * FROM sites').all();
-  const countryCounts = {};
-  const utmCounts = {};
-  const referrerCounts = {};
-  let totalUsers = 0;
-  let totalWithOrigin = 0;
-
-  for (const site of sites) {
-    let siteDb;
-    try {
-      siteDb = getTenantDatabase(site.db_filename);
-    } catch {
-      continue;
-    }
-    totalUsers += siteDb.prepare('SELECT COUNT(*) AS c FROM users').get().c;
-    totalWithOrigin += siteDb
-      .prepare('SELECT COUNT(*) AS c FROM users WHERE signup_country IS NOT NULL OR signup_utm_source IS NOT NULL OR signup_referrer IS NOT NULL')
-      .get().c;
-
-    const countryRows = siteDb
-      .prepare("SELECT signup_country AS country, COUNT(*) AS count FROM users WHERE signup_country IS NOT NULL GROUP BY signup_country")
-      .all();
-    for (const { country, count } of countryRows) countryCounts[country] = (countryCounts[country] || 0) + count;
-
-    const utmRows = siteDb
-      .prepare(
-        `SELECT signup_utm_source AS source, signup_utm_medium AS medium, signup_utm_campaign AS campaign, COUNT(*) AS count
-         FROM users WHERE signup_utm_source IS NOT NULL GROUP BY signup_utm_source, signup_utm_medium, signup_utm_campaign`
-      )
-      .all();
-    for (const row of utmRows) {
-      const key = [row.source, row.medium, row.campaign].join('\u0001');
-      if (!utmCounts[key]) utmCounts[key] = { source: row.source, medium: row.medium, campaign: row.campaign, count: 0 };
-      utmCounts[key].count += row.count;
-    }
-
-    const referrerRows = siteDb.prepare('SELECT signup_referrer FROM users WHERE signup_referrer IS NOT NULL').all();
-    for (const { signup_referrer } of referrerRows) {
-      let host;
-      try { host = new URL(signup_referrer).hostname; } catch { host = signup_referrer; }
-      referrerCounts[host] = (referrerCounts[host] || 0) + 1;
-    }
-  }
-
-  const byCountry = Object.entries(countryCounts).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count).slice(0, 15);
-  const byUtmSource = Object.values(utmCounts).sort((a, b) => b.count - a.count).slice(0, 15);
-  const byReferrer = Object.entries(referrerCounts).map(([referrer, count]) => ({ referrer, count })).sort((a, b) => b.count - a.count).slice(0, 15);
-
-  return { by_country: byCountry, by_utm_source: byUtmSource, by_referrer: byReferrer, total_users: totalUsers, total_with_origin: totalWithOrigin, sites_scanned: sites.length };
-}
-/** Enregistre, une fois par jour, un instantané des compteurs de chaque
- * site actif — la table daily_site_stats accumule ainsi un historique
- * dans le temps, que le panneau Super Admin n'exploite pas encore
- * aujourd'hui (seul l'instantané du jour même est actuellement affiché),
- * mais qui existera déjà le jour où un tableau de bord avec graphiques
- * d'évolution sera construit. La contrainte UNIQUE(site_id, date) rend
- * l'opération idempotente : un redémarrage du serveur plusieurs fois
- * dans la même journée met à jour la ligne du jour plutôt que d'en créer
- * une nouvelle. */
-function recordDailySiteStats() {
-  const today = new Date().toISOString().slice(0, 10);
-  const sites = masterDb.prepare('SELECT * FROM sites').all();
-  for (const site of sites) {
-    const stats = computeSiteStats(site);
-    if (!stats) continue;
-    masterDb
-      .prepare(
-        `INSERT INTO daily_site_stats (site_id, date, user_count, listing_count, active_listing_count)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(site_id, date) DO UPDATE SET
-           user_count = excluded.user_count,
-           listing_count = excluded.listing_count,
-           active_listing_count = excluded.active_listing_count,
-           recorded_at = datetime('now')`
-      )
-      .run(site.id, today, stats.userCount, stats.listingCount, stats.activeListingCount);
-  }
-  console.log(`[daily-stats] instantané enregistré pour ${sites.length} site(s), date ${today}.`);
-}
-/** Fait automatiquement basculer un site de "essai" à "en retard" une
- * fois sa période de grâce écoulée — jamais au-delà : contrairement à
- * la suspension effective (champ status), qui reste une décision
- * volontaire du Super Admin (voir requireSuperAdmin/route PUT status),
- * cette tâche ne fait QUE mettre à jour l'étiquette informative
- * billing_status. Elle ne bloque jamais l'accès au site elle-même —
- * exactement le principe retenu lors de la conception du suivi de
- * facturation : un statut "en retard" est une information, pas une
- * sanction automatique. */
-function checkGracePeriodExpirations() {
-  const expiredTrials = masterDb
-    .prepare("SELECT id, slug FROM sites WHERE billing_status = 'trial' AND grace_period_ends_at IS NOT NULL AND grace_period_ends_at < datetime('now')")
-    .all();
-  for (const site of expiredTrials) {
-    masterDb.prepare("UPDATE sites SET billing_status = 'overdue' WHERE id = ?").run(site.id);
-    logAdminAction(masterDb, { id: null, email: 'tâche automatique' }, 'site_billing_updated', 'site', site.slug, { billing_status: 'overdue', reason: 'grace_period_expired' });
-  }
-  if (expiredTrials.length > 0) {
-    console.log(`[grace-period] ${expiredTrials.length} site(s) passé(s) de "essai" à "en retard" (période de grâce écoulée).`);
-  }
-}
-/** Supprime automatiquement les sites de démonstration (auto-provisionnés
- * depuis une réservation pré-lancement) une fois leur échéance dépassée
- * — même mécanisme exact que la suppression manuelle d'un site depuis le
- * Super Admin (fermeture de la connexion, suppression du fichier et de
- * ses annexes WAL, retrait du registre). Un Super Admin peut repousser
- * cette échéance au cas par cas (voir route extend-demo) pour un dossier
- * en discussion active, sans quoi ce nettoyage s'applique sans exception. */
-function checkDemoExpirations() {
-  const expiredDemos = masterDb
-    .prepare("SELECT id, slug, db_filename, brand_name FROM sites WHERE demo_expires_at IS NOT NULL AND demo_expires_at < datetime('now')")
-    .all();
-  for (const site of expiredDemos) {
-    closeTenantDatabase(site.db_filename);
-    try {
-      fs.unlinkSync(path.join(DATA_DIR, site.db_filename));
-    } catch (err) {
-      if (err.code !== 'ENOENT') console.error('[demo-expiration] échec de la suppression du fichier de base :', err.message);
-    }
-    for (const suffix of ['-wal', '-shm']) {
-      try {
-        fs.unlinkSync(path.join(DATA_DIR, site.db_filename + suffix));
-      } catch {
-        // Absence normale la plupart du temps — rien à signaler.
-      }
-    }
-    masterDb.prepare('DELETE FROM sites WHERE id = ?').run(site.id);
-    logAdminAction(masterDb, { id: null, email: 'tâche automatique' }, 'site_deleted', 'site', site.slug, { brand_name: site.brand_name, reason: 'demo_expired' });
-  }
-  if (expiredDemos.length > 0) {
-    console.log(`[demo-expiration] ${expiredDemos.length} site(s) de démonstration supprimé(s) (échéance dépassée).`);
-  }
-}
 // Catégories activées/désactivées pour un site précis du réseau — la
 // liste catégories elle-même (partagée, copiée à la création du site)
 // est lue depuis SA PROPRE base, tandis que disabled_categories
